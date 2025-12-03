@@ -65,6 +65,7 @@ export const App = () => {
     const onPermissionRequest = (id: string, permission: PermissionRequest) => {
       debug('Permission request received in UI:', { id, toolName: permission.toolName });
       dispatch({ type: 'SET_PERMISSION', id, permission });
+      process.stdout.write('\u0007');
     };
     const onTitleUpdate = (id: string, title: string) => {
       debug('Title update received in UI:', { id, title });
