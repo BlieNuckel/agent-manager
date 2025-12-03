@@ -70,6 +70,12 @@ export function attemptAutoMerge(worktreeName: string, gitRoot: string): { succe
       return { success: false, conflict: true, error: 'Merge conflicts detected' };
     }
 
+    execSync('git add .', {
+      cwd: gitRoot,
+      encoding: 'utf8',
+      stdio: ['pipe', 'pipe', 'pipe'],
+    });
+
     execSync(`git commit -m "Auto-merge worktree: ${worktreeName}"`, {
       cwd: gitRoot,
       encoding: 'utf8',
