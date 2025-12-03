@@ -1,8 +1,6 @@
 import { execSync } from 'child_process';
 import * as path from 'path';
-import * as fs from 'fs';
 import { debug } from '../utils/logger';
-import { query } from '@anthropic-ai/claude-agent-sdk';
 
 export function getGitRoot(): string | null {
   try {
@@ -20,9 +18,15 @@ export function getCurrentBranch(): string {
   }
 }
 
-interface WorktreeAgent {
-  abort: () => void;
-  run: () => Promise<{ success: boolean; path?: string; error?: string }>;
+function generateWorktreeName(taskDescription: string): string {
+  const words = taskDescription
+    .toLowerCase()
+    .replace(/[^a-z0-9\s-]/g, '')
+    .split(/\s+/)
+    .filter(word => word.length > 2)
+    .slice(0, 4);
+
+  return words.join('-') || 'new-worktree';
 }
 
 export async function createWorktreeWithAgent(
@@ -38,122 +42,32 @@ export async function createWorktreeWithAgent(
   }
   debug('Git root:', gitRoot);
 
-  const promptPath = path.join(gitRoot, '.claude', 'prompts', 'worktree-agent.md');
-  let worktreePrompt = '';
+  const currentBranch = getCurrentBranch();
+  const branchName = suggestedName || generateWorktreeName(taskDescription);
+
+  const gitRootBase = path.basename(gitRoot);
+  const parentDir = path.dirname(gitRoot);
+  const worktreePath = path.join(parentDir, `${gitRootBase}-${branchName}`);
+
+  debug('Creating worktree:', { branchName, worktreePath, currentBranch });
 
   try {
-    if (fs.existsSync(promptPath)) {
-      worktreePrompt = fs.readFileSync(promptPath, 'utf8');
-      debug('Loaded worktree prompt from:', promptPath);
-    } else {
-      debug('Worktree prompt file does not exist:', promptPath);
-    }
-  } catch (e) {
-    debug('Could not load worktree agent prompt:', e);
-  }
-
-  const prompt = `${worktreePrompt}
-
-## Task
-
-Create a new git worktree for the following task:
-${taskDescription}
-
-${suggestedName ? `Suggested name: ${suggestedName}` : 'Please generate a sensible name based on the task description.'}
-
-Instructions:
-1. Check the current git repository status
-2. ${suggestedName ? `Use the name "${suggestedName}"` : 'Generate a descriptive kebab-case name (2-4 words) based on the task'}
-3. Create the worktree in a sibling directory to the current repository
-4. **IMPORTANT**: Execute the git worktree command immediately without asking for user confirmation
-5. After successful creation, you MUST report: [SUCCESS] path: /full/path/to/worktree name: branch-name
-6. If it fails, you MUST report: [ERROR] error message here
-
-Current repository: ${gitRoot}`;
-
-  debug('Worktree agent prompt:', prompt);
-
-  const abortController = new AbortController();
-
-  try {
-    debug('Creating query for worktree agent...');
-    debug('Query options:', { cwd: gitRoot, hasAbortController: !!abortController });
-
-    const q = query({
-      prompt,
-      options: {
-        cwd: gitRoot,
-        abortController,
-      },
+    execSync(`git worktree add -b "${branchName}" "${worktreePath}" "${currentBranch}"`, {
+      cwd: gitRoot,
+      encoding: 'utf8',
+      stdio: ['pipe', 'pipe', 'pipe']
     });
 
-    debug('Query object created successfully');
-
-    let worktreePath = '';
-    let worktreeName = suggestedName || '';
-    let error = '';
-    let messageCount = 0;
-
-    debug('Starting to iterate over worktree agent messages...');
-    for await (const message of q) {
-      messageCount++;
-      debug(`Worktree agent message #${messageCount}:`, { type: message.type });
-
-      if (message.type === 'assistant') {
-        for (const content of message.message.content) {
-          if (content.type === 'text') {
-            const text = content.text;
-            debug('Worktree agent text output:', text);
-
-            if (text.includes('[SUCCESS]')) {
-              debug('Found [SUCCESS] marker');
-              const pathMatch = text.match(/path[:\s]+([^\s\n]+)/i);
-              if (pathMatch) {
-                worktreePath = pathMatch[1];
-                debug('Extracted worktree path:', worktreePath);
-              }
-
-              if (!worktreeName) {
-                const nameMatch = text.match(/(?:name|branch)[:\s]+([^\s\n]+)/i);
-                if (nameMatch) {
-                  worktreeName = nameMatch[1];
-                  debug('Extracted worktree name:', worktreeName);
-                }
-              }
-            } else if (text.includes('[ERROR]')) {
-              debug('Found [ERROR] marker');
-              const errorMatch = text.match(/\[ERROR\]\s*(.+)/i);
-              if (errorMatch) {
-                error = errorMatch[1];
-                debug('Extracted error:', error);
-              }
-            }
-          }
-        }
-      }
-    }
-
-    debug('Worktree agent completed:', { messageCount, worktreePath, worktreeName, error });
-
-    if (worktreePath && worktreeName) {
-      debug('Worktree creation successful');
-      return { success: true, path: worktreePath, name: worktreeName };
-    } else if (error) {
-      debug('Worktree creation failed with error');
-      return { success: false, path: '', error, name: '' };
-    } else {
-      debug('Worktree agent did not report success or failure');
-      return { success: false, path: '', error: 'Agent did not report success or failure', name: '' };
-    }
+    debug('Worktree creation successful');
+    return { success: true, path: worktreePath, name: branchName };
   } catch (e: any) {
-    debug('Exception in createWorktreeWithAgent:');
-    debug('Error name:', e.name);
-    debug('Error message:', e.message);
-    debug('Error code:', e.code);
-    debug('Error stack:', e.stack);
-    debug('Full error object:', JSON.stringify(e, Object.getOwnPropertyNames(e)));
-    abortController.abort();
-    return { success: false, path: '', error: e.message || e.code || 'Unknown error', name: '' };
+    debug('Exception in createWorktreeWithAgent:', e);
+    return {
+      success: false,
+      path: '',
+      error: e.message || 'Failed to create worktree',
+      name: ''
+    };
   }
 }
 
@@ -169,110 +83,119 @@ export async function attemptAutoMergeWithAgent(
   gitRoot: string,
   autoConfirm: boolean = false
 ): Promise<MergeResult> {
-  const promptPath = path.join(gitRoot, '.claude', 'prompts', 'worktree-agent.md');
-  let worktreePrompt = '';
+  debug('attemptAutoMergeWithAgent called:', { worktreeName, gitRoot, autoConfirm });
 
   try {
-    if (fs.existsSync(promptPath)) {
-      worktreePrompt = fs.readFileSync(promptPath, 'utf8');
-    }
-  } catch (e) {
-    debug('Could not load worktree agent prompt:', e);
-  }
+    const currentBranch = getCurrentBranch();
+    debug('Current branch:', currentBranch);
 
-  const prompt = `${worktreePrompt}
-
-## Task
-
-Check if the worktree branch "${worktreeName}" can be merged without conflicts, and ${autoConfirm ? 'if yes, merge it automatically' : 'report the status'}.
-
-Instructions:
-1. Check for merge conflicts by attempting a test merge
-2. If conflicts exist, report [CONFLICT] with the list of conflicting files
-3. If no conflicts exist:
-   ${autoConfirm ?
-     '- Perform the merge with message "Merge worktree: ' + worktreeName + '"' +
-     '\n   - Clean up the worktree and delete the branch' +
-     '\n   - Report [MERGED] when complete' :
-     '- Abort the test merge\n   - Report [READY_TO_MERGE]'
-   }
-
-Current repository: ${gitRoot}
-Branch to merge: ${worktreeName}`;
-
-  const abortController = new AbortController();
-
-  try {
-    debug('Creating query for merge agent...');
-    debug('Query options:', { cwd: gitRoot, hasAbortController: !!abortController });
-
-    const q = query({
-      prompt,
-      options: {
+    try {
+      execSync(`git merge --no-commit --no-ff "${worktreeName}"`, {
         cwd: gitRoot,
-        abortController,
-      },
-    });
+        encoding: 'utf8',
+        stdio: ['pipe', 'pipe', 'pipe']
+      });
 
-    debug('Merge query object created successfully');
+      debug('Test merge successful, checking status');
 
-    let hasConflict = false;
-    let merged = false;
-    let error = '';
-    let readyToMerge = false;
+      const status = execSync('git status --porcelain', {
+        cwd: gitRoot,
+        encoding: 'utf8',
+        stdio: ['pipe', 'pipe', 'pipe']
+      });
 
-    debug('Starting to iterate over merge agent messages...');
-    for await (const message of q) {
-      debug('Merge agent message:', { type: message.type });
+      const hasConflicts = status.split('\n').some(line => {
+        const prefix = line.substring(0, 2);
+        return prefix === 'UU' || prefix === 'AA' || prefix === 'DD';
+      });
 
-      if (message.type === 'assistant') {
-        for (const content of message.message.content) {
-          if (content.type === 'text') {
-            const text = content.text;
-            debug('Merge agent text output:', text);
+      execSync('git merge --abort', {
+        cwd: gitRoot,
+        encoding: 'utf8',
+        stdio: ['pipe', 'pipe', 'pipe']
+      });
 
-            if (text.includes('[CONFLICT]')) {
-              hasConflict = true;
-              const errorMatch = text.match(/\[CONFLICT\]\s*(.+)/i);
-              if (errorMatch) {
-                error = errorMatch[1];
-              }
-            } else if (text.includes('[MERGED]')) {
-              merged = true;
-            } else if (text.includes('[READY_TO_MERGE]')) {
-              readyToMerge = true;
-            } else if (text.includes('[ERROR]')) {
-              const errorMatch = text.match(/\[ERROR\]\s*(.+)/i);
-              if (errorMatch) {
-                error = errorMatch[1];
-              }
-            }
-          }
-        }
+      if (hasConflicts) {
+        debug('Merge conflicts detected');
+        const conflictFiles = status
+          .split('\n')
+          .filter(line => {
+            const prefix = line.substring(0, 2);
+            return prefix === 'UU' || prefix === 'AA' || prefix === 'DD';
+          })
+          .map(line => line.substring(3))
+          .join(', ');
+
+        return {
+          success: false,
+          conflict: true,
+          error: `Conflicting files: ${conflictFiles}`
+        };
       }
-    }
 
-    debug('Merge agent completed:', { hasConflict, merged, readyToMerge, error });
+      if (autoConfirm) {
+        debug('Auto-confirm enabled, performing merge');
 
-    if (hasConflict) {
-      return { success: false, conflict: true, error: error || 'Merge conflicts detected' };
-    } else if (merged) {
-      return { success: true, conflict: false };
-    } else if (readyToMerge) {
-      return { success: false, conflict: false, needsConfirmation: true };
-    } else if (error) {
-      return { success: false, conflict: false, error };
-    } else {
-      return { success: false, conflict: false, error: 'Agent did not report merge status' };
+        execSync(`git merge --no-ff -m "Merge worktree: ${worktreeName}" "${worktreeName}"`, {
+          cwd: gitRoot,
+          encoding: 'utf8',
+          stdio: ['pipe', 'pipe', 'pipe']
+        });
+
+        const worktrees = execSync('git worktree list --porcelain', {
+          cwd: gitRoot,
+          encoding: 'utf8',
+          stdio: ['pipe', 'pipe', 'pipe']
+        });
+
+        const worktreeMatch = worktrees.match(new RegExp(`worktree ([^\\n]+)\\nbranch [^\\n]*${worktreeName}`));
+        if (worktreeMatch) {
+          const worktreePath = worktreeMatch[1];
+          execSync(`git worktree remove "${worktreePath}"`, {
+            cwd: gitRoot,
+            encoding: 'utf8',
+            stdio: ['pipe', 'pipe', 'pipe']
+          });
+        }
+
+        execSync(`git branch -d "${worktreeName}"`, {
+          cwd: gitRoot,
+          encoding: 'utf8',
+          stdio: ['pipe', 'pipe', 'pipe']
+        });
+
+        debug('Merge and cleanup successful');
+        return { success: true, conflict: false };
+      } else {
+        debug('No conflicts, but awaiting user confirmation');
+        return { success: false, conflict: false, needsConfirmation: true };
+      }
+    } catch (e: any) {
+      if (e.message.includes('CONFLICT')) {
+        try {
+          execSync('git merge --abort', {
+            cwd: gitRoot,
+            encoding: 'utf8',
+            stdio: ['pipe', 'pipe', 'pipe']
+          });
+        } catch {}
+
+        debug('Merge conflicts detected from error');
+        return {
+          success: false,
+          conflict: true,
+          error: 'Merge conflicts detected. Manual merge required.'
+        };
+      }
+
+      throw e;
     }
   } catch (e: any) {
-    debug('Exception in attemptAutoMergeWithAgent:');
-    debug('Error name:', e.name);
-    debug('Error message:', e.message);
-    debug('Error code:', e.code);
-    debug('Error stack:', e.stack);
-    debug('Full error object:', JSON.stringify(e, Object.getOwnPropertyNames(e)));
-    abortController.abort();
-    return { success: false, conflict: false, error: e.message || e.code || 'Unknown error' };
+    debug('Exception in attemptAutoMergeWithAgent:', e);
+    return {
+      success: false,
+      conflict: false,
+      error: e.message || 'Failed to merge'
+    };
   }
 }

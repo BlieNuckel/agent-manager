@@ -10,16 +10,16 @@ export async function generateTitle(prompt: string): Promise<string> {
     debug('Generating title for prompt:', prompt.slice(0, 100));
 
     const message = await client.messages.create({
-      model: 'claude-haiku-4-5',
-      max_tokens: 50,
+      model: 'claude-3-5-haiku-20241022',
+      max_tokens: 100,
       messages: [{
         role: 'user',
-        content: `Extract a short, descriptive title (max 60 characters) for this task. Return ONLY the title, nothing else:\n\n${prompt}`
+        content: `Create a short, descriptive title (maximum 50 characters) for this task. Respond with ONLY the title text, no quotes, no explanations:\n\n${prompt}`
       }]
     });
 
     const text = message.content[0]?.type === 'text' ? message.content[0].text : '';
-    const title = text.trim().slice(0, 60);
+    const title = text.trim().replace(/^["']|["']$/g, '').slice(0, 60);
 
     debug('Generated title:', title);
     return title || 'Untitled Task';
