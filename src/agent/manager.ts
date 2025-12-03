@@ -2,6 +2,7 @@ import { EventEmitter } from 'events';
 import { query, type Query, type SDKMessage } from '@anthropic-ai/claude-agent-sdk';
 import type { AgentType } from '../types';
 import { debug } from '../utils/logger';
+import { generateTitle } from '../utils/titleGenerator';
 
 export class AgentSDKManager extends EventEmitter {
   private queries: Map<string, { query: Query; abort: AbortController }> = new Map();
@@ -10,6 +11,18 @@ export class AgentSDKManager extends EventEmitter {
   async spawn(id: string, prompt: string, workDir: string, agentType: AgentType, autoAcceptPermissions: boolean): Promise<void> {
     const abortController = new AbortController();
     this.agentStates.set(id, { agentType, autoAcceptPermissions, hasTitle: false });
+
+    generateTitle(prompt).then(title => {
+      const state = this.agentStates.get(id);
+      if (state && !state.hasTitle) {
+        debug('Generated title:', title);
+        this.emit('titleUpdate', id, title);
+        state.hasTitle = true;
+        this.agentStates.set(id, state);
+      }
+    }).catch(error => {
+      debug('Title generation failed:', error);
+    });
 
     const autoAllowTools = ['Read', 'Glob', 'Grep', 'WebSearch', 'WebFetch', 'Task', 'TodoRead', 'TodoWrite'];
     const permissionRequiredTools = ['Write', 'Edit', 'MultiEdit', 'Bash', 'NotebookEdit', 'KillBash'];
@@ -100,25 +113,6 @@ export class AgentSDKManager extends EventEmitter {
       case 'assistant':
         debug('Assistant message content types:', message.message.content.map((c: any) => c.type));
 
-        const state = this.agentStates.get(id);
-        if (state && !state.hasTitle) {
-          for (const content of message.message.content) {
-            if (content.type === 'text' && content.text.trim()) {
-              const text = content.text.trim();
-              const firstLine = text.split('\n')[0];
-              const title = firstLine.length > 60 ? firstLine.slice(0, 57) + '...' : firstLine;
-
-              if (title.length > 0) {
-                debug('Extracted title from first assistant response:', title);
-                this.emit('titleUpdate', id, title);
-                state.hasTitle = true;
-                this.agentStates.set(id, state);
-                break;
-              }
-            }
-          }
-        }
-
         for (const content of message.message.content) {
           if (content.type === 'text') {
             const lines = content.text.split('\n');
@@ -130,11 +124,6 @@ export class AgentSDKManager extends EventEmitter {
           } else if (content.type === 'tool_use') {
             debug('Tool use in assistant message:', { name: content.name, id: content.id });
             this.emit('output', id, `[>] Using tool: ${content.name}`);
-          } else if (content.type === 'tool_result') {
-            debug('Tool result:', { tool_use_id: (content as any).tool_use_id, is_error: (content as any).is_error });
-            if ((content as any).is_error) {
-              this.emit('output', id, `[x] Tool error: ${(content as any).content || 'Unknown error'}`);
-            }
           }
         }
         break;
