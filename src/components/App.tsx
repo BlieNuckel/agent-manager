@@ -120,32 +120,83 @@ export const App = () => {
   }, [state.history]);
 
   const createAgent = async (prompt: string, agentType: AgentType, worktree: { enabled: boolean; name: string }) => {
+    const id = genId();
     let workDir = process.cwd();
     let worktreeName: string | undefined;
 
     if (worktree.enabled) {
-      const result = await createWorktreeWithAgent(prompt, worktree.name || undefined);
-      if (result.success) {
-        workDir = result.path;
-        worktreeName = result.name;
-      } else {
-        debug('Failed to create worktree:', result.error);
+      debug('Creating worktree for prompt:', prompt);
+
+      const placeholderAgent: Agent = {
+        id,
+        title: 'Creating worktree...',
+        prompt,
+        status: 'working',
+        output: ['[>] Creating git worktree...'],
+        workDir,
+        worktreeName: undefined,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        agentType,
+        autoAcceptPermissions: false,
+      };
+      dispatch({ type: 'ADD_AGENT', agent: placeholderAgent });
+
+      try {
+        const result = await createWorktreeWithAgent(prompt, worktree.name || undefined);
+        debug('Worktree creation result:', result);
+
+        if (result.success) {
+          workDir = result.path;
+          worktreeName = result.name;
+          debug('Worktree created successfully:', { workDir, worktreeName });
+
+          dispatch({ type: 'UPDATE_AGENT', id, updates: {
+            title: 'Pending...',
+            workDir,
+            worktreeName,
+          }});
+          dispatch({ type: 'APPEND_OUTPUT', id, line: `[✓] Worktree created: ${worktreeName} at ${workDir}` });
+          dispatch({ type: 'APPEND_OUTPUT', id, line: `[>] Starting agent...` });
+        } else {
+          debug('Failed to create worktree:', result.error);
+          dispatch({ type: 'UPDATE_AGENT', id, updates: {
+            title: 'Worktree creation failed',
+            status: 'error',
+          }});
+          dispatch({ type: 'APPEND_OUTPUT', id, line: `[x] Failed to create worktree: ${result.error}` });
+          return;
+        }
+      } catch (error: any) {
+        debug('Exception while creating worktree:', error.message, error.stack);
+        dispatch({ type: 'UPDATE_AGENT', id, updates: {
+          title: 'Worktree creation error',
+          status: 'error',
+        }});
+        dispatch({ type: 'APPEND_OUTPUT', id, line: `[x] Exception: ${error.message}` });
+        return;
       }
+    } else {
+      const placeholderAgent: Agent = {
+        id,
+        title: 'Pending...',
+        prompt,
+        status: 'working',
+        output: [],
+        workDir,
+        worktreeName: undefined,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        agentType,
+        autoAcceptPermissions: false,
+      };
+      dispatch({ type: 'ADD_AGENT', agent: placeholderAgent });
     }
 
-    const id = genId();
-    const title = 'Pending...';
-    const agent: Agent = {
-      id, title, prompt, status: 'working', output: [], workDir, worktreeName,
-      createdAt: new Date(), updatedAt: new Date(),
-      agentType,
-      autoAcceptPermissions: false,
-    };
-    dispatch({ type: 'ADD_AGENT', agent });
-
+    debug('Spawning agent:', { id, workDir, agentType });
     agentManager.spawn(id, prompt, workDir, agentType, false);
 
-    const entry: HistoryEntry = { id, title, prompt, date: new Date(), workDir };
+    const entry: HistoryEntry = { id, title: 'Pending...', prompt, date: new Date(), workDir };
     const newHistory = [entry, ...state.history.filter(h => h.prompt !== prompt)].slice(0, 5);
     saveHistory(newHistory);
   };

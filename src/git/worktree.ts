@@ -29,8 +29,14 @@ export async function createWorktreeWithAgent(
   taskDescription: string,
   suggestedName?: string
 ): Promise<{ success: boolean; path: string; error?: string; name: string }> {
+  debug('createWorktreeWithAgent called:', { taskDescription, suggestedName });
+
   const gitRoot = getGitRoot();
-  if (!gitRoot) return { success: false, path: '', error: 'Not in a git repository', name: '' };
+  if (!gitRoot) {
+    debug('Not in a git repository');
+    return { success: false, path: '', error: 'Not in a git repository', name: '' };
+  }
+  debug('Git root:', gitRoot);
 
   const promptPath = path.join(gitRoot, '.claude', 'prompts', 'worktree-agent.md');
   let worktreePrompt = '';
@@ -38,6 +44,9 @@ export async function createWorktreeWithAgent(
   try {
     if (fs.existsSync(promptPath)) {
       worktreePrompt = fs.readFileSync(promptPath, 'utf8');
+      debug('Loaded worktree prompt from:', promptPath);
+    } else {
+      debug('Worktree prompt file does not exist:', promptPath);
     }
   } catch (e) {
     debug('Could not load worktree agent prompt:', e);
@@ -60,9 +69,12 @@ Instructions:
 
 Current repository: ${gitRoot}`;
 
+  debug('Worktree agent prompt:', prompt);
+
   const abortController = new AbortController();
 
   try {
+    debug('Creating query for worktree agent...');
     const q = query({
       prompt,
       options: {
@@ -74,29 +86,40 @@ Current repository: ${gitRoot}`;
     let worktreePath = '';
     let worktreeName = suggestedName || '';
     let error = '';
+    let messageCount = 0;
 
+    debug('Starting to iterate over worktree agent messages...');
     for await (const message of q) {
+      messageCount++;
+      debug(`Worktree agent message #${messageCount}:`, { type: message.type });
+
       if (message.type === 'assistant') {
         for (const content of message.message.content) {
           if (content.type === 'text') {
             const text = content.text;
+            debug('Worktree agent text output:', text);
 
             if (text.includes('[SUCCESS]')) {
+              debug('Found [SUCCESS] marker');
               const pathMatch = text.match(/path[:\s]+([^\s\n]+)/i);
               if (pathMatch) {
                 worktreePath = pathMatch[1];
+                debug('Extracted worktree path:', worktreePath);
               }
 
               if (!worktreeName) {
                 const nameMatch = text.match(/(?:name|branch)[:\s]+([^\s\n]+)/i);
                 if (nameMatch) {
                   worktreeName = nameMatch[1];
+                  debug('Extracted worktree name:', worktreeName);
                 }
               }
             } else if (text.includes('[ERROR]')) {
+              debug('Found [ERROR] marker');
               const errorMatch = text.match(/\[ERROR\]\s*(.+)/i);
               if (errorMatch) {
                 error = errorMatch[1];
+                debug('Extracted error:', error);
               }
             }
           }
@@ -104,14 +127,20 @@ Current repository: ${gitRoot}`;
       }
     }
 
+    debug('Worktree agent completed:', { messageCount, worktreePath, worktreeName, error });
+
     if (worktreePath && worktreeName) {
+      debug('Worktree creation successful');
       return { success: true, path: worktreePath, name: worktreeName };
     } else if (error) {
+      debug('Worktree creation failed with error');
       return { success: false, path: '', error, name: '' };
     } else {
+      debug('Worktree agent did not report success or failure');
       return { success: false, path: '', error: 'Agent did not report success or failure', name: '' };
     }
   } catch (e: any) {
+    debug('Exception in createWorktreeWithAgent:', e.message, e.stack);
     abortController.abort();
     return { success: false, path: '', error: e.message, name: '' };
   }
