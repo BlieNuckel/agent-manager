@@ -37,7 +37,7 @@ clearDebugLog();
 // ============ Types ============
 type Status = 'working' | 'waiting' | 'done' | 'error';
 type Mode = 'normal' | 'input' | 'detail';
-type InputStep = 'title' | 'prompt' | 'agentType' | 'worktree' | 'worktreeName';
+type InputStep = 'prompt' | 'agentType' | 'worktree' | 'worktreeName';
 type AgentType = 'normal' | 'planning' | 'auto-accept';
 
 interface PermissionRequest {
@@ -73,10 +73,12 @@ interface HistoryEntry {
 type Action =
   | { type: 'ADD_AGENT'; agent: Agent }
   | { type: 'UPDATE_AGENT'; id: string; updates: Partial<Agent> }
+  | { type: 'UPDATE_AGENT_TITLE'; id: string; title: string }
   | { type: 'REMOVE_AGENT'; id: string }
   | { type: 'APPEND_OUTPUT'; id: string; line: string }
   | { type: 'SET_PERMISSION'; id: string; permission: PermissionRequest | undefined }
-  | { type: 'REMOVE_HISTORY'; index: number };
+  | { type: 'REMOVE_HISTORY'; index: number }
+  | { type: 'UPDATE_HISTORY_TITLE'; id: string; title: string };
 
 interface State {
   agents: Agent[];
@@ -118,6 +120,13 @@ function reducer(state: State, action: Action): State {
           a.id === action.id ? { ...a, ...action.updates, updatedAt: new Date() } : a
         ),
       };
+    case 'UPDATE_AGENT_TITLE':
+      return {
+        ...state,
+        agents: state.agents.map(a =>
+          a.id === action.id ? { ...a, title: action.title, updatedAt: new Date() } : a
+        ),
+      };
     case 'REMOVE_AGENT':
       return { ...state, agents: state.agents.filter(a => a.id !== action.id) };
     case 'APPEND_OUTPUT':
@@ -140,6 +149,13 @@ function reducer(state: State, action: Action): State {
       };
     case 'REMOVE_HISTORY':
       return { ...state, history: state.history.filter((_, i) => i !== action.index) };
+    case 'UPDATE_HISTORY_TITLE':
+      return {
+        ...state,
+        history: state.history.map(h =>
+          h.id === action.id ? { ...h, title: action.title } : h
+        ),
+      };
     default:
       return state;
   }
@@ -192,11 +208,11 @@ function createWorktree(name: string): { success: boolean; path: string; error?:
 // ============ Agent SDK Manager ============
 class AgentSDKManager extends EventEmitter {
   private queries: Map<string, { query: Query; abort: AbortController }> = new Map();
-  private agentStates: Map<string, { agentType: AgentType; autoAcceptPermissions: boolean }> = new Map();
+  private agentStates: Map<string, { agentType: AgentType; autoAcceptPermissions: boolean; hasTitle: boolean }> = new Map();
 
   async spawn(id: string, prompt: string, workDir: string, agentType: AgentType, autoAcceptPermissions: boolean): Promise<void> {
     const abortController = new AbortController();
-    this.agentStates.set(id, { agentType, autoAcceptPermissions });
+    this.agentStates.set(id, { agentType, autoAcceptPermissions, hasTitle: false });
 
     // Tools that are safe and don't need permission
     const autoAllowTools = ['Read', 'Glob', 'Grep', 'WebSearch', 'WebFetch', 'Task', 'TodoRead', 'TodoWrite'];
@@ -292,6 +308,26 @@ class AgentSDKManager extends EventEmitter {
 
       case 'assistant':
         debug('Assistant message content types:', message.message.content.map(c => c.type));
+
+        const state = this.agentStates.get(id);
+        if (state && !state.hasTitle) {
+          for (const content of message.message.content) {
+            if (content.type === 'text' && content.text.trim()) {
+              const text = content.text.trim();
+              const firstLine = text.split('\n')[0];
+              const title = firstLine.length > 60 ? firstLine.slice(0, 57) + '...' : firstLine;
+
+              if (title.length > 0) {
+                debug('Extracted title from first assistant response:', title);
+                this.emit('titleUpdate', id, title);
+                state.hasTitle = true;
+                this.agentStates.set(id, state);
+                break;
+              }
+            }
+          }
+        }
+
         for (const content of message.message.content) {
           if (content.type === 'text') {
             const lines = content.text.split('\n');
@@ -413,25 +449,28 @@ const Tab = ({ label, active, count }: { label: string; active: boolean; count?:
   </Box>
 );
 
-const AgentItem = ({ agent, selected }: { agent: Agent; selected: boolean }) => (
-  <Box flexDirection="column" marginBottom={1}>
-    <Box>
-      <Text color={selected ? 'cyan' : 'white'} bold={selected}>{selected ? '> ' : '  '}</Text>
-      <StatusBadge status={agent.status} />
-      <Text bold={selected} color={selected ? 'cyan' : 'white'}> {agent.title}</Text>
-      <Text dimColor> ({formatTime(agent.updatedAt)})</Text>
-      {agent.pendingPermission && <Text color="yellow"> [!] Permission needed</Text>}
-    </Box>
-    <Box marginLeft={14}>
-      <Text dimColor wrap="truncate">{agent.prompt.slice(0, 60)}{agent.prompt.length > 60 ? '...' : ''}</Text>
-    </Box>
-    {agent.worktreeName && (
-      <Box marginLeft={14}>
-        <Text color="magenta">* {agent.worktreeName}</Text>
+const AgentItem = ({ agent, selected }: { agent: Agent; selected: boolean }) => {
+  const isPending = agent.title === 'Pending...';
+  return (
+    <Box flexDirection="column" marginBottom={1}>
+      <Box>
+        <Text color={selected ? 'cyan' : 'white'} bold={selected}>{selected ? '> ' : '  '}</Text>
+        <StatusBadge status={agent.status} />
+        <Text bold={selected} color={selected ? 'cyan' : 'white'} dimColor={isPending} italic={isPending}> {agent.title}</Text>
+        <Text dimColor> ({formatTime(agent.updatedAt)})</Text>
+        {agent.pendingPermission && <Text color="yellow"> [!] Permission needed</Text>}
       </Box>
-    )}
-  </Box>
-);
+      <Box marginLeft={14}>
+        <Text dimColor wrap="truncate">{agent.prompt.slice(0, 60)}{agent.prompt.length > 60 ? '...' : ''}</Text>
+      </Box>
+      {agent.worktreeName && (
+        <Box marginLeft={14}>
+          <Text color="magenta">* {agent.worktreeName}</Text>
+        </Box>
+      )}
+    </Box>
+  );
+};
 
 const HistoryItem = ({ entry, selected }: { entry: HistoryEntry; selected: boolean }) => (
   <Box>
@@ -528,12 +567,13 @@ const DetailView = ({ agent, onBack, onPermissionResponse, onAlwaysAllow }: {
   }, [agent.output.length, agent.pendingPermission]);
 
   const displayedLines = agent.output.slice(scrollOffset, scrollOffset + visibleLines);
+  const isPending = agent.title === 'Pending...';
 
   return (
     <Box flexDirection="column" padding={1}>
       <Box borderStyle="single" borderColor={agent.pendingPermission ? 'yellow' : 'cyan'} paddingX={1} marginBottom={1}>
         <StatusBadge status={agent.status} />
-        <Text bold color={agent.pendingPermission ? 'yellow' : 'cyan'}> {agent.title}</Text>
+        <Text bold color={agent.pendingPermission ? 'yellow' : 'cyan'} dimColor={isPending} italic={isPending}> {agent.title}</Text>
         {agent.worktreeName && <Text color="magenta"> * {agent.worktreeName}</Text>}
         {agent.sessionId && <Text dimColor> (session: {agent.sessionId.slice(0, 8)}...)</Text>}
       </Box>
@@ -591,15 +631,14 @@ const DetailView = ({ agent, onBack, onPermissionResponse, onAlwaysAllow }: {
 
 // Prompt input with worktree option
 const PromptInput = ({ onSubmit, onCancel }: {
-  onSubmit: (p: string, t: string, agentType: AgentType, worktree: { enabled: boolean; name: string }) => void;
+  onSubmit: (p: string, agentType: AgentType, worktree: { enabled: boolean; name: string }) => void;
   onCancel: () => void;
 }) => {
-  const [title, setTitle] = useState('');
   const [prompt, setPrompt] = useState('');
   const [agentType, setAgentType] = useState<AgentType>('normal');
   const [useWorktree, setUseWorktree] = useState(false);
   const [worktreeName, setWorktreeName] = useState('');
-  const [step, setStep] = useState<InputStep>('title');
+  const [step, setStep] = useState<InputStep>('prompt');
   const [autoName] = useState(generateWorktreeName);
   const [gitRoot] = useState(() => getGitRoot());
 
@@ -607,21 +646,20 @@ const PromptInput = ({ onSubmit, onCancel }: {
     if (key.escape) { onCancel(); return; }
 
     if (key.return) {
-      if (step === 'title' && title) { setStep('prompt'); return; }
       if (step === 'prompt' && prompt) { setStep('agentType'); return; }
       if (step === 'agentType') {
         if (gitRoot) { setStep('worktree'); return; }
-        onSubmit(prompt, title, agentType, { enabled: false, name: '' });
+        onSubmit(prompt, agentType, { enabled: false, name: '' });
         return;
       }
       if (step === 'worktree') {
         if (useWorktree) { setStep('worktreeName'); return; }
-        onSubmit(prompt, title, agentType, { enabled: false, name: '' });
+        onSubmit(prompt, agentType, { enabled: false, name: '' });
         return;
       }
       if (step === 'worktreeName') {
         const name = worktreeName.trim() || autoName;
-        onSubmit(prompt, title, agentType, { enabled: true, name });
+        onSubmit(prompt, agentType, { enabled: true, name });
         return;
       }
     }
@@ -636,15 +674,13 @@ const PromptInput = ({ onSubmit, onCancel }: {
     if (step === 'worktree' && (input === 'n' || input === 'N')) { setUseWorktree(false); return; }
 
     if (key.backspace || key.delete) {
-      if (step === 'title') setTitle(t => t.slice(0, -1));
-      else if (step === 'prompt') setPrompt(p => p.slice(0, -1));
+      if (step === 'prompt') setPrompt(p => p.slice(0, -1));
       else if (step === 'worktreeName') setWorktreeName(n => n.slice(0, -1));
       return;
     }
 
     if (input && !key.ctrl && !key.meta && step !== 'agentType' && step !== 'worktree') {
-      if (step === 'title') setTitle(t => t + input);
-      else if (step === 'prompt') setPrompt(p => p + input);
+      if (step === 'prompt') setPrompt(p => p + input);
       else if (step === 'worktreeName') setWorktreeName(n => n + input);
     }
   });
@@ -654,22 +690,15 @@ const PromptInput = ({ onSubmit, onCancel }: {
       <Text bold color="cyan">New Agent</Text>
 
       <Box marginTop={1}>
-        <Text color={step === 'title' ? 'cyan' : 'green'}>
-          {step === 'title' ? '>' : '+'} Title:{' '}
+        <Text color={step === 'prompt' ? 'cyan' : 'green'}>
+          {step === 'prompt' ? '>' : '+'} Prompt:{' '}
         </Text>
-        <Text>{title}<Text color="cyan">{step === 'title' ? '▋' : ''}</Text></Text>
+        <Text>{prompt}<Text color="cyan">{step === 'prompt' ? '▋' : ''}</Text></Text>
       </Box>
 
       <Box marginTop={1}>
-        <Text color={step === 'prompt' ? 'cyan' : step === 'title' ? 'gray' : 'green'}>
-          {step === 'title' ? '○' : step === 'prompt' ? '>' : '+'} Prompt:{' '}
-        </Text>
-        <Text dimColor={step === 'title'}>{prompt}<Text color="cyan">{step === 'prompt' ? '▋' : ''}</Text></Text>
-      </Box>
-
-      <Box marginTop={1}>
-        <Text color={step === 'agentType' ? 'cyan' : step === 'title' || step === 'prompt' ? 'gray' : 'green'}>
-          {(step === 'title' || step === 'prompt') ? '○' : step === 'agentType' ? '▸' : '✓'} Agent Type:{' '}
+        <Text color={step === 'agentType' ? 'cyan' : step === 'prompt' ? 'gray' : 'green'}>
+          {step === 'prompt' ? '○' : step === 'agentType' ? '▸' : '✓'} Agent Type:{' '}
         </Text>
         {step === 'agentType' ? (
           <Box flexDirection="column">
@@ -678,7 +707,7 @@ const PromptInput = ({ onSubmit, onCancel }: {
             <Text>[<Text color={agentType === 'auto-accept' ? 'cyan' : 'white'} bold={agentType === 'auto-accept'}>3</Text>] Auto-accept (no permission prompts)</Text>
           </Box>
         ) : (
-          <Text dimColor={step === 'title' || step === 'prompt'}>
+          <Text dimColor={step === 'prompt'}>
             {agentType === 'normal' ? 'Normal' : agentType === 'planning' ? 'Planning' : 'Auto-accept'}
           </Text>
         )}
@@ -693,11 +722,11 @@ const PromptInput = ({ onSubmit, onCancel }: {
             {step === 'worktree' ? (
               <Text>[<Text color={useWorktree ? 'green' : 'white'} bold={useWorktree}>Y</Text>/<Text color={!useWorktree ? 'red' : 'white'} bold={!useWorktree}>N</Text>]</Text>
             ) : (
-              <Text dimColor={step === 'title' || step === 'prompt'}>{useWorktree ? 'Yes' : 'No'}</Text>
+              <Text dimColor={step === 'prompt'}>{useWorktree ? 'Yes' : 'No'}</Text>
             )}
           </Box>
 
-          {(step === 'worktreeName' || (useWorktree && step !== 'title' && step !== 'prompt')) && (
+          {(step === 'worktreeName' || (useWorktree && step !== 'prompt')) && (
             <Box marginTop={1}>
               <Text color={step === 'worktreeName' ? 'cyan' : 'gray'}>
                 {step === 'worktreeName' ? '>' : '○'} Worktree name:{' '}
@@ -765,12 +794,20 @@ const App = () => {
       debug('Permission request received in UI:', { id, toolName: permission.toolName });
       dispatch({ type: 'SET_PERMISSION', id, permission });
     };
+    const onTitleUpdate = (id: string, title: string) => {
+      debug('Title update received in UI:', { id, title });
+      dispatch({ type: 'UPDATE_AGENT_TITLE', id, title });
+      dispatch({ type: 'UPDATE_HISTORY_TITLE', id, title });
+      const newHistory = state.history.map(h => h.id === id ? { ...h, title } : h);
+      saveHistory(newHistory);
+    };
 
     agentManager.on('output', onOutput);
     agentManager.on('done', onDone);
     agentManager.on('error', onError);
     agentManager.on('sessionId', onSessionId);
     agentManager.on('permissionRequest', onPermissionRequest);
+    agentManager.on('titleUpdate', onTitleUpdate);
 
     return () => {
       agentManager.off('output', onOutput);
@@ -778,10 +815,11 @@ const App = () => {
       agentManager.off('error', onError);
       agentManager.off('sessionId', onSessionId);
       agentManager.off('permissionRequest', onPermissionRequest);
+      agentManager.off('titleUpdate', onTitleUpdate);
     };
-  }, []);
+  }, [state.history]);
 
-  const createAgent = (prompt: string, title: string, agentType: AgentType, worktree: { enabled: boolean; name: string }) => {
+  const createAgent = (prompt: string, agentType: AgentType, worktree: { enabled: boolean; name: string }) => {
     let workDir = process.cwd();
     let worktreeName: string | undefined;
 
@@ -794,6 +832,7 @@ const App = () => {
     }
 
     const id = genId();
+    const title = 'Pending...';
     const agent: Agent = {
       id, title, prompt, status: 'working', output: [], workDir, worktreeName,
       createdAt: new Date(), updatedAt: new Date(),
@@ -802,7 +841,6 @@ const App = () => {
     };
     dispatch({ type: 'ADD_AGENT', agent });
 
-    // Spawn the agent asynchronously
     agentManager.spawn(id, prompt, workDir, agentType, false);
 
     const entry: HistoryEntry = { id, title, prompt, date: new Date(), workDir };
@@ -857,7 +895,7 @@ const App = () => {
         setMode('detail');
       } else {
         const entry = state.history[idx] as HistoryEntry;
-        createAgent(entry.prompt, entry.title, 'normal', { enabled: false, name: '' });
+        createAgent(entry.prompt, 'normal', { enabled: false, name: '' });
         setTab('inbox');
       }
     }
@@ -916,7 +954,7 @@ const App = () => {
       <Box flexDirection="column" minHeight={15} marginTop={1}>
         {mode === 'input' ? (
           <PromptInput
-            onSubmit={(p, t, at, wt) => { createAgent(p, t, at, wt); setMode('normal'); setTab('inbox'); }}
+            onSubmit={(p, at, wt) => { createAgent(p, at, wt); setMode('normal'); setTab('inbox'); }}
             onCancel={() => setMode('normal')}
           />
         ) : tab === 'inbox' ? (
