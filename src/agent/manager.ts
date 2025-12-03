@@ -1,5 +1,5 @@
 import { EventEmitter } from 'events';
-import { query, type Query, type SDKMessage } from '@anthropic-ai/claude-agent-sdk';
+import { query, type Query, type SDKMessage, type SlashCommand } from '@anthropic-ai/claude-agent-sdk';
 import type { AgentType } from '../types';
 import { debug } from '../utils/logger';
 import { generateTitle } from '../utils/titleGenerator';
@@ -7,6 +7,7 @@ import { generateTitle } from '../utils/titleGenerator';
 export class AgentSDKManager extends EventEmitter {
   private queries: Map<string, { query: Query; abort: AbortController }> = new Map();
   private agentStates: Map<string, { agentType: AgentType; autoAcceptPermissions: boolean; hasTitle: boolean }> = new Map();
+  private static commandsCache: SlashCommand[] | null = null;
 
   async spawn(id: string, prompt: string, workDir: string, agentType: AgentType, autoAcceptPermissions: boolean): Promise<void> {
     const abortController = new AbortController();
@@ -167,5 +168,30 @@ export class AgentSDKManager extends EventEmitter {
 
   resolvePermission(id: string, allowed: boolean): void {
     this.emit('permissionResolved', id, allowed);
+  }
+
+  static async getAvailableCommands(cwd?: string): Promise<SlashCommand[]> {
+    if (this.commandsCache) {
+      return this.commandsCache;
+    }
+
+    const abortController = new AbortController();
+    const tempQuery = query({
+      prompt: '',
+      options: {
+        cwd: cwd || process.cwd(),
+        abortController,
+      },
+    });
+
+    try {
+      this.commandsCache = await tempQuery.supportedCommands();
+      abortController.abort();
+      return this.commandsCache;
+    } catch (error) {
+      debug('Error fetching slash commands:', error);
+      abortController.abort();
+      return [];
+    }
   }
 }
