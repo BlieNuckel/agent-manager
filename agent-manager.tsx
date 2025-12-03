@@ -37,7 +37,8 @@ clearDebugLog();
 // ============ Types ============
 type Status = 'working' | 'waiting' | 'done' | 'error';
 type Mode = 'normal' | 'input' | 'detail';
-type InputStep = 'title' | 'prompt' | 'worktree' | 'worktreeName';
+type InputStep = 'title' | 'prompt' | 'agentType' | 'worktree' | 'worktreeName';
+type AgentType = 'normal' | 'planning' | 'auto-accept';
 
 interface PermissionRequest {
   toolName: string;
@@ -57,6 +58,8 @@ interface Agent {
   worktreeName?: string;
   sessionId?: string;
   pendingPermission?: PermissionRequest;
+  agentType: AgentType;
+  autoAcceptPermissions: boolean;
 }
 
 interface HistoryEntry {
@@ -189,9 +192,11 @@ function createWorktree(name: string): { success: boolean; path: string; error?:
 // ============ Agent SDK Manager ============
 class AgentSDKManager extends EventEmitter {
   private queries: Map<string, { query: Query; abort: AbortController }> = new Map();
+  private agentStates: Map<string, { agentType: AgentType; autoAcceptPermissions: boolean }> = new Map();
 
-  async spawn(id: string, prompt: string, workDir: string): Promise<void> {
+  async spawn(id: string, prompt: string, workDir: string, agentType: AgentType, autoAcceptPermissions: boolean): Promise<void> {
     const abortController = new AbortController();
+    this.agentStates.set(id, { agentType, autoAcceptPermissions });
 
     // Tools that are safe and don't need permission
     const autoAllowTools = ['Read', 'Glob', 'Grep', 'WebSearch', 'WebFetch', 'Task', 'TodoRead', 'TodoWrite'];
@@ -205,17 +210,24 @@ class AgentSDKManager extends EventEmitter {
         cwd: workDir,
         abortController,
         permissionMode: 'default',
-        canUseTool: async (toolName: string, toolInput: unknown): Promise<{ behavior: 'allow'; updatedInput: unknown } | { behavior: 'deny'; message: string } | undefined> => {
-          debug('canUseTool called:', { toolName, toolInput });
+        canUseTool: async (toolName: string, toolInput: unknown) => {
+          const currentState = this.agentStates.get(id);
+          debug('canUseTool called:', { toolName, toolInput, currentState });
 
           // Auto-allow read-only tools
           if (autoAllowTools.includes(toolName)) {
             debug('Auto-allowing tool:', toolName);
-            return { behavior: 'allow', updatedInput: toolInput };
+            return { behavior: 'allow', updatedInput: toolInput as Record<string, unknown> };
           }
 
-          // For dangerous tools, ask for permission via the UI
+          // For dangerous tools, check auto-accept mode first
           if (permissionRequiredTools.includes(toolName)) {
+            if (currentState?.agentType === 'auto-accept' || currentState?.autoAcceptPermissions) {
+              debug('Auto-accepting permission for tool:', toolName);
+              this.emit('output', id, `✅ Auto-allowed: ${toolName}`);
+              return { behavior: 'allow', updatedInput: toolInput as Record<string, unknown> };
+            }
+
             debug('Requesting permission for tool:', toolName);
             this.emit('output', id, `[!] Permission required for: ${toolName}`);
 
@@ -231,7 +243,7 @@ class AgentSDKManager extends EventEmitter {
             this.emit('output', id, result ? `[+] Allowed: ${toolName}` : `[-] Denied: ${toolName}`);
 
             if (result) {
-              return { behavior: 'allow', updatedInput: toolInput };
+              return { behavior: 'allow', updatedInput: toolInput as Record<string, unknown> };
             } else {
               return { behavior: 'deny', message: 'User denied permission' };
             }
@@ -263,6 +275,7 @@ class AgentSDKManager extends EventEmitter {
       }
     } finally {
       this.queries.delete(id);
+      this.agentStates.delete(id);
     }
   }
 
@@ -304,7 +317,7 @@ class AgentSDKManager extends EventEmitter {
         if (message.subtype === 'success') {
           this.emit('output', id, '[+] Task completed successfully');
         } else if (message.subtype === 'error') {
-          this.emit('output', id, `[x] Error: ${message.error}`);
+          this.emit('output', id, `[x] Error: ${(message as any).error || message.subtype}`);
         }
         break;
 
@@ -318,6 +331,7 @@ class AgentSDKManager extends EventEmitter {
     if (entry) {
       entry.abort.abort();
       this.queries.delete(id);
+      this.agentStates.delete(id);
       return true;
     }
     return false;
@@ -325,6 +339,14 @@ class AgentSDKManager extends EventEmitter {
 
   isRunning(id: string): boolean {
     return this.queries.has(id);
+  }
+
+  setAutoAccept(id: string, autoAccept: boolean): void {
+    const state = this.agentStates.get(id);
+    if (state) {
+      state.autoAcceptPermissions = autoAccept;
+      this.agentStates.set(id, state);
+    }
   }
 
   resolvePermission(id: string, allowed: boolean): void {
@@ -421,18 +443,25 @@ const HistoryItem = ({ entry, selected }: { entry: HistoryEntry; selected: boole
 );
 
 // Permission prompt component
-const PermissionPrompt = ({ permission, onResponse }: {
+const PermissionPrompt = ({ permission, onResponse, onAlwaysAllow }: {
   permission: PermissionRequest;
   onResponse: (allowed: boolean) => void;
+  onAlwaysAllow: () => void;
 }) => {
   const [selected, setSelected] = useState(0);
 
   useInput((input, key) => {
-    if (key.leftArrow || input === 'h') setSelected(0);
-    if (key.rightArrow || input === 'l') setSelected(1);
+    if (key.leftArrow || input === 'h') setSelected(s => Math.max(0, s - 1));
+    if (key.rightArrow || input === 'l') setSelected(s => Math.min(2, s + 1));
     if (input === 'y' || input === 'Y') { onResponse(true); return; }
     if (input === 'n' || input === 'N') { onResponse(false); return; }
-    if (key.return) { onResponse(selected === 0); return; }
+    if (input === 'a' || input === 'A') { onAlwaysAllow(); return; }
+    if (key.return) {
+      if (selected === 0) onResponse(true);
+      else if (selected === 1) onResponse(false);
+      else onAlwaysAllow();
+      return;
+    }
   });
 
   return (
@@ -452,19 +481,23 @@ const PermissionPrompt = ({ permission, onResponse }: {
         <Box paddingX={2} borderStyle={selected === 1 ? 'bold' : 'single'} borderColor={selected === 1 ? 'red' : 'gray'}>
           <Text color={selected === 1 ? 'red' : 'white'} bold={selected === 1}>[N]o</Text>
         </Box>
+        <Box paddingX={2} borderStyle={selected === 2 ? 'bold' : 'single'} borderColor={selected === 2 ? 'yellow' : 'gray'}>
+          <Text color={selected === 2 ? 'yellow' : 'white'} bold={selected === 2}>[A]lways</Text>
+        </Box>
       </Box>
       <Box marginTop={1}>
-        <Text dimColor>←/→ to select • y/n or Enter to confirm</Text>
+        <Text dimColor>←/→ to select • y/n/a or Enter to confirm</Text>
       </Box>
     </Box>
   );
 };
 
 // Detail view for watching an agent
-const DetailView = ({ agent, onBack, onPermissionResponse }: {
+const DetailView = ({ agent, onBack, onPermissionResponse, onAlwaysAllow }: {
   agent: Agent;
   onBack: () => void;
   onPermissionResponse: (allowed: boolean) => void;
+  onAlwaysAllow: () => void;
 }) => {
   const { stdout } = useApp();
   const [scrollOffset, setScrollOffset] = useState(0);
@@ -539,6 +572,7 @@ const DetailView = ({ agent, onBack, onPermissionResponse }: {
         <PermissionPrompt
           permission={agent.pendingPermission}
           onResponse={onPermissionResponse}
+          onAlwaysAllow={onAlwaysAllow}
         />
       )}
 
@@ -557,11 +591,12 @@ const DetailView = ({ agent, onBack, onPermissionResponse }: {
 
 // Prompt input with worktree option
 const PromptInput = ({ onSubmit, onCancel }: {
-  onSubmit: (p: string, t: string, worktree: { enabled: boolean; name: string }) => void;
+  onSubmit: (p: string, t: string, agentType: AgentType, worktree: { enabled: boolean; name: string }) => void;
   onCancel: () => void;
 }) => {
   const [title, setTitle] = useState('');
   const [prompt, setPrompt] = useState('');
+  const [agentType, setAgentType] = useState<AgentType>('normal');
   const [useWorktree, setUseWorktree] = useState(false);
   const [worktreeName, setWorktreeName] = useState('');
   const [step, setStep] = useState<InputStep>('title');
@@ -573,21 +608,28 @@ const PromptInput = ({ onSubmit, onCancel }: {
 
     if (key.return) {
       if (step === 'title' && title) { setStep('prompt'); return; }
-      if (step === 'prompt' && prompt) {
+      if (step === 'prompt' && prompt) { setStep('agentType'); return; }
+      if (step === 'agentType') {
         if (gitRoot) { setStep('worktree'); return; }
-        onSubmit(prompt, title, { enabled: false, name: '' });
+        onSubmit(prompt, title, agentType, { enabled: false, name: '' });
         return;
       }
       if (step === 'worktree') {
         if (useWorktree) { setStep('worktreeName'); return; }
-        onSubmit(prompt, title, { enabled: false, name: '' });
+        onSubmit(prompt, title, agentType, { enabled: false, name: '' });
         return;
       }
       if (step === 'worktreeName') {
         const name = worktreeName.trim() || autoName;
-        onSubmit(prompt, title, { enabled: true, name });
+        onSubmit(prompt, title, agentType, { enabled: true, name });
         return;
       }
+    }
+
+    if (step === 'agentType') {
+      if (input === '1') { setAgentType('normal'); return; }
+      if (input === '2') { setAgentType('planning'); return; }
+      if (input === '3') { setAgentType('auto-accept'); return; }
     }
 
     if (step === 'worktree' && (input === 'y' || input === 'Y')) { setUseWorktree(true); return; }
@@ -600,7 +642,7 @@ const PromptInput = ({ onSubmit, onCancel }: {
       return;
     }
 
-    if (input && !key.ctrl && !key.meta && step !== 'worktree') {
+    if (input && !key.ctrl && !key.meta && step !== 'agentType' && step !== 'worktree') {
       if (step === 'title') setTitle(t => t + input);
       else if (step === 'prompt') setPrompt(p => p + input);
       else if (step === 'worktreeName') setWorktreeName(n => n + input);
@@ -623,6 +665,23 @@ const PromptInput = ({ onSubmit, onCancel }: {
           {step === 'title' ? '○' : step === 'prompt' ? '>' : '+'} Prompt:{' '}
         </Text>
         <Text dimColor={step === 'title'}>{prompt}<Text color="cyan">{step === 'prompt' ? '▋' : ''}</Text></Text>
+      </Box>
+
+      <Box marginTop={1}>
+        <Text color={step === 'agentType' ? 'cyan' : step === 'title' || step === 'prompt' ? 'gray' : 'green'}>
+          {(step === 'title' || step === 'prompt') ? '○' : step === 'agentType' ? '▸' : '✓'} Agent Type:{' '}
+        </Text>
+        {step === 'agentType' ? (
+          <Box flexDirection="column">
+            <Text>[<Text color={agentType === 'normal' ? 'cyan' : 'white'} bold={agentType === 'normal'}>1</Text>] Normal (ask for permissions)</Text>
+            <Text>[<Text color={agentType === 'planning' ? 'cyan' : 'white'} bold={agentType === 'planning'}>2</Text>] Planning (plan before executing)</Text>
+            <Text>[<Text color={agentType === 'auto-accept' ? 'cyan' : 'white'} bold={agentType === 'auto-accept'}>3</Text>] Auto-accept (no permission prompts)</Text>
+          </Box>
+        ) : (
+          <Text dimColor={step === 'title' || step === 'prompt'}>
+            {agentType === 'normal' ? 'Normal' : agentType === 'planning' ? 'Planning' : 'Auto-accept'}
+          </Text>
+        )}
       </Box>
 
       {gitRoot && (
@@ -722,7 +781,7 @@ const App = () => {
     };
   }, []);
 
-  const createAgent = (prompt: string, title: string, worktree: { enabled: boolean; name: string }) => {
+  const createAgent = (prompt: string, title: string, agentType: AgentType, worktree: { enabled: boolean; name: string }) => {
     let workDir = process.cwd();
     let worktreeName: string | undefined;
 
@@ -738,11 +797,13 @@ const App = () => {
     const agent: Agent = {
       id, title, prompt, status: 'working', output: [], workDir, worktreeName,
       createdAt: new Date(), updatedAt: new Date(),
+      agentType,
+      autoAcceptPermissions: false,
     };
     dispatch({ type: 'ADD_AGENT', agent });
 
     // Spawn the agent asynchronously
-    agentManager.spawn(id, prompt, workDir);
+    agentManager.spawn(id, prompt, workDir, agentType, false);
 
     const entry: HistoryEntry = { id, title, prompt, date: new Date(), workDir };
     const newHistory = [entry, ...state.history.filter(h => h.prompt !== prompt)].slice(0, 5);
@@ -756,9 +817,21 @@ const App = () => {
       debug('Found agent:', { id: agent?.id, hasPendingPermission: !!agent?.pendingPermission });
       if (agent?.pendingPermission) {
         debug('Resolving permission with:', allowed);
-        // Call the resolve function to unblock the SDK
         agent.pendingPermission.resolve(allowed);
-        // Update UI state
+        dispatch({ type: 'SET_PERMISSION', id: detailAgentId, permission: undefined });
+      }
+    }
+  };
+
+  const handleAlwaysAllow = () => {
+    debug('handleAlwaysAllow called:', { detailAgentId });
+    if (detailAgentId) {
+      const agent = state.agents.find(a => a.id === detailAgentId);
+      if (agent?.pendingPermission) {
+        debug('Setting auto-accept for agent:', detailAgentId);
+        agent.pendingPermission.resolve(true);
+        agentManager.setAutoAccept(detailAgentId, true);
+        dispatch({ type: 'UPDATE_AGENT', id: detailAgentId, updates: { autoAcceptPermissions: true } });
         dispatch({ type: 'SET_PERMISSION', id: detailAgentId, permission: undefined });
       }
     }
@@ -784,7 +857,7 @@ const App = () => {
         setMode('detail');
       } else {
         const entry = state.history[idx] as HistoryEntry;
-        createAgent(entry.prompt, entry.title, { enabled: false, name: '' });
+        createAgent(entry.prompt, entry.title, 'normal', { enabled: false, name: '' });
         setTab('inbox');
       }
     }
@@ -819,6 +892,7 @@ const App = () => {
         agent={detailAgent}
         onBack={() => setMode('normal')}
         onPermissionResponse={handlePermissionResponse}
+        onAlwaysAllow={handleAlwaysAllow}
       />
     );
   }
@@ -842,7 +916,7 @@ const App = () => {
       <Box flexDirection="column" minHeight={15} marginTop={1}>
         {mode === 'input' ? (
           <PromptInput
-            onSubmit={(p, t, wt) => { createAgent(p, t, wt); setMode('normal'); setTab('inbox'); }}
+            onSubmit={(p, t, at, wt) => { createAgent(p, t, at, wt); setMode('normal'); setTab('inbox'); }}
             onCancel={() => setMode('normal')}
           />
         ) : tab === 'inbox' ? (
