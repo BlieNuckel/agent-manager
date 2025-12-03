@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Box, Text, useInput } from 'ink';
 import type { AgentType, InputStep } from '../types';
 import type { SlashCommand } from '@anthropic-ai/claude-agent-sdk';
-import { getGitRoot, generateWorktreeName } from '../git/worktree';
+import { getGitRoot } from '../git/worktree';
 import { AgentSDKManager } from '../agent/manager';
 import { SlashCommandMenu } from './SlashCommandMenu';
 
@@ -15,7 +15,6 @@ export const PromptInput = ({ onSubmit, onCancel }: {
   const [useWorktree, setUseWorktree] = useState(false);
   const [worktreeName, setWorktreeName] = useState('');
   const [step, setStep] = useState<InputStep>('prompt');
-  const [autoName] = useState(generateWorktreeName);
   const [gitRoot] = useState(() => getGitRoot());
   const [slashCommands, setSlashCommands] = useState<SlashCommand[]>([]);
   const [showSlashMenu, setShowSlashMenu] = useState(false);
@@ -94,7 +93,7 @@ export const PromptInput = ({ onSubmit, onCancel }: {
         return;
       }
       if (step === 'worktreeName') {
-        const name = worktreeName.trim() || autoName;
+        const name = worktreeName.trim();
         onSubmit(prompt, agentType, { enabled: true, name });
         return;
       }
@@ -185,7 +184,7 @@ export const PromptInput = ({ onSubmit, onCancel }: {
                   {worktreeName || ''}
                   <Text color="cyan">{step === 'worktreeName' ? '▋' : ''}</Text>
                   {step === 'worktreeName' && !worktreeName && (
-                    <Text dimColor> (empty for auto: {autoName})</Text>
+                    <Text dimColor> (empty to auto-generate from task)</Text>
                   )}
                 </Text>
               </Box>

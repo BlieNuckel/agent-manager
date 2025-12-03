@@ -1,6 +1,8 @@
 import { execSync } from 'child_process';
 import * as path from 'path';
+import * as fs from 'fs';
 import { debug } from '../utils/logger';
+import { query } from '@anthropic-ai/claude-agent-sdk';
 
 export function getGitRoot(): string | null {
   try {
@@ -18,104 +20,202 @@ export function getCurrentBranch(): string {
   }
 }
 
-export function generateWorktreeName(): string {
-  const adjectives = ['swift', 'brave', 'calm', 'keen', 'bold', 'wise', 'fair', 'warm'];
-  const nouns = ['fox', 'owl', 'bear', 'wolf', 'hawk', 'deer', 'lion', 'dove'];
-  const adj = adjectives[Math.floor(Math.random() * adjectives.length)];
-  const noun = nouns[Math.floor(Math.random() * nouns.length)];
-  const num = Math.floor(Math.random() * 100);
-  return `${adj}-${noun}-${num}`;
+interface WorktreeAgent {
+  abort: () => void;
+  run: () => Promise<{ success: boolean; path?: string; error?: string }>;
 }
 
-export function createWorktree(name: string): { success: boolean; path: string; error?: string } {
+export async function createWorktreeWithAgent(
+  taskDescription: string,
+  suggestedName?: string
+): Promise<{ success: boolean; path: string; error?: string; name: string }> {
   const gitRoot = getGitRoot();
-  if (!gitRoot) return { success: false, path: '', error: 'Not in a git repository' };
+  if (!gitRoot) return { success: false, path: '', error: 'Not in a git repository', name: '' };
 
-  const worktreePath = path.join(path.dirname(gitRoot), name);
-  const branch = getCurrentBranch();
+  const promptPath = path.join(gitRoot, '.claude', 'prompts', 'worktree-agent.md');
+  let worktreePrompt = '';
 
   try {
-    execSync(`git worktree add -b ${name} "${worktreePath}" ${branch}`, {
-      encoding: 'utf8',
-      stdio: ['pipe', 'pipe', 'pipe'],
+    if (fs.existsSync(promptPath)) {
+      worktreePrompt = fs.readFileSync(promptPath, 'utf8');
+    }
+  } catch (e) {
+    debug('Could not load worktree agent prompt:', e);
+  }
+
+  const prompt = `${worktreePrompt}
+
+## Task
+
+Create a new git worktree for the following task:
+${taskDescription}
+
+${suggestedName ? `Suggested name: ${suggestedName}` : 'Please generate a sensible name based on the task description.'}
+
+Instructions:
+1. Check the current git repository status
+2. ${suggestedName ? `Use the name "${suggestedName}"` : 'Generate a descriptive kebab-case name (2-4 words) based on the task'}
+3. Create the worktree in a sibling directory to the current repository
+4. Report back with [SUCCESS] and the worktree path, or [ERROR] if something fails
+
+Current repository: ${gitRoot}`;
+
+  const abortController = new AbortController();
+
+  try {
+    const q = query({
+      prompt,
+      options: {
+        cwd: gitRoot,
+        abortController,
+      },
     });
-    return { success: true, path: worktreePath };
+
+    let worktreePath = '';
+    let worktreeName = suggestedName || '';
+    let error = '';
+
+    for await (const message of q) {
+      if (message.type === 'assistant') {
+        for (const content of message.message.content) {
+          if (content.type === 'text') {
+            const text = content.text;
+
+            if (text.includes('[SUCCESS]')) {
+              const pathMatch = text.match(/path[:\s]+([^\s\n]+)/i);
+              if (pathMatch) {
+                worktreePath = pathMatch[1];
+              }
+
+              if (!worktreeName) {
+                const nameMatch = text.match(/(?:name|branch)[:\s]+([^\s\n]+)/i);
+                if (nameMatch) {
+                  worktreeName = nameMatch[1];
+                }
+              }
+            } else if (text.includes('[ERROR]')) {
+              const errorMatch = text.match(/\[ERROR\]\s*(.+)/i);
+              if (errorMatch) {
+                error = errorMatch[1];
+              }
+            }
+          }
+        }
+      }
+    }
+
+    if (worktreePath && worktreeName) {
+      return { success: true, path: worktreePath, name: worktreeName };
+    } else if (error) {
+      return { success: false, path: '', error, name: '' };
+    } else {
+      return { success: false, path: '', error: 'Agent did not report success or failure', name: '' };
+    }
   } catch (e: any) {
-    return { success: false, path: '', error: e.message };
+    abortController.abort();
+    return { success: false, path: '', error: e.message, name: '' };
   }
 }
 
-export function attemptAutoMerge(worktreeName: string, gitRoot: string): { success: boolean; conflict: boolean; error?: string } {
-  const branch = getCurrentBranch();
+interface MergeResult {
+  success: boolean;
+  conflict: boolean;
+  error?: string;
+  needsConfirmation?: boolean;
+}
+
+export async function attemptAutoMergeWithAgent(
+  worktreeName: string,
+  gitRoot: string,
+  autoConfirm: boolean = false
+): Promise<MergeResult> {
+  const promptPath = path.join(gitRoot, '.claude', 'prompts', 'worktree-agent.md');
+  let worktreePrompt = '';
 
   try {
-    execSync(`git merge --no-commit --no-ff ${worktreeName}`, {
-      cwd: gitRoot,
-      encoding: 'utf8',
-      stdio: ['pipe', 'pipe', 'pipe'],
-    });
+    if (fs.existsSync(promptPath)) {
+      worktreePrompt = fs.readFileSync(promptPath, 'utf8');
+    }
+  } catch (e) {
+    debug('Could not load worktree agent prompt:', e);
+  }
 
-    const status = execSync('git status --porcelain', {
-      cwd: gitRoot,
-      encoding: 'utf8',
-      stdio: ['pipe', 'pipe', 'pipe'],
-    });
+  const prompt = `${worktreePrompt}
 
-    if (status.includes('UU ') || status.includes('AA ') || status.includes('DD ')) {
-      execSync('git merge --abort', {
+## Task
+
+Check if the worktree branch "${worktreeName}" can be merged without conflicts, and ${autoConfirm ? 'if yes, merge it automatically' : 'report the status'}.
+
+Instructions:
+1. Check for merge conflicts by attempting a test merge
+2. If conflicts exist, report [CONFLICT] with the list of conflicting files
+3. If no conflicts exist:
+   ${autoConfirm ?
+     '- Perform the merge with message "Merge worktree: ' + worktreeName + '"' +
+     '\n   - Clean up the worktree and delete the branch' +
+     '\n   - Report [MERGED] when complete' :
+     '- Abort the test merge\n   - Report [READY_TO_MERGE]'
+   }
+
+Current repository: ${gitRoot}
+Branch to merge: ${worktreeName}`;
+
+  const abortController = new AbortController();
+
+  try {
+    const q = query({
+      prompt,
+      options: {
         cwd: gitRoot,
-        encoding: 'utf8',
-        stdio: ['pipe', 'pipe', 'pipe'],
-      });
-      return { success: false, conflict: true, error: 'Merge conflicts detected' };
+        abortController,
+      },
+    });
+
+    let hasConflict = false;
+    let merged = false;
+    let error = '';
+    let readyToMerge = false;
+
+    for await (const message of q) {
+      if (message.type === 'assistant') {
+        for (const content of message.message.content) {
+          if (content.type === 'text') {
+            const text = content.text;
+
+            if (text.includes('[CONFLICT]')) {
+              hasConflict = true;
+              const errorMatch = text.match(/\[CONFLICT\]\s*(.+)/i);
+              if (errorMatch) {
+                error = errorMatch[1];
+              }
+            } else if (text.includes('[MERGED]')) {
+              merged = true;
+            } else if (text.includes('[READY_TO_MERGE]')) {
+              readyToMerge = true;
+            } else if (text.includes('[ERROR]')) {
+              const errorMatch = text.match(/\[ERROR\]\s*(.+)/i);
+              if (errorMatch) {
+                error = errorMatch[1];
+              }
+            }
+          }
+        }
+      }
     }
 
-    execSync('git add .', {
-      cwd: gitRoot,
-      encoding: 'utf8',
-      stdio: ['pipe', 'pipe', 'pipe'],
-    });
-
-    execSync(`git commit -m "Auto-merge worktree: ${worktreeName}"`, {
-      cwd: gitRoot,
-      encoding: 'utf8',
-      stdio: ['pipe', 'pipe', 'pipe'],
-    });
-
-    return { success: true, conflict: false };
+    if (hasConflict) {
+      return { success: false, conflict: true, error: error || 'Merge conflicts detected' };
+    } else if (merged) {
+      return { success: true, conflict: false };
+    } else if (readyToMerge) {
+      return { success: false, conflict: false, needsConfirmation: true };
+    } else if (error) {
+      return { success: false, conflict: false, error };
+    } else {
+      return { success: false, conflict: false, error: 'Agent did not report merge status' };
+    }
   } catch (e: any) {
-    try {
-      execSync('git merge --abort', {
-        cwd: gitRoot,
-        encoding: 'utf8',
-        stdio: ['pipe', 'pipe', 'pipe'],
-      });
-    } catch {}
-
-    if (e.message.includes('CONFLICT') || e.message.includes('conflict')) {
-      return { success: false, conflict: true, error: 'Merge conflicts detected' };
-    }
-
+    abortController.abort();
     return { success: false, conflict: false, error: e.message };
-  }
-}
-
-export function cleanupWorktree(worktreeName: string, gitRoot: string): void {
-  const worktreePath = path.join(path.dirname(gitRoot), worktreeName);
-
-  try {
-    execSync(`git worktree remove "${worktreePath}"`, {
-      cwd: gitRoot,
-      encoding: 'utf8',
-      stdio: ['pipe', 'pipe', 'pipe'],
-    });
-
-    execSync(`git branch -d ${worktreeName}`, {
-      cwd: gitRoot,
-      encoding: 'utf8',
-      stdio: ['pipe', 'pipe', 'pipe'],
-    });
-  } catch (e: any) {
-    debug('Worktree cleanup error:', e.message);
   }
 }

@@ -4,7 +4,7 @@ import type { Agent, AgentType, HistoryEntry, Mode, PermissionRequest } from '..
 import { reducer } from '../state/reducer';
 import { loadHistory, saveHistory } from '../state/history';
 import { AgentSDKManager } from '../agent/manager';
-import { getGitRoot, createWorktree, attemptAutoMerge, cleanupWorktree } from '../git/worktree';
+import { getGitRoot, createWorktreeWithAgent, attemptAutoMergeWithAgent } from '../git/worktree';
 import { genId } from '../utils/helpers';
 import { debug } from '../utils/logger';
 import { Tab } from './Tab';
@@ -27,7 +27,7 @@ export const App = () => {
 
   useEffect(() => {
     const onOutput = (id: string, line: string) => dispatch({ type: 'APPEND_OUTPUT', id, line });
-    const onDone = (id: string, code: number) => {
+    const onDone = async (id: string, code: number) => {
       dispatch({ type: 'SET_PERMISSION', id, permission: undefined });
       dispatch({ type: 'UPDATE_AGENT', id, updates: { status: code === 0 ? 'done' : 'error' } });
 
@@ -37,19 +37,46 @@ export const App = () => {
           const gitRoot = getGitRoot();
           if (gitRoot) {
             dispatch({ type: 'UPDATE_AGENT', id, updates: { mergeStatus: 'pending' } });
+            dispatch({ type: 'APPEND_OUTPUT', id, line: `[>] Checking if branch can be merged...` });
 
-            const mergeResult = attemptAutoMerge(agent.worktreeName, gitRoot);
+            try {
+              const mergeResult = await attemptAutoMergeWithAgent(agent.worktreeName, gitRoot, false);
 
-            if (mergeResult.success) {
-              dispatch({ type: 'UPDATE_AGENT', id, updates: { mergeStatus: 'merged' } });
-              dispatch({ type: 'APPEND_OUTPUT', id, line: `[✓] Successfully merged to main branch` });
-              cleanupWorktree(agent.worktreeName, gitRoot);
-            } else if (mergeResult.conflict) {
-              dispatch({ type: 'UPDATE_AGENT', id, updates: { mergeStatus: 'conflict', mergeError: mergeResult.error } });
-              dispatch({ type: 'APPEND_OUTPUT', id, line: `[!] Merge conflicts detected - requires manual resolution` });
-            } else {
-              dispatch({ type: 'UPDATE_AGENT', id, updates: { mergeStatus: 'failed', mergeError: mergeResult.error } });
-              dispatch({ type: 'APPEND_OUTPUT', id, line: `[x] Merge failed: ${mergeResult.error}` });
+              if (mergeResult.needsConfirmation) {
+                dispatch({ type: 'APPEND_OUTPUT', id, line: `[!] Branch is ready to merge - awaiting confirmation` });
+                dispatch({ type: 'SET_MERGE_CONFIRMATION', id, confirmation: {
+                  worktreeName: agent.worktreeName,
+                  gitRoot,
+                  resolve: async (confirmed: boolean) => {
+                    dispatch({ type: 'SET_MERGE_CONFIRMATION', id, confirmation: undefined });
+
+                    if (confirmed) {
+                      dispatch({ type: 'APPEND_OUTPUT', id, line: `[>] Merging branch...` });
+                      const finalMerge = await attemptAutoMergeWithAgent(agent.worktreeName!, gitRoot, true);
+
+                      if (finalMerge.success) {
+                        dispatch({ type: 'UPDATE_AGENT', id, updates: { mergeStatus: 'merged' } });
+                        dispatch({ type: 'APPEND_OUTPUT', id, line: `[✓] Successfully merged and cleaned up` });
+                      } else {
+                        dispatch({ type: 'UPDATE_AGENT', id, updates: { mergeStatus: 'failed', mergeError: finalMerge.error } });
+                        dispatch({ type: 'APPEND_OUTPUT', id, line: `[x] Merge failed: ${finalMerge.error}` });
+                      }
+                    } else {
+                      dispatch({ type: 'UPDATE_AGENT', id, updates: { mergeStatus: 'pending' } });
+                      dispatch({ type: 'APPEND_OUTPUT', id, line: `[-] Merge cancelled by user` });
+                    }
+                  }
+                }});
+              } else if (mergeResult.conflict) {
+                dispatch({ type: 'UPDATE_AGENT', id, updates: { mergeStatus: 'conflict', mergeError: mergeResult.error } });
+                dispatch({ type: 'APPEND_OUTPUT', id, line: `[!] Merge conflicts detected - requires manual resolution` });
+              } else if (mergeResult.error) {
+                dispatch({ type: 'UPDATE_AGENT', id, updates: { mergeStatus: 'failed', mergeError: mergeResult.error } });
+                dispatch({ type: 'APPEND_OUTPUT', id, line: `[x] Merge check failed: ${mergeResult.error}` });
+              }
+            } catch (e: any) {
+              dispatch({ type: 'UPDATE_AGENT', id, updates: { mergeStatus: 'failed', mergeError: e.message } });
+              dispatch({ type: 'APPEND_OUTPUT', id, line: `[x] Merge error: ${e.message}` });
             }
           }
         }
@@ -92,15 +119,17 @@ export const App = () => {
     };
   }, [state.history]);
 
-  const createAgent = (prompt: string, agentType: AgentType, worktree: { enabled: boolean; name: string }) => {
+  const createAgent = async (prompt: string, agentType: AgentType, worktree: { enabled: boolean; name: string }) => {
     let workDir = process.cwd();
     let worktreeName: string | undefined;
 
     if (worktree.enabled) {
-      const result = createWorktree(worktree.name);
+      const result = await createWorktreeWithAgent(prompt, worktree.name || undefined);
       if (result.success) {
         workDir = result.path;
-        worktreeName = worktree.name;
+        worktreeName = result.name;
+      } else {
+        debug('Failed to create worktree:', result.error);
       }
     }
 
@@ -144,6 +173,18 @@ export const App = () => {
         agentManager.setAutoAccept(detailAgentId, true);
         dispatch({ type: 'UPDATE_AGENT', id: detailAgentId, updates: { autoAcceptPermissions: true } });
         dispatch({ type: 'SET_PERMISSION', id: detailAgentId, permission: undefined });
+      }
+    }
+  };
+
+  const handleMergeConfirmationResponse = (confirmed: boolean) => {
+    debug('handleMergeConfirmationResponse called:', { detailAgentId, confirmed });
+    if (detailAgentId) {
+      const agent = state.agents.find(a => a.id === detailAgentId);
+      debug('Found agent:', { id: agent?.id, hasPendingMergeConfirmation: !!agent?.pendingMergeConfirmation });
+      if (agent?.pendingMergeConfirmation) {
+        debug('Resolving merge confirmation with:', confirmed);
+        agent.pendingMergeConfirmation.resolve(confirmed);
       }
     }
   };
@@ -204,6 +245,7 @@ export const App = () => {
         onBack={() => setMode('normal')}
         onPermissionResponse={handlePermissionResponse}
         onAlwaysAllow={handleAlwaysAllow}
+        onMergeConfirmationResponse={handleMergeConfirmationResponse}
       />
     );
   }
