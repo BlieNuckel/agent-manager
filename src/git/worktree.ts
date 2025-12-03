@@ -109,11 +109,19 @@ export async function attemptAutoMergeWithAgent(
         return prefix === 'UU' || prefix === 'AA' || prefix === 'DD';
       });
 
-      execSync('git merge --abort', {
-        cwd: gitRoot,
-        encoding: 'utf8',
-        stdio: ['pipe', 'pipe', 'pipe']
-      });
+      try {
+        execSync('git merge --abort', {
+          cwd: gitRoot,
+          encoding: 'utf8',
+          stdio: ['pipe', 'pipe', 'pipe']
+        });
+      } catch {
+        execSync('git reset --merge', {
+          cwd: gitRoot,
+          encoding: 'utf8',
+          stdio: ['pipe', 'pipe', 'pipe']
+        });
+      }
 
       if (hasConflicts) {
         debug('Merge conflicts detected');

@@ -63,9 +63,6 @@ export const PromptInput = ({ onSubmit, onCancel }: {
         if (slashSearchQuery.length > 0) {
           setSlashSearchQuery(q => q.slice(0, -1));
           setSlashSelectedIndex(0);
-        } else {
-          setShowSlashMenu(false);
-          setPrompt(p => p.slice(0, -1));
         }
         return;
       }
@@ -80,6 +77,29 @@ export const PromptInput = ({ onSubmit, onCancel }: {
     }
 
     if (key.escape) { onCancel(); return; }
+
+    if (key.leftArrow) {
+      if (step === 'agentType') {
+        setStep('prompt');
+        return;
+      } else if (step === 'worktree') {
+        setStep('agentType');
+        return;
+      } else if (step === 'worktreeName') {
+        setStep('worktree');
+        return;
+      }
+    }
+
+    if (key.return) {
+      if (step === 'agentType') {
+        handleAgentTypeReturn();
+        return;
+      } else if (step === 'worktree') {
+        handleWorktreeReturn();
+        return;
+      }
+    }
 
     if (step === 'agentType') {
       if (input === '1') { setAgentType('normal'); return; }
@@ -103,7 +123,14 @@ export const PromptInput = ({ onSubmit, onCancel }: {
   };
 
   const handlePromptChange = (value: string) => {
+    if (showSlashMenu && !value.startsWith('/')) {
+      setShowSlashMenu(false);
+      setSlashSearchQuery('');
+      setSlashSelectedIndex(0);
+    }
+
     setPrompt(value);
+
     if (value.startsWith('/') && value.length === 1 && !showSlashMenu) {
       setShowSlashMenu(true);
       setSlashSearchQuery('');
@@ -126,16 +153,6 @@ export const PromptInput = ({ onSubmit, onCancel }: {
       onSubmit(prompt, agentType, { enabled: false, name: '' });
     }
   };
-
-  useInput((input, key) => {
-    if (key.return) {
-      if (step === 'agentType') {
-        handleAgentTypeReturn();
-      } else if (step === 'worktree') {
-        handleWorktreeReturn();
-      }
-    }
-  }, { isActive: step === 'agentType' || step === 'worktree' });
 
   return (
     <>
@@ -209,7 +226,11 @@ export const PromptInput = ({ onSubmit, onCancel }: {
         )}
 
         <Box marginTop={1}>
-          <Text dimColor>Enter to continue • Esc to cancel{step === 'prompt' && ' • Type / for slash commands'}</Text>
+          <Text dimColor>
+            Enter to continue • Esc to cancel
+            {step !== 'prompt' && ' • ← to go back'}
+            {step === 'prompt' && ' • Type / for slash commands'}
+          </Text>
         </Box>
       </Box>
 

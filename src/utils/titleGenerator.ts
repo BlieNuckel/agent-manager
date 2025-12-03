@@ -1,31 +1,52 @@
-import Anthropic from '@anthropic-ai/sdk';
 import { debug } from './logger';
-
-const client = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY,
-});
+import { execSync } from 'child_process';
 
 export async function generateTitle(prompt: string): Promise<string> {
   try {
-    debug('Generating title for prompt:', prompt.slice(0, 100));
+    const truncatedPrompt = prompt.slice(0, 500);
+    debug('generateTitle: Starting title generation');
+    debug('generateTitle: Input prompt (first 200 chars):', prompt.slice(0, 200));
 
-    const message = await client.messages.create({
-      model: 'claude-3-5-haiku-20241022',
-      max_tokens: 100,
-      messages: [{
-        role: 'user',
-        content: `Create a short, descriptive title (maximum 50 characters) for this task. Respond with ONLY the title text, no quotes, no explanations:\n\n${prompt}`
-      }]
+    const taskPrompt = `Generate a concise, descriptive title for this task or request. The title should be 3-8 words that capture the main action or goal. Do not use quotes, punctuation at the end, or explanatory text. Just output the title.
+
+Task: ${truncatedPrompt}`;
+
+    const escapedPrompt = taskPrompt.replace(/'/g, "'\\''").replace(/\n/g, '\\n');
+
+    const command = `claude task --model haiku --prompt '${escapedPrompt}'`;
+
+    debug('generateTitle: Executing Claude Code task with haiku model');
+
+    const result = execSync(command, {
+      encoding: 'utf8',
+      maxBuffer: 10 * 1024 * 1024,
+      timeout: 30000
     });
 
-    const text = message.content[0]?.type === 'text' ? message.content[0].text : '';
-    const title = text.trim().replace(/^["']|["']$/g, '').slice(0, 60);
+    debug('generateTitle: Task completed');
+    debug('generateTitle: Raw result:', result);
 
-    debug('Generated title:', title);
-    return title || 'Untitled Task';
+    const cleanedTitle = result
+      .trim()
+      .replace(/^["'\[\(\{]+|["'\]\)\}]+$/g, '')
+      .replace(/\n.*/g, '')
+      .slice(0, 60);
+
+    debug('generateTitle: Cleaned title:', cleanedTitle);
+
+    if (!cleanedTitle || cleanedTitle.length < 3) {
+      debug('generateTitle: Title too short, using fallback');
+      const fallback = prompt.split('\n')[0].slice(0, 60).trim();
+      debug('generateTitle: Fallback title:', fallback);
+      return fallback || 'Untitled Task';
+    }
+
+    return cleanedTitle;
   } catch (error) {
-    debug('Error generating title:', error);
-    const fallback = prompt.split('\n')[0].slice(0, 60);
+    debug('generateTitle: ERROR occurred:', error);
+    debug('generateTitle: Error details:', JSON.stringify(error, null, 2));
+    const fallback = prompt.split('\n')[0].slice(0, 60).trim();
+    debug('generateTitle: Using fallback due to error:', fallback);
     return fallback || 'Untitled Task';
   }
 }
