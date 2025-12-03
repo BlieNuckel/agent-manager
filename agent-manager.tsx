@@ -217,7 +217,7 @@ class AgentSDKManager extends EventEmitter {
           // For dangerous tools, ask for permission via the UI
           if (permissionRequiredTools.includes(toolName)) {
             debug('Requesting permission for tool:', toolName);
-            this.emit('output', id, `⏸ Permission required for: ${toolName}`);
+            this.emit('output', id, `[!] Permission required for: ${toolName}`);
 
             const result = await new Promise<boolean>((resolvePermission) => {
               this.emit('permissionRequest', id, {
@@ -228,7 +228,7 @@ class AgentSDKManager extends EventEmitter {
             });
 
             debug('Permission result:', { toolName, allowed: result });
-            this.emit('output', id, result ? `✅ Allowed: ${toolName}` : `🚫 Denied: ${toolName}`);
+            this.emit('output', id, result ? `[+] Allowed: ${toolName}` : `[-] Denied: ${toolName}`);
 
             if (result) {
               return { behavior: 'allow', updatedInput: toolInput };
@@ -289,11 +289,11 @@ class AgentSDKManager extends EventEmitter {
             }
           } else if (content.type === 'tool_use') {
             debug('Tool use in assistant message:', { name: content.name, id: content.id });
-            this.emit('output', id, `🔧 Using tool: ${content.name}`);
+            this.emit('output', id, `[>] Using tool: ${content.name}`);
           } else if (content.type === 'tool_result') {
             debug('Tool result:', { tool_use_id: (content as any).tool_use_id, is_error: (content as any).is_error });
             if ((content as any).is_error) {
-              this.emit('output', id, `❌ Tool error: ${(content as any).content || 'Unknown error'}`);
+              this.emit('output', id, `[x] Tool error: ${(content as any).content || 'Unknown error'}`);
             }
           }
         }
@@ -302,9 +302,9 @@ class AgentSDKManager extends EventEmitter {
       case 'result':
         debug('Result message:', { subtype: message.subtype, error: (message as any).error });
         if (message.subtype === 'success') {
-          this.emit('output', id, '✅ Task completed successfully');
+          this.emit('output', id, '[+] Task completed successfully');
         } else if (message.subtype === 'error') {
-          this.emit('output', id, `❌ Error: ${message.error}`);
+          this.emit('output', id, `[x] Error: ${message.error}`);
         }
         break;
 
@@ -367,8 +367,8 @@ const StatusBadge = ({ status }: { status: Status }) => {
   const cfg: Record<Status, { color: string; icon: string; label: string }> = {
     working: { color: 'yellow', icon: '', label: 'Working' },
     waiting: { color: 'cyan', icon: '?', label: 'Waiting' },
-    done: { color: 'green', icon: '✓', label: 'Done' },
-    error: { color: 'red', icon: '✗', label: 'Error' },
+    done: { color: 'green', icon: '+', label: 'Done' },
+    error: { color: 'red', icon: 'x', label: 'Error' },
   };
   const { color, icon, label } = cfg[status];
 
@@ -394,18 +394,18 @@ const Tab = ({ label, active, count }: { label: string; active: boolean; count?:
 const AgentItem = ({ agent, selected }: { agent: Agent; selected: boolean }) => (
   <Box flexDirection="column" marginBottom={1}>
     <Box>
-      <Text color={selected ? 'cyan' : 'white'} bold={selected}>{selected ? '❯ ' : '  '}</Text>
+      <Text color={selected ? 'cyan' : 'white'} bold={selected}>{selected ? '> ' : '  '}</Text>
       <StatusBadge status={agent.status} />
       <Text bold={selected} color={selected ? 'cyan' : 'white'}> {agent.title}</Text>
       <Text dimColor> ({formatTime(agent.updatedAt)})</Text>
-      {agent.pendingPermission && <Text color="yellow"> ⚠ Permission needed</Text>}
+      {agent.pendingPermission && <Text color="yellow"> [!] Permission needed</Text>}
     </Box>
     <Box marginLeft={14}>
       <Text dimColor wrap="truncate">{agent.prompt.slice(0, 60)}{agent.prompt.length > 60 ? '...' : ''}</Text>
     </Box>
     {agent.worktreeName && (
       <Box marginLeft={14}>
-        <Text color="magenta">⎇ {agent.worktreeName}</Text>
+        <Text color="magenta">* {agent.worktreeName}</Text>
       </Box>
     )}
   </Box>
@@ -413,7 +413,7 @@ const AgentItem = ({ agent, selected }: { agent: Agent; selected: boolean }) => 
 
 const HistoryItem = ({ entry, selected }: { entry: HistoryEntry; selected: boolean }) => (
   <Box>
-    <Text color={selected ? 'cyan' : 'white'} bold={selected}>{selected ? '❯ ' : '  '}</Text>
+    <Text color={selected ? 'cyan' : 'white'} bold={selected}>{selected ? '> ' : '  '}</Text>
     <Box width={35}><Text bold={selected} color={selected ? 'cyan' : 'white'}>{entry.title}</Text></Box>
     <Box width={12}><Text dimColor>{formatTimeAgo(entry.date)}</Text></Box>
     <Text dimColor wrap="truncate">{entry.prompt.slice(0, 30)}...</Text>
@@ -437,7 +437,7 @@ const PermissionPrompt = ({ permission, onResponse }: {
 
   return (
     <Box flexDirection="column" borderStyle="round" borderColor="yellow" padding={1} marginTop={1}>
-      <Text color="yellow" bold>⚠ Permission Request</Text>
+      <Text color="yellow" bold>[!] Permission Request</Text>
       <Box marginTop={1}>
         <Text>Tool: </Text>
         <Text color="cyan" bold>{permission.toolName}</Text>
@@ -501,7 +501,7 @@ const DetailView = ({ agent, onBack, onPermissionResponse }: {
       <Box borderStyle="single" borderColor={agent.pendingPermission ? 'yellow' : 'cyan'} paddingX={1} marginBottom={1}>
         <StatusBadge status={agent.status} />
         <Text bold color={agent.pendingPermission ? 'yellow' : 'cyan'}> {agent.title}</Text>
-        {agent.worktreeName && <Text color="magenta"> ⎇ {agent.worktreeName}</Text>}
+        {agent.worktreeName && <Text color="magenta"> * {agent.worktreeName}</Text>}
         {agent.sessionId && <Text dimColor> (session: {agent.sessionId.slice(0, 8)}...)</Text>}
       </Box>
 
@@ -524,11 +524,12 @@ const DetailView = ({ agent, onBack, onPermissionResponse }: {
         ) : (
           displayedLines.map((line, i) => (
             <Text key={scrollOffset + i} wrap="truncate">
-              {line.startsWith('❌') ? <Text color="red">{line}</Text> :
-                line.startsWith('✅') ? <Text color="green">{line}</Text> :
-                  line.startsWith('🔧') ? <Text color="blue">{line}</Text> :
-                    line.startsWith('🚫') ? <Text color="yellow">{line}</Text> :
-                      line}
+              {line.startsWith('[x]') ? <Text color="red">{line}</Text> :
+                line.startsWith('[+]') ? <Text color="green">{line}</Text> :
+                  line.startsWith('[>]') ? <Text color="blue">{line}</Text> :
+                    line.startsWith('[-]') ? <Text color="yellow">{line}</Text> :
+                      line.startsWith('[!]') ? <Text color="yellow">{line}</Text> :
+                        line}
             </Text>
           ))
         )}
@@ -612,14 +613,14 @@ const PromptInput = ({ onSubmit, onCancel }: {
 
       <Box marginTop={1}>
         <Text color={step === 'title' ? 'cyan' : 'green'}>
-          {step === 'title' ? '▸' : '✓'} Title:{' '}
+          {step === 'title' ? '>' : '+'} Title:{' '}
         </Text>
         <Text>{title}<Text color="cyan">{step === 'title' ? '▋' : ''}</Text></Text>
       </Box>
 
       <Box marginTop={1}>
         <Text color={step === 'prompt' ? 'cyan' : step === 'title' ? 'gray' : 'green'}>
-          {step === 'title' ? '○' : step === 'prompt' ? '▸' : '✓'} Prompt:{' '}
+          {step === 'title' ? '○' : step === 'prompt' ? '>' : '+'} Prompt:{' '}
         </Text>
         <Text dimColor={step === 'title'}>{prompt}<Text color="cyan">{step === 'prompt' ? '▋' : ''}</Text></Text>
       </Box>
@@ -628,7 +629,7 @@ const PromptInput = ({ onSubmit, onCancel }: {
         <>
           <Box marginTop={1}>
             <Text color={step === 'worktree' ? 'cyan' : step === 'worktreeName' ? 'green' : 'gray'}>
-              {step === 'worktreeName' ? '✓' : step === 'worktree' ? '▸' : '○'} Create worktree?{' '}
+              {step === 'worktreeName' ? '+' : step === 'worktree' ? '>' : '○'} Create worktree?{' '}
             </Text>
             {step === 'worktree' ? (
               <Text>[<Text color={useWorktree ? 'green' : 'white'} bold={useWorktree}>Y</Text>/<Text color={!useWorktree ? 'red' : 'white'} bold={!useWorktree}>N</Text>]</Text>
@@ -640,7 +641,7 @@ const PromptInput = ({ onSubmit, onCancel }: {
           {(step === 'worktreeName' || (useWorktree && step !== 'title' && step !== 'prompt')) && (
             <Box marginTop={1}>
               <Text color={step === 'worktreeName' ? 'cyan' : 'gray'}>
-                {step === 'worktreeName' ? '▸' : '○'} Worktree name:{' '}
+                {step === 'worktreeName' ? '>' : '○'} Worktree name:{' '}
               </Text>
               <Text>
                 {worktreeName || ''}
@@ -695,7 +696,7 @@ const App = () => {
       dispatch({ type: 'UPDATE_AGENT', id, updates: { status: code === 0 ? 'done' : 'error' } });
     };
     const onError = (id: string, msg: string) => {
-      dispatch({ type: 'APPEND_OUTPUT', id, line: `❌ Error: ${msg}` });
+      dispatch({ type: 'APPEND_OUTPUT', id, line: `[x] Error: ${msg}` });
       dispatch({ type: 'UPDATE_AGENT', id, updates: { status: 'error' } });
     };
     const onSessionId = (id: string, sessionId: string) => {
