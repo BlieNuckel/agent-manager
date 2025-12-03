@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Box, Text, useInput } from 'ink';
+import TextInput from 'ink-text-input';
 import type { AgentType, InputStep } from '../types';
 import type { SlashCommand } from '@anthropic-ai/claude-agent-sdk';
 import { getGitRoot } from '../git/worktree';
@@ -80,25 +81,6 @@ export const PromptInput = ({ onSubmit, onCancel }: {
 
     if (key.escape) { onCancel(); return; }
 
-    if (key.return) {
-      if (step === 'prompt' && prompt) { setStep('agentType'); return; }
-      if (step === 'agentType') {
-        if (gitRoot) { setStep('worktree'); return; }
-        onSubmit(prompt, agentType, { enabled: false, name: '' });
-        return;
-      }
-      if (step === 'worktree') {
-        if (useWorktree) { setStep('worktreeName'); return; }
-        onSubmit(prompt, agentType, { enabled: false, name: '' });
-        return;
-      }
-      if (step === 'worktreeName') {
-        const name = worktreeName.trim();
-        onSubmit(prompt, agentType, { enabled: true, name });
-        return;
-      }
-    }
-
     if (step === 'agentType') {
       if (input === '1') { setAgentType('normal'); return; }
       if (input === '2') { setAgentType('planning'); return; }
@@ -107,31 +89,53 @@ export const PromptInput = ({ onSubmit, onCancel }: {
 
     if (step === 'worktree' && (input === 'y' || input === 'Y')) { setUseWorktree(true); return; }
     if (step === 'worktree' && (input === 'n' || input === 'N')) { setUseWorktree(false); return; }
-
-    if (key.backspace || key.delete) {
-      if (step === 'prompt') {
-        setPrompt(p => p.slice(0, -1));
-      } else if (step === 'worktreeName') {
-        setWorktreeName(n => n.slice(0, -1));
-      }
-      return;
-    }
-
-    if (input && !key.ctrl && !key.meta && step !== 'agentType' && step !== 'worktree') {
-      if (step === 'prompt') {
-        const newPrompt = prompt + input;
-        setPrompt(newPrompt);
-
-        if (input === '/' && prompt === '') {
-          setShowSlashMenu(true);
-          setSlashSearchQuery('');
-          setSlashSelectedIndex(0);
-        }
-      } else if (step === 'worktreeName') {
-        setWorktreeName(n => n + input);
-      }
-    }
   });
+
+  const handlePromptSubmit = (value: string) => {
+    if (value.trim()) {
+      setStep('agentType');
+    }
+  };
+
+  const handleWorktreeNameSubmit = (value: string) => {
+    const name = value.trim();
+    onSubmit(prompt, agentType, { enabled: true, name });
+  };
+
+  const handlePromptChange = (value: string) => {
+    setPrompt(value);
+    if (value.startsWith('/') && value.length === 1 && !showSlashMenu) {
+      setShowSlashMenu(true);
+      setSlashSearchQuery('');
+      setSlashSelectedIndex(0);
+    }
+  };
+
+  const handleAgentTypeReturn = () => {
+    if (gitRoot) {
+      setStep('worktree');
+    } else {
+      onSubmit(prompt, agentType, { enabled: false, name: '' });
+    }
+  };
+
+  const handleWorktreeReturn = () => {
+    if (useWorktree) {
+      setStep('worktreeName');
+    } else {
+      onSubmit(prompt, agentType, { enabled: false, name: '' });
+    }
+  };
+
+  useInput((input, key) => {
+    if (key.return) {
+      if (step === 'agentType') {
+        handleAgentTypeReturn();
+      } else if (step === 'worktree') {
+        handleWorktreeReturn();
+      }
+    }
+  }, { isActive: step === 'agentType' || step === 'worktree' });
 
   return (
     <>
@@ -142,7 +146,16 @@ export const PromptInput = ({ onSubmit, onCancel }: {
           <Text color={step === 'prompt' ? 'cyan' : 'green'}>
             {step === 'prompt' ? '>' : '+'} Prompt:{' '}
           </Text>
-          <Text>{prompt}<Text color="cyan">{step === 'prompt' ? '▋' : ''}</Text></Text>
+          {step === 'prompt' ? (
+            <TextInput
+              value={prompt}
+              onChange={handlePromptChange}
+              onSubmit={handlePromptSubmit}
+              placeholder="Enter your prompt..."
+            />
+          ) : (
+            <Text>{prompt}</Text>
+          )}
         </Box>
 
         <Box marginTop={1}>
@@ -180,13 +193,16 @@ export const PromptInput = ({ onSubmit, onCancel }: {
                 <Text color={step === 'worktreeName' ? 'cyan' : 'gray'}>
                   {step === 'worktreeName' ? '>' : '○'} Worktree name:{' '}
                 </Text>
-                <Text>
-                  {worktreeName || ''}
-                  <Text color="cyan">{step === 'worktreeName' ? '▋' : ''}</Text>
-                  {step === 'worktreeName' && !worktreeName && (
-                    <Text dimColor> (empty to auto-generate from task)</Text>
-                  )}
-                </Text>
+                {step === 'worktreeName' ? (
+                  <TextInput
+                    value={worktreeName}
+                    onChange={setWorktreeName}
+                    onSubmit={handleWorktreeNameSubmit}
+                    placeholder="(empty to auto-generate from task)"
+                  />
+                ) : (
+                  <Text>{worktreeName || ''}</Text>
+                )}
               </Box>
             )}
           </>

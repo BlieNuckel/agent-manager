@@ -77,6 +77,8 @@ Current repository: ${gitRoot}`;
 
   try {
     debug('Creating query for worktree agent...');
+    debug('Query options:', { cwd: gitRoot, hasAbortController: !!abortController });
+
     const q = query({
       prompt,
       options: {
@@ -84,6 +86,8 @@ Current repository: ${gitRoot}`;
         abortController,
       },
     });
+
+    debug('Query object created successfully');
 
     let worktreePath = '';
     let worktreeName = suggestedName || '';
@@ -142,9 +146,14 @@ Current repository: ${gitRoot}`;
       return { success: false, path: '', error: 'Agent did not report success or failure', name: '' };
     }
   } catch (e: any) {
-    debug('Exception in createWorktreeWithAgent:', e.message, e.stack);
+    debug('Exception in createWorktreeWithAgent:');
+    debug('Error name:', e.name);
+    debug('Error message:', e.message);
+    debug('Error code:', e.code);
+    debug('Error stack:', e.stack);
+    debug('Full error object:', JSON.stringify(e, Object.getOwnPropertyNames(e)));
     abortController.abort();
-    return { success: false, path: '', error: e.message, name: '' };
+    return { success: false, path: '', error: e.message || e.code || 'Unknown error', name: '' };
   }
 }
 
@@ -194,6 +203,9 @@ Branch to merge: ${worktreeName}`;
   const abortController = new AbortController();
 
   try {
+    debug('Creating query for merge agent...');
+    debug('Query options:', { cwd: gitRoot, hasAbortController: !!abortController });
+
     const q = query({
       prompt,
       options: {
@@ -202,16 +214,22 @@ Branch to merge: ${worktreeName}`;
       },
     });
 
+    debug('Merge query object created successfully');
+
     let hasConflict = false;
     let merged = false;
     let error = '';
     let readyToMerge = false;
 
+    debug('Starting to iterate over merge agent messages...');
     for await (const message of q) {
+      debug('Merge agent message:', { type: message.type });
+
       if (message.type === 'assistant') {
         for (const content of message.message.content) {
           if (content.type === 'text') {
             const text = content.text;
+            debug('Merge agent text output:', text);
 
             if (text.includes('[CONFLICT]')) {
               hasConflict = true;
@@ -234,6 +252,8 @@ Branch to merge: ${worktreeName}`;
       }
     }
 
+    debug('Merge agent completed:', { hasConflict, merged, readyToMerge, error });
+
     if (hasConflict) {
       return { success: false, conflict: true, error: error || 'Merge conflicts detected' };
     } else if (merged) {
@@ -246,7 +266,13 @@ Branch to merge: ${worktreeName}`;
       return { success: false, conflict: false, error: 'Agent did not report merge status' };
     }
   } catch (e: any) {
+    debug('Exception in attemptAutoMergeWithAgent:');
+    debug('Error name:', e.name);
+    debug('Error message:', e.message);
+    debug('Error code:', e.code);
+    debug('Error stack:', e.stack);
+    debug('Full error object:', JSON.stringify(e, Object.getOwnPropertyNames(e)));
     abortController.abort();
-    return { success: false, conflict: false, error: e.message };
+    return { success: false, conflict: false, error: e.message || e.code || 'Unknown error' };
   }
 }
