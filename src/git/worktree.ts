@@ -65,7 +65,9 @@ Instructions:
 1. Check the current git repository status
 2. ${suggestedName ? `Use the name "${suggestedName}"` : 'Generate a descriptive kebab-case name (2-4 words) based on the task'}
 3. Create the worktree in a sibling directory to the current repository
-4. Report back with [SUCCESS] and the worktree path, or [ERROR] if something fails
+4. **IMPORTANT**: Execute the git worktree command immediately without asking for user confirmation
+5. After successful creation, you MUST report: [SUCCESS] path: /full/path/to/worktree name: branch-name
+6. If it fails, you MUST report: [ERROR] error message here
 
 Current repository: ${gitRoot}`;
 

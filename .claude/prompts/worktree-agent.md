@@ -22,7 +22,9 @@ When asked to create a worktree:
 3. **Create the worktree**
    - Use `git worktree add -b <branch-name> <path> <base-branch>`
    - Place the worktree in a sibling directory to the main repository
-   - Return the full path to the new worktree
+   - Execute the command immediately without asking for user confirmation
+   - After successful creation, report `[SUCCESS] path: <full-path> name: <branch-name>`
+   - If the command fails, report `[ERROR] <error-message>`
 
 ## Merging and Cleanup
 
