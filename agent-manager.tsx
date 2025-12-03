@@ -60,6 +60,8 @@ interface Agent {
   pendingPermission?: PermissionRequest;
   agentType: AgentType;
   autoAcceptPermissions: boolean;
+  mergeStatus?: 'pending' | 'merged' | 'conflict' | 'failed';
+  mergeError?: string;
 }
 
 interface HistoryEntry {
@@ -202,6 +204,75 @@ function createWorktree(name: string): { success: boolean; path: string; error?:
     return { success: true, path: worktreePath };
   } catch (e: any) {
     return { success: false, path: '', error: e.message };
+  }
+}
+
+function attemptAutoMerge(worktreeName: string, gitRoot: string): { success: boolean; conflict: boolean; error?: string } {
+  const branch = getCurrentBranch();
+
+  try {
+    execSync(`git merge --no-commit --no-ff ${worktreeName}`, {
+      cwd: gitRoot,
+      encoding: 'utf8',
+      stdio: ['pipe', 'pipe', 'pipe'],
+    });
+
+    const status = execSync('git status --porcelain', {
+      cwd: gitRoot,
+      encoding: 'utf8',
+      stdio: ['pipe', 'pipe', 'pipe'],
+    });
+
+    if (status.includes('UU ') || status.includes('AA ') || status.includes('DD ')) {
+      execSync('git merge --abort', {
+        cwd: gitRoot,
+        encoding: 'utf8',
+        stdio: ['pipe', 'pipe', 'pipe'],
+      });
+      return { success: false, conflict: true, error: 'Merge conflicts detected' };
+    }
+
+    execSync(`git commit -m "Auto-merge worktree: ${worktreeName}"`, {
+      cwd: gitRoot,
+      encoding: 'utf8',
+      stdio: ['pipe', 'pipe', 'pipe'],
+    });
+
+    return { success: true, conflict: false };
+  } catch (e: any) {
+    try {
+      execSync('git merge --abort', {
+        cwd: gitRoot,
+        encoding: 'utf8',
+        stdio: ['pipe', 'pipe', 'pipe'],
+      });
+    } catch {}
+
+    if (e.message.includes('CONFLICT') || e.message.includes('conflict')) {
+      return { success: false, conflict: true, error: 'Merge conflicts detected' };
+    }
+
+    return { success: false, conflict: false, error: e.message };
+  }
+}
+
+function cleanupWorktree(worktreeName: string, gitRoot: string): void {
+  const worktreePath = path.join(path.dirname(gitRoot), worktreeName);
+
+  try {
+    execSync(`git worktree remove "${worktreePath}"`, {
+      cwd: gitRoot,
+      encoding: 'utf8',
+      stdio: ['pipe', 'pipe', 'pipe'],
+    });
+
+    execSync(`git branch -d ${worktreeName}`, {
+      cwd: gitRoot,
+      encoding: 'utf8',
+      stdio: ['pipe', 'pipe', 'pipe'],
+    });
+  } catch (e: any) {
+    debug('Worktree cleanup error:', e.message);
   }
 }
 
@@ -459,6 +530,8 @@ const AgentItem = ({ agent, selected }: { agent: Agent; selected: boolean }) => 
         <Text bold={selected} color={selected ? 'cyan' : 'white'} dimColor={isPending} italic={isPending}> {agent.title}</Text>
         <Text dimColor> ({formatTime(agent.updatedAt)})</Text>
         {agent.pendingPermission && <Text color="yellow"> [!] Permission needed</Text>}
+        {agent.mergeStatus === 'conflict' && <Text color="yellow"> [!] Needs manual merge</Text>}
+        {agent.mergeStatus === 'failed' && <Text color="red"> [x] Merge failed</Text>}
       </Box>
       <Box marginLeft={14}>
         <Text dimColor wrap="truncate">{agent.prompt.slice(0, 60)}{agent.prompt.length > 60 ? '...' : ''}</Text>
@@ -466,6 +539,8 @@ const AgentItem = ({ agent, selected }: { agent: Agent; selected: boolean }) => 
       {agent.worktreeName && (
         <Box marginLeft={14}>
           <Text color="magenta">* {agent.worktreeName}</Text>
+          {agent.mergeStatus === 'merged' && <Text color="green"> (merged)</Text>}
+          {agent.mergeStatus === 'pending' && <Text color="cyan"> (merging...)</Text>}
         </Box>
       )}
     </Box>
@@ -575,6 +650,10 @@ const DetailView = ({ agent, onBack, onPermissionResponse, onAlwaysAllow }: {
         <StatusBadge status={agent.status} />
         <Text bold color={agent.pendingPermission ? 'yellow' : 'cyan'} dimColor={isPending} italic={isPending}> {agent.title}</Text>
         {agent.worktreeName && <Text color="magenta"> * {agent.worktreeName}</Text>}
+        {agent.mergeStatus === 'merged' && <Text color="green"> [merged]</Text>}
+        {agent.mergeStatus === 'conflict' && <Text color="yellow"> [needs manual merge]</Text>}
+        {agent.mergeStatus === 'failed' && <Text color="red"> [merge failed]</Text>}
+        {agent.mergeStatus === 'pending' && <Text color="cyan"> [merging...]</Text>}
         {agent.sessionId && <Text dimColor> (session: {agent.sessionId.slice(0, 8)}...)</Text>}
       </Box>
 
@@ -782,6 +861,30 @@ const App = () => {
     const onDone = (id: string, code: number) => {
       dispatch({ type: 'SET_PERMISSION', id, permission: undefined });
       dispatch({ type: 'UPDATE_AGENT', id, updates: { status: code === 0 ? 'done' : 'error' } });
+
+      if (code === 0) {
+        const agent = state.agents.find(a => a.id === id);
+        if (agent?.worktreeName) {
+          const gitRoot = getGitRoot();
+          if (gitRoot) {
+            dispatch({ type: 'UPDATE_AGENT', id, updates: { mergeStatus: 'pending' } });
+
+            const mergeResult = attemptAutoMerge(agent.worktreeName, gitRoot);
+
+            if (mergeResult.success) {
+              dispatch({ type: 'UPDATE_AGENT', id, updates: { mergeStatus: 'merged' } });
+              dispatch({ type: 'APPEND_OUTPUT', id, line: `[✓] Successfully merged to main branch` });
+              cleanupWorktree(agent.worktreeName, gitRoot);
+            } else if (mergeResult.conflict) {
+              dispatch({ type: 'UPDATE_AGENT', id, updates: { mergeStatus: 'conflict', mergeError: mergeResult.error } });
+              dispatch({ type: 'APPEND_OUTPUT', id, line: `[!] Merge conflicts detected - requires manual resolution` });
+            } else {
+              dispatch({ type: 'UPDATE_AGENT', id, updates: { mergeStatus: 'failed', mergeError: mergeResult.error } });
+              dispatch({ type: 'APPEND_OUTPUT', id, line: `[x] Merge failed: ${mergeResult.error}` });
+            }
+          }
+        }
+      }
     };
     const onError = (id: string, msg: string) => {
       dispatch({ type: 'APPEND_OUTPUT', id, line: `[x] Error: ${msg}` });
