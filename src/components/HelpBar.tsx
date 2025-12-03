@@ -5,7 +5,7 @@ import type { Mode } from '../types';
 export const HelpBar = ({ tab, mode }: { tab: 'inbox' | 'history'; mode: Mode }) => {
   if (mode !== 'normal') return null;
   return (
-    <Box borderStyle="single" borderColor="gray" paddingX={1} marginTop={1}>
+    <Box borderStyle="single" borderColor="gray" paddingX={1} width="100%">
       <Text dimColor>
         <Text color="cyan">Tab</Text>{' '}Switch{'  '}
         <Text color="cyan">↑↓jk</Text>{' '}Nav{'  '}

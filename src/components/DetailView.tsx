@@ -18,7 +18,7 @@ export const DetailView = ({ agent, onBack, onPermissionResponse, onAlwaysAllow,
   const termHeight = (app as any).stdout?.rows || 24;
   const permissionHeight = agent.pendingPermission ? 10 : 0;
   const mergeConfirmationHeight = agent.pendingMergeConfirmation ? 12 : 0;
-  const visibleLines = termHeight - 12 - permissionHeight - mergeConfirmationHeight;
+  const visibleLines = termHeight - 8 - permissionHeight - mergeConfirmationHeight;
 
   useInput((input, key) => {
     if (agent.pendingPermission || agent.pendingMergeConfirmation) return;
@@ -43,8 +43,8 @@ export const DetailView = ({ agent, onBack, onPermissionResponse, onAlwaysAllow,
   const isPending = agent.title === 'Pending...';
 
   return (
-    <Box flexDirection="column" padding={1}>
-      <Box borderStyle="single" borderColor={agent.pendingPermission || agent.pendingMergeConfirmation ? 'yellow' : 'cyan'} paddingX={1} marginBottom={1}>
+    <Box flexDirection="column" height="100%">
+      <Box borderStyle="single" borderColor={agent.pendingPermission || agent.pendingMergeConfirmation ? 'yellow' : 'cyan'} paddingX={1}>
         <StatusBadge status={agent.status} />
         <Text bold color={agent.pendingPermission || agent.pendingMergeConfirmation ? 'yellow' : 'cyan'} dimColor={isPending} italic={isPending}> {agent.title}</Text>
         {agent.worktreeName && <Text color="magenta"> * {agent.worktreeName}</Text>}
@@ -56,18 +56,18 @@ export const DetailView = ({ agent, onBack, onPermissionResponse, onAlwaysAllow,
         {agent.sessionId && <Text dimColor> (session: {agent.sessionId.slice(0, 8)}...)</Text>}
       </Box>
 
-      <Box marginBottom={1}>
+      <Box>
         <Text dimColor>Prompt: </Text>
         <Text>{agent.prompt}</Text>
       </Box>
 
-      <Box marginBottom={1}>
+      <Box>
         <Text dimColor>Working dir: </Text>
         <Text>{agent.workDir}</Text>
       </Box>
 
       <Box flexDirection="column" borderStyle="round" borderColor="gray" padding={1} height={visibleLines + 3}>
-        <Box marginBottom={1}>
+        <Box>
           <Text dimColor>Output ({agent.output.length} lines)</Text>
         </Box>
         {displayedLines.length === 0 ? (
@@ -102,7 +102,7 @@ export const DetailView = ({ agent, onBack, onPermissionResponse, onAlwaysAllow,
       )}
 
       {!agent.pendingPermission && !agent.pendingMergeConfirmation && (
-        <Box marginTop={1} borderStyle="single" borderColor="gray" paddingX={1}>
+        <Box borderStyle="single" borderColor="gray" paddingX={1}>
           <Text dimColor>
             <Text color="cyan">↑↓/jk</Text>{' '}Scroll{'  '}
             <Text color="cyan">g/G</Text>{' '}Top/Bottom{'  '}

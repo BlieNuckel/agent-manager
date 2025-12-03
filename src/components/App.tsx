@@ -302,45 +302,49 @@ export const App = () => {
   }
 
   return (
-    <Box flexDirection="column" padding={1}>
-      <Box marginBottom={1}>
-        <Text bold color="cyan">🤖 Agent Manager</Text>
-        <Text dimColor> v2 (SDK)</Text>
-        <Text dimColor> • {state.agents.filter(a => a.status === 'working').length} active</Text>
-        {state.agents.some(a => a.status === 'waiting') && (
-          <Text color="yellow"> • {state.agents.filter(a => a.status === 'waiting').length} waiting</Text>
-        )}
-      </Box>
+    <Box flexDirection="column" height="100%">
+      <Box flexDirection="column" flexGrow={1} minHeight={0}>
+        <Box>
+          <Text bold color="cyan">🤖 Agent Manager</Text>
+          <Text dimColor> v2 (SDK)</Text>
+          <Text dimColor> • {state.agents.filter(a => a.status === 'working').length} active</Text>
+          {state.agents.some(a => a.status === 'waiting') && (
+            <Text color="yellow"> • {state.agents.filter(a => a.status === 'waiting').length} waiting</Text>
+          )}
+        </Box>
 
-      <Box>
-        <Tab label="Inbox" active={tab === 'inbox'} count={state.agents.length} />
-        <Tab label="History" active={tab === 'history'} />
-      </Box>
+        <Box>
+          <Tab label="Inbox" active={tab === 'inbox'} count={state.agents.length} />
+          <Tab label="History" active={tab === 'history'} />
+        </Box>
 
-      <Box flexDirection="column" minHeight={15} marginTop={1}>
-        {mode === 'input' ? (
-          <PromptInput
-            onSubmit={(p, at, wt) => { createAgent(p, at, wt); setMode('normal'); setTab('inbox'); }}
-            onCancel={() => setMode('normal')}
-          />
-        ) : tab === 'inbox' ? (
-          state.agents.length === 0 ? (
-            <Text dimColor>No active agents. Press 'n' to create one.</Text>
+        <Box flexDirection="column" flexGrow={1} minHeight={0}>
+          {mode === 'input' ? (
+            <PromptInput
+              onSubmit={(p, at, wt) => { createAgent(p, at, wt); setMode('normal'); setTab('inbox'); }}
+              onCancel={() => setMode('normal')}
+            />
+          ) : tab === 'inbox' ? (
+            state.agents.length === 0 ? (
+              <Text dimColor>No active agents. Press 'n' to create one.</Text>
+            ) : (
+              state.agents.map((a, i) => (
+                <AgentItem key={a.id} agent={a} selected={i === inboxIdx} />
+              ))
+            )
+          ) : state.history.length === 0 ? (
+            <Text dimColor>No history yet.</Text>
           ) : (
-            state.agents.map((a, i) => (
-              <AgentItem key={a.id} agent={a} selected={i === inboxIdx} />
+            state.history.slice(0, 5).map((h, i) => (
+              <HistoryItem key={h.id} entry={h} selected={i === histIdx} />
             ))
-          )
-        ) : state.history.length === 0 ? (
-          <Text dimColor>No history yet.</Text>
-        ) : (
-          state.history.slice(0, 5).map((h, i) => (
-            <HistoryItem key={h.id} entry={h} selected={i === histIdx} />
-          ))
-        )}
+          )}
+        </Box>
       </Box>
 
-      <HelpBar tab={tab} mode={mode} />
+      <Box flexShrink={0}>
+        <HelpBar tab={tab} mode={mode} />
+      </Box>
     </Box>
   );
 };
