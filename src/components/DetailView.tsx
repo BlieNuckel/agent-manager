@@ -21,9 +21,10 @@ export const DetailView = ({ agent, onBack, onPermissionResponse, onAlwaysAllow 
   const promptHeaderHeight = 1;
   const workDirHeight = 1;
   const outputHeaderHeight = 1;
+  const outputBorderHeight = 2;
 
   const promptLines = agent.prompt.split('\n');
-  const fixedHeight = headerHeight + promptHeaderHeight + workDirHeight + outputHeaderHeight + helpBarHeight + permissionHeight;
+  const fixedHeight = headerHeight + promptHeaderHeight + workDirHeight + outputHeaderHeight + outputBorderHeight + helpBarHeight + permissionHeight;
   const availableHeight = Math.max(10, termHeight - fixedHeight);
   const maxPromptHeight = Math.min(promptLines.length, Math.floor(availableHeight * 0.3));
   const actualPromptHeight = Math.min(promptLines.length, maxPromptHeight);
