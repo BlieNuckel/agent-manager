@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useReducer } from 'react';
-import { Box, Text, useInput, useApp } from 'ink';
+import { Box, Text, useInput, useApp, useStdout, Spacer } from 'ink';
 import type { Agent, AgentType, HistoryEntry, Mode, PermissionRequest } from '../types';
 import { reducer } from '../state/reducer';
 import { loadHistory, saveHistory } from '../state/history';
@@ -18,12 +18,14 @@ const agentManager = new AgentSDKManager();
 
 export const App = () => {
   const { exit } = useApp();
+  const { stdout } = useStdout();
   const [state, dispatch] = useReducer(reducer, { agents: [], history: loadHistory() });
   const [tab, setTab] = useState<'inbox' | 'history'>('inbox');
   const [inboxIdx, setInboxIdx] = useState(0);
   const [histIdx, setHistIdx] = useState(0);
   const [mode, setMode] = useState<Mode>('normal');
   const [detailAgentId, setDetailAgentId] = useState<string | null>(null);
+  const [height, setHeight] = useState(stdout?.rows ?? 24);
 
   useEffect(() => {
     const onOutput = (id: string, line: string) => dispatch({ type: 'APPEND_OUTPUT', id, line });
@@ -44,29 +46,31 @@ export const App = () => {
 
               if (mergeResult.needsConfirmation) {
                 dispatch({ type: 'APPEND_OUTPUT', id, line: `[!] Branch is ready to merge - awaiting confirmation` });
-                dispatch({ type: 'SET_MERGE_CONFIRMATION', id, confirmation: {
-                  worktreeName: agent.worktreeName,
-                  gitRoot,
-                  resolve: async (confirmed: boolean) => {
-                    dispatch({ type: 'SET_MERGE_CONFIRMATION', id, confirmation: undefined });
+                dispatch({
+                  type: 'SET_MERGE_CONFIRMATION', id, confirmation: {
+                    worktreeName: agent.worktreeName,
+                    gitRoot,
+                    resolve: async (confirmed: boolean) => {
+                      dispatch({ type: 'SET_MERGE_CONFIRMATION', id, confirmation: undefined });
 
-                    if (confirmed) {
-                      dispatch({ type: 'APPEND_OUTPUT', id, line: `[>] Merging branch...` });
-                      const finalMerge = await attemptAutoMergeWithAgent(agent.worktreeName!, gitRoot, true);
+                      if (confirmed) {
+                        dispatch({ type: 'APPEND_OUTPUT', id, line: `[>] Merging branch...` });
+                        const finalMerge = await attemptAutoMergeWithAgent(agent.worktreeName!, gitRoot, true);
 
-                      if (finalMerge.success) {
-                        dispatch({ type: 'UPDATE_AGENT', id, updates: { mergeStatus: 'merged' } });
-                        dispatch({ type: 'APPEND_OUTPUT', id, line: `[✓] Successfully merged and cleaned up` });
+                        if (finalMerge.success) {
+                          dispatch({ type: 'UPDATE_AGENT', id, updates: { mergeStatus: 'merged' } });
+                          dispatch({ type: 'APPEND_OUTPUT', id, line: `[✓] Successfully merged and cleaned up` });
+                        } else {
+                          dispatch({ type: 'UPDATE_AGENT', id, updates: { mergeStatus: 'failed', mergeError: finalMerge.error } });
+                          dispatch({ type: 'APPEND_OUTPUT', id, line: `[x] Merge failed: ${finalMerge.error}` });
+                        }
                       } else {
-                        dispatch({ type: 'UPDATE_AGENT', id, updates: { mergeStatus: 'failed', mergeError: finalMerge.error } });
-                        dispatch({ type: 'APPEND_OUTPUT', id, line: `[x] Merge failed: ${finalMerge.error}` });
+                        dispatch({ type: 'UPDATE_AGENT', id, updates: { mergeStatus: 'pending' } });
+                        dispatch({ type: 'APPEND_OUTPUT', id, line: `[-] Merge cancelled by user` });
                       }
-                    } else {
-                      dispatch({ type: 'UPDATE_AGENT', id, updates: { mergeStatus: 'pending' } });
-                      dispatch({ type: 'APPEND_OUTPUT', id, line: `[-] Merge cancelled by user` });
                     }
                   }
-                }});
+                });
               } else if (mergeResult.conflict) {
                 dispatch({ type: 'UPDATE_AGENT', id, updates: { mergeStatus: 'conflict', mergeError: mergeResult.error } });
                 dispatch({ type: 'APPEND_OUTPUT', id, line: `[!] Merge conflicts detected - requires manual resolution` });
@@ -109,6 +113,9 @@ export const App = () => {
     agentManager.on('permissionRequest', onPermissionRequest);
     agentManager.on('titleUpdate', onTitleUpdate);
 
+    const onResize = () => setHeight(process.stdout.rows);
+    process.stdout.on('resize', onResize);
+
     return () => {
       agentManager.off('output', onOutput);
       agentManager.off('done', onDone);
@@ -116,6 +123,7 @@ export const App = () => {
       agentManager.off('sessionId', onSessionId);
       agentManager.off('permissionRequest', onPermissionRequest);
       agentManager.off('titleUpdate', onTitleUpdate);
+      process.stdout.off('resize', onResize);
     };
   }, [state.history]);
 
@@ -151,28 +159,34 @@ export const App = () => {
           worktreeName = result.name;
           debug('Worktree created successfully:', { workDir, worktreeName });
 
-          dispatch({ type: 'UPDATE_AGENT', id, updates: {
-            title: 'Pending...',
-            workDir,
-            worktreeName,
-          }});
+          dispatch({
+            type: 'UPDATE_AGENT', id, updates: {
+              title: 'Pending...',
+              workDir,
+              worktreeName,
+            }
+          });
           dispatch({ type: 'APPEND_OUTPUT', id, line: `[✓] Worktree created: ${worktreeName} at ${workDir}` });
           dispatch({ type: 'APPEND_OUTPUT', id, line: `[>] Starting agent...` });
         } else {
           debug('Failed to create worktree:', result.error);
-          dispatch({ type: 'UPDATE_AGENT', id, updates: {
-            title: 'Worktree creation failed',
-            status: 'error',
-          }});
+          dispatch({
+            type: 'UPDATE_AGENT', id, updates: {
+              title: 'Worktree creation failed',
+              status: 'error',
+            }
+          });
           dispatch({ type: 'APPEND_OUTPUT', id, line: `[x] Failed to create worktree: ${result.error}` });
           return;
         }
       } catch (error: any) {
         debug('Exception while creating worktree:', error.message, error.stack);
-        dispatch({ type: 'UPDATE_AGENT', id, updates: {
-          title: 'Worktree creation error',
-          status: 'error',
-        }});
+        dispatch({
+          type: 'UPDATE_AGENT', id, updates: {
+            title: 'Worktree creation error',
+            status: 'error',
+          }
+        });
         dispatch({ type: 'APPEND_OUTPUT', id, line: `[x] Exception: ${error.message}` });
         return;
       }
@@ -302,8 +316,8 @@ export const App = () => {
   }
 
   return (
-    <Box flexDirection="column" height="100%">
-      <Box flexDirection="column" flexGrow={1} minHeight={0}>
+    <Box flexDirection="column" height={height}>
+      <Box flexDirection="column" minHeight={0}>
         <Box>
           <Text bold color="cyan">🤖 Agent Manager</Text>
           <Text dimColor> v2 (SDK)</Text>
@@ -342,9 +356,9 @@ export const App = () => {
         </Box>
       </Box>
 
-      <Box flexShrink={0}>
-        <HelpBar tab={tab} mode={mode} />
-      </Box>
+      <Spacer />
+
+      <HelpBar tab={tab} mode={mode} />
     </Box>
   );
 };

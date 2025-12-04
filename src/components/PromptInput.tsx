@@ -6,6 +6,7 @@ import type { SlashCommand } from '@anthropic-ai/claude-agent-sdk';
 import { getGitRoot } from '../git/worktree';
 import { AgentSDKManager } from '../agent/manager';
 import { SlashCommandMenu } from './SlashCommandMenu';
+import { MultilineInput } from './MultilineInput';
 
 export const PromptInput = ({ onSubmit, onCancel }: {
   onSubmit: (p: string, agentType: AgentType, worktree: { enabled: boolean; name: string }) => void;
@@ -159,19 +160,23 @@ export const PromptInput = ({ onSubmit, onCancel }: {
       <Box flexDirection="column" borderStyle="round" borderColor="cyan" padding={1}>
         <Text bold color="cyan">New Agent</Text>
 
-        <Box marginTop={1}>
+        <Box marginTop={1} flexDirection="column">
           <Text color={step === 'prompt' ? 'cyan' : 'green'}>
             {step === 'prompt' ? '>' : '+'} Prompt:{' '}
           </Text>
           {step === 'prompt' ? (
-            <TextInput
-              value={prompt}
-              onChange={handlePromptChange}
-              onSubmit={handlePromptSubmit}
-              placeholder="Enter your prompt..."
-            />
+            <Box marginLeft={2}>
+              <MultilineInput
+                value={prompt}
+                onChange={handlePromptChange}
+                onSubmit={handlePromptSubmit}
+                placeholder="Enter your prompt..."
+              />
+            </Box>
           ) : (
-            <Text>{prompt}</Text>
+            <Box marginLeft={2}>
+              <Text>{prompt}</Text>
+            </Box>
           )}
         </Box>
 
@@ -225,13 +230,6 @@ export const PromptInput = ({ onSubmit, onCancel }: {
           </>
         )}
 
-        <Box marginTop={1}>
-          <Text dimColor>
-            Enter to continue • Esc to cancel
-            {step !== 'prompt' && ' • ← to go back'}
-            {step === 'prompt' && ' • Type / for slash commands'}
-          </Text>
-        </Box>
       </Box>
 
       {showSlashMenu && (
@@ -241,6 +239,47 @@ export const PromptInput = ({ onSubmit, onCancel }: {
           selectedIndex={slashSelectedIndex}
         />
       )}
+
+      <Box borderStyle="single" borderColor="gray" paddingX={1} width="100%" marginTop={1}>
+        <Text dimColor>
+          {showSlashMenu ? (
+            <>
+              <Text color="cyan">↑↓</Text> Navigate{' '}
+              <Text color="cyan">Enter</Text> Select{' '}
+              <Text color="cyan">Esc</Text> Cancel{' '}
+              <Text color="cyan">Type</Text> Search
+            </>
+          ) : step === 'prompt' ? (
+            <>
+              <Text color="cyan">Enter</Text> Continue{' '}
+              <Text color="cyan">Shift+Enter</Text> New Line{' '}
+              <Text color="cyan">Ctrl+G</Text> Edit in Vim{' '}
+              <Text color="cyan">/</Text> Slash Commands{' '}
+              <Text color="cyan">Esc</Text> Cancel
+            </>
+          ) : step === 'agentType' ? (
+            <>
+              <Text color="cyan">1-3</Text> Select Type{' '}
+              <Text color="cyan">Enter</Text> Continue{' '}
+              <Text color="cyan">←</Text> Back{' '}
+              <Text color="cyan">Esc</Text> Cancel
+            </>
+          ) : step === 'worktree' ? (
+            <>
+              <Text color="cyan">Y/N</Text> Choose{' '}
+              <Text color="cyan">Enter</Text> Continue{' '}
+              <Text color="cyan">←</Text> Back{' '}
+              <Text color="cyan">Esc</Text> Cancel
+            </>
+          ) : (
+            <>
+              <Text color="cyan">Enter</Text> Submit{' '}
+              <Text color="cyan">←</Text> Back{' '}
+              <Text color="cyan">Esc</Text> Cancel
+            </>
+          )}
+        </Text>
+      </Box>
     </>
   );
 };
