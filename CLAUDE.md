@@ -12,12 +12,14 @@ Agent Manager is a Terminal User Interface (TUI) application for managing multip
 ```bash
 npm start              # Run the application
 npm run dev            # Run in watch mode (auto-reloads on changes)
+npm run demo           # Run in demo mode with mock data (for testing UI)
 ```
 
 ### Running with tsx directly
 ```bash
 node --import tsx src/index.tsx           # Run once
 node --import tsx --watch src/index.tsx   # Run in watch mode
+node --import tsx src/demo/index.tsx      # Run demo mode
 ```
 
 ## Architecture
@@ -108,6 +110,7 @@ Recent prompts are saved to `~/.agent-manager/history.json` (last 5 entries). Hi
 Each directory has a clear responsibility:
 - `agent/`: SDK lifecycle management (spawn, kill, permission handling)
 - `components/`: Pure React/Ink UI components
+- `demo/`: Demo mode with mock data for UI testing
 - `state/`: State management (reducer, history persistence)
 - `git/`: Git worktree operations
 - `types/`: TypeScript type definitions
@@ -133,6 +136,29 @@ Each directory has a clear responsibility:
 5. If clean, prompts user for confirmation
 6. On confirmation, merges, removes worktree, deletes branch
 7. If conflicts, reports files and requires manual resolution
+
+## Demo Mode
+
+For UI testing and development, the application includes a demo mode with mock data:
+
+```bash
+npm run demo
+```
+
+**Features:**
+- Mock agents with all states (working, waiting, done, error)
+- Realistic output logs and timestamps
+- Quick page navigation (press 1-4 to jump to different pages)
+- Auto-cycling mode (press 'c' to automatically cycle through all pages)
+- No real agents spawned - safe for testing UI changes
+
+**Use cases:**
+- Verify UI changes without spawning agents
+- Test keyboard navigation
+- Create screenshots/demos
+- View all agent states and permission prompts
+
+See `/DEMO.md` for full documentation.
 
 ## Slash Commands
 

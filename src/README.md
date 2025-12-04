@@ -20,6 +20,11 @@ src/
 │   ├── StatusBadge.tsx         # Agent status indicator
 │   └── Tab.tsx                 # Tab navigation component
 │
+├── demo/            # Demo mode with mock data
+│   ├── index.tsx    # Demo mode entry point
+│   ├── DemoApp.tsx  # Demo version of App with mock data and quick navigation
+│   └── mockData.ts  # Mock agents, history, and helper functions
+│
 ├── git/             # Git worktree utilities
 │   └── worktree.ts  # Functions for creating, merging, and cleaning up worktrees
 │
@@ -65,3 +70,20 @@ The `AgentSDKManager` extends `EventEmitter` to decouple agent lifecycle events 
 3. **Reusability**: Components and utilities can be imported independently
 4. **Scalability**: Easy to add new features without affecting existing code
 5. **Readability**: Clear file organization makes the codebase easy to navigate
+
+## Demo Mode
+
+The `demo/` directory provides a testable version of the application with mock data:
+
+```bash
+npm run demo
+```
+
+This allows you to:
+- Test UI changes without spawning real agents
+- View all pages and states with consistent data
+- Create screenshots and demos
+- Verify keyboard navigation
+- See permission prompts and all agent states
+
+See `/DEMO.md` in the project root for full documentation on demo mode features.

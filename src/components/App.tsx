@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useReducer } from 'react';
-import { Box, useInput, useApp, useStdout } from 'ink';
+import { useInput, useApp } from 'ink';
 import type { Agent, AgentType, HistoryEntry, Mode, PermissionRequest, InputStep } from '../types';
 import { reducer } from '../state/reducer';
 import { loadHistory, saveHistory } from '../state/history';
@@ -8,23 +8,19 @@ import { getGitRoot, getCurrentBranch, getRepoName, generateWorktreeName } from 
 import type { WorktreeContext } from '../agent/systemPromptTemplates';
 import { genId } from '../utils/helpers';
 import { debug } from '../utils/logger';
-import { Header } from './Header';
-import { Body } from './Body';
-import { HelpBar } from './HelpBar';
-import { DetailView } from './DetailView';
+import { Layout } from './Layout';
+import { ListViewPage, getListViewHelp, NewAgentPage, getNewAgentHelp, DetailViewPage, getDetailViewHelp } from '../pages';
 
 const agentManager = new AgentSDKManager();
 
 export const App = () => {
   const { exit } = useApp();
-  const { stdout } = useStdout();
   const [state, dispatch] = useReducer(reducer, { agents: [], history: loadHistory() });
   const [tab, setTab] = useState<'inbox' | 'history'>('inbox');
   const [inboxIdx, setInboxIdx] = useState(0);
   const [histIdx, setHistIdx] = useState(0);
   const [mode, setMode] = useState<Mode>('normal');
   const [detailAgentId, setDetailAgentId] = useState<string | null>(null);
-  const [height, setHeight] = useState(stdout?.rows ?? 24);
   const [inputState, setInputState] = useState<{ step: InputStep; showSlashMenu: boolean }>({ step: 'prompt', showSlashMenu: false });
 
   useEffect(() => {
@@ -63,9 +59,6 @@ export const App = () => {
     agentManager.on('permissionRequest', onPermissionRequest);
     agentManager.on('titleUpdate', onTitleUpdate);
 
-    const onResize = () => setHeight(process.stdout.rows);
-    process.stdout.on('resize', onResize);
-
     return () => {
       agentManager.off('output', onOutput);
       agentManager.off('done', onDone);
@@ -73,7 +66,6 @@ export const App = () => {
       agentManager.off('sessionId', onSessionId);
       agentManager.off('permissionRequest', onPermissionRequest);
       agentManager.off('titleUpdate', onTitleUpdate);
-      process.stdout.off('resize', onResize);
     };
   }, [state.history]);
 
@@ -152,7 +144,15 @@ export const App = () => {
   };
 
   useInput((input, key) => {
-    if (mode === 'input' || mode === 'detail') return;
+    if (mode === 'detail') {
+      if (key.escape || input === 'q') {
+        setMode('normal');
+        return;
+      }
+      return;
+    }
+
+    if (mode === 'input') return;
 
     if (key.tab) { setTab(t => t === 'inbox' ? 'history' : 'inbox'); return; }
     if (input === 'q') { exit(); return; }
@@ -199,38 +199,58 @@ export const App = () => {
   });
 
   const detailAgent = state.agents.find(a => a.id === detailAgentId);
+  const activeCount = state.agents.filter(a => a.status === 'working').length;
+  const waitingCount = state.agents.filter(a => a.status === 'waiting').length;
 
-  if (mode === 'detail' && detailAgent) {
-    return (
-      <DetailView
-        agent={detailAgent}
-        onBack={() => setMode('normal')}
-        onPermissionResponse={handlePermissionResponse}
-        onAlwaysAllow={handleAlwaysAllow}
-      />
-    );
-  }
+  const renderPage = () => {
+    if (mode === 'detail' && detailAgent) {
+      const promptLines = detailAgent.prompt.split('\n');
+      const promptNeedsScroll = promptLines.length > 10;
+
+      return {
+        content: (
+          <DetailViewPage
+            agent={detailAgent}
+            onPermissionResponse={handlePermissionResponse}
+            onAlwaysAllow={handleAlwaysAllow}
+          />
+        ),
+        help: detailAgent.pendingPermission ? null : getDetailViewHelp(promptNeedsScroll),
+      };
+    }
+
+    if (mode === 'input') {
+      return {
+        content: (
+          <NewAgentPage
+            onSubmit={(p, at, wt) => { createAgent(p, at, wt); setMode('normal'); setTab('inbox'); }}
+            onCancel={() => setMode('normal')}
+            onStateChange={setInputState}
+          />
+        ),
+        help: getNewAgentHelp(inputState.step, inputState.showSlashMenu),
+      };
+    }
+
+    return {
+      content: (
+        <ListViewPage
+          tab={tab}
+          agents={state.agents}
+          history={state.history}
+          inboxIdx={inboxIdx}
+          histIdx={histIdx}
+        />
+      ),
+      help: getListViewHelp(tab),
+    };
+  };
+
+  const { content, help } = renderPage();
 
   return (
-    <Box flexDirection="column" height={height}>
-      <Header
-        activeCount={state.agents.filter(a => a.status === 'working').length}
-        waitingCount={state.agents.filter(a => a.status === 'waiting').length}
-      />
-
-      <Body
-        tab={tab}
-        mode={mode}
-        agents={state.agents}
-        history={state.history}
-        inboxIdx={inboxIdx}
-        histIdx={histIdx}
-        onSubmit={(p, at, wt) => { createAgent(p, at, wt); setMode('normal'); setTab('inbox'); }}
-        onCancel={() => setMode('normal')}
-        onInputStateChange={setInputState}
-      />
-
-      <HelpBar tab={tab} mode={mode} inputStep={inputState.step} showSlashMenu={inputState.showSlashMenu} />
-    </Box>
+    <Layout activeCount={activeCount} waitingCount={waitingCount} helpContent={help}>
+      {content}
+    </Layout>
   );
 };

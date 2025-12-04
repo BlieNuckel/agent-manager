@@ -1,15 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { Box, Text, useInput, useApp } from 'ink';
 import type { Agent } from '../types';
-import { StatusBadge } from './StatusBadge';
-import { PermissionPrompt } from './PermissionPrompt';
+import { StatusBadge } from '../components/StatusBadge';
+import { PermissionPrompt } from '../components/PermissionPrompt';
 
-export const DetailView = ({ agent, onBack, onPermissionResponse, onAlwaysAllow }: {
+interface DetailViewPageProps {
   agent: Agent;
-  onBack: () => void;
   onPermissionResponse: (allowed: boolean) => void;
   onAlwaysAllow: () => void;
-}) => {
+}
+
+export const DetailViewPage = ({ agent, onPermissionResponse, onAlwaysAllow }: DetailViewPageProps) => {
   const app = useApp();
   const [scrollOffset, setScrollOffset] = useState(0);
   const [promptScrollOffset, setPromptScrollOffset] = useState(0);
@@ -33,7 +34,6 @@ export const DetailView = ({ agent, onBack, onPermissionResponse, onAlwaysAllow 
   useInput((input, key) => {
     if (agent.pendingPermission) return;
 
-    if (key.escape || input === 'q') { onBack(); return; }
     if (key.upArrow || input === 'k') setScrollOffset(o => Math.max(0, o - 1));
     if (key.downArrow || input === 'j') setScrollOffset(o => Math.min(Math.max(0, agent.output.length - visibleLines), o + 1));
     if (input === 'g') setScrollOffset(0);
@@ -57,7 +57,7 @@ export const DetailView = ({ agent, onBack, onPermissionResponse, onAlwaysAllow 
   const promptNeedsScroll = promptLines.length > maxPromptHeight;
 
   return (
-    <Box flexDirection="column" height={termHeight}>
+    <>
       <Box flexDirection="column" flexShrink={0}>
         <Box borderStyle="single" borderColor={agent.pendingPermission ? 'yellow' : 'cyan'} paddingX={1}>
           <StatusBadge status={agent.status} />
@@ -108,17 +108,17 @@ export const DetailView = ({ agent, onBack, onPermissionResponse, onAlwaysAllow 
           onAlwaysAllow={onAlwaysAllow}
         />
       )}
+    </>
+  );
+};
 
-      {!agent.pendingPermission && (
-        <Box flexShrink={0} borderStyle="single" borderColor="gray" paddingX={1}>
-          <Text dimColor>
-            <Text color="cyan">↑↓/jk</Text>{' '}Scroll{'  '}
-            <Text color="cyan">g/G</Text>{' '}Top/Bottom{'  '}
-            {promptNeedsScroll && <><Text color="cyan">p/P</Text>{' '}Prompt{'  '}</>}
-            <Text color="cyan">q/Esc</Text>{' '}Back
-          </Text>
-        </Box>
-      )}
-    </Box>
+export const getDetailViewHelp = (promptNeedsScroll: boolean) => {
+  return (
+    <>
+      <Text color="cyan">↑↓/jk</Text>{' '}Scroll{'  '}
+      <Text color="cyan">g/G</Text>{' '}Top/Bottom{'  '}
+      {promptNeedsScroll && <><Text color="cyan">p/P</Text>{' '}Prompt{'  '}</>}
+      <Text color="cyan">q/Esc</Text>{' '}Back
+    </>
   );
 };
