@@ -38,6 +38,13 @@ export function reducer(state: State, action: Action): State {
             : a
         ),
       };
+    case 'SAVE_ARTIFACT':
+      return {
+        ...state,
+        agents: state.agents.map(a =>
+          a.id === action.id ? { ...a, artifact: action.artifact, updatedAt: new Date() } : a
+        ),
+      };
     case 'REMOVE_HISTORY':
       return { ...state, history: state.history.filter((_, i) => i !== action.index) };
     case 'UPDATE_HISTORY_TITLE':

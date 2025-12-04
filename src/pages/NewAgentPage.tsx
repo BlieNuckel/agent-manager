@@ -12,9 +12,10 @@ interface NewAgentPageProps {
   onSubmit: (p: string, agentType: AgentType, worktree: { enabled: boolean; name: string }) => void;
   onCancel: () => void;
   onStateChange?: (state: { step: InputStep; showSlashMenu: boolean }) => void;
+  artifact?: { path: string; createdAt: Date };
 }
 
-export const NewAgentPage = ({ onSubmit, onCancel, onStateChange }: NewAgentPageProps) => {
+export const NewAgentPage = ({ onSubmit, onCancel, onStateChange, artifact }: NewAgentPageProps) => {
   const [prompt, setPrompt] = useState('');
   const [agentType, setAgentType] = useState<AgentType>('normal');
   const [useWorktree, setUseWorktree] = useState(false);
@@ -165,7 +166,21 @@ export const NewAgentPage = ({ onSubmit, onCancel, onStateChange }: NewAgentPage
   return (
     <>
       <Box flexDirection="column" borderStyle="round" borderColor="cyan" padding={1}>
-        <Text bold color="cyan">New Agent</Text>
+        <Box flexDirection="row" justifyContent="space-between">
+          <Text bold color="cyan">New Agent</Text>
+          {artifact && (
+            <Text color="magenta" bold>
+              📄 Artifact Context
+            </Text>
+          )}
+        </Box>
+
+        {artifact && (
+          <Box marginTop={1} borderStyle="single" borderColor="magenta" paddingX={1}>
+            <Text dimColor>Artifact: </Text>
+            <Text color="magenta">{artifact.path}</Text>
+          </Box>
+        )}
 
         <Box marginTop={1} flexDirection="column">
           <Text color={step === 'prompt' ? 'cyan' : 'green'}>

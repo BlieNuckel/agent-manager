@@ -184,6 +184,56 @@ export class AgentSDKManager extends EventEmitter {
     this.emit('permissionResolved', id, allowed);
   }
 
+  async requestArtifact(id: string, artifactPath: string): Promise<void> {
+    const entry = this.queries.get(id);
+    if (!entry) {
+      throw new Error(`Agent ${id} not found`);
+    }
+
+    const artifactMessage = `Please save your findings, plan, or research to: ${artifactPath}
+
+Include in the markdown document:
+- A clear title/heading
+- Summary of key findings or the plan
+- Important details, steps, or considerations
+- Relevant code snippets, commands, or examples
+
+This artifact will be passed to another agent as context.`;
+
+    const state = this.agentStates.get(id);
+    if (!state) {
+      throw new Error(`Agent state ${id} not found`);
+    }
+
+    this.emit('output', id, '');
+    this.emit('output', id, '[i] ═══════════════════════════════════════════════════════');
+    this.emit('output', id, '[i] ARTIFACT REQUEST SENT');
+    this.emit('output', id, '[i] ═══════════════════════════════════════════════════════');
+    this.emit('output', id, '');
+
+    async function* messageGenerator() {
+      yield {
+        type: 'user' as const,
+        message: {
+          role: 'user' as const,
+          content: artifactMessage,
+        },
+        parent_tool_use_id: null,
+        session_id: '',
+        isSynthetic: false,
+      };
+    }
+
+    try {
+      await entry.query.streamInput(messageGenerator());
+      this.emit('artifactRequested', id, artifactPath);
+    } catch (error: any) {
+      debug('Error sending artifact request:', error);
+      this.emit('output', id, `[x] Failed to send artifact request: ${error.message}`);
+      throw error;
+    }
+  }
+
   static async getAvailableCommands(cwd?: string): Promise<SlashCommand[]> {
     if (this.commandsCache) {
       return this.commandsCache;

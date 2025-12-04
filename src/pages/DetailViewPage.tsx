@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Box, Text, useInput, useApp } from 'ink';
+import { Box, Text, useInput, useStdout } from 'ink';
 import type { Agent } from '../types';
 import { StatusBadge } from '../components/StatusBadge';
 import { PermissionPrompt } from '../components/PermissionPrompt';
@@ -8,32 +8,55 @@ interface DetailViewPageProps {
   agent: Agent;
   onPermissionResponse: (allowed: boolean) => void;
   onAlwaysAllow: () => void;
+  onRequestArtifact?: () => void;
+  onContinueWithArtifact?: () => void;
 }
 
-export const DetailViewPage = ({ agent, onPermissionResponse, onAlwaysAllow }: DetailViewPageProps) => {
-  const app = useApp();
+export const DetailViewPage = ({ agent, onPermissionResponse, onAlwaysAllow, onRequestArtifact, onContinueWithArtifact }: DetailViewPageProps) => {
+  const { stdout } = useStdout();
   const [scrollOffset, setScrollOffset] = useState(0);
   const [promptScrollOffset, setPromptScrollOffset] = useState(0);
 
-  const termHeight = (app as any).stdout?.rows || 24;
+  const termHeight = stdout?.rows || 24;
+
+  const appHeaderHeight = 1;
+  const appHelpBarHeight = 3;
+  const availableForPage = termHeight - appHeaderHeight - appHelpBarHeight;
+
   const permissionHeight = agent.pendingPermission ? 10 : 0;
-  const headerHeight = 3;
-  const helpBarHeight = 3;
+  const agentTitleHeight = 3;
   const promptHeaderHeight = 1;
   const workDirHeight = 1;
   const outputHeaderHeight = 1;
+  const outputBorderHeight = 2;
 
   const promptLines = agent.prompt.split('\n');
-  const fixedHeight = headerHeight + promptHeaderHeight + workDirHeight + outputHeaderHeight + helpBarHeight + permissionHeight;
-  const availableHeight = Math.max(10, termHeight - fixedHeight);
-  const maxPromptHeight = Math.min(promptLines.length, Math.floor(availableHeight * 0.3));
-  const actualPromptHeight = Math.min(promptLines.length, maxPromptHeight);
+  const artifactHeight = agent.artifact ? 3 : 0;
 
-  const visibleLines = availableHeight - actualPromptHeight;
+  const fixedHeight = agentTitleHeight + artifactHeight + promptHeaderHeight + workDirHeight + outputHeaderHeight + outputBorderHeight + permissionHeight;
+  const availableHeight = Math.max(10, availableForPage - fixedHeight);
+
+  const maxPromptHeight = Math.min(promptLines.length, Math.floor(availableHeight * 0.3));
+  const promptActualHeight = Math.min(promptLines.length, maxPromptHeight);
+
+  const visibleLines = Math.max(1, availableHeight - promptActualHeight);
 
   useInput((input, key) => {
     if (agent.pendingPermission) return;
 
+    if (input === 'a') {
+      console.log('[DEBUG] Key "a" pressed, onRequestArtifact:', !!onRequestArtifact, 'agent.artifact:', !!agent.artifact);
+    }
+
+    if (input === 'a' && onRequestArtifact && !agent.artifact) {
+      console.log('[DEBUG] Calling onRequestArtifact');
+      onRequestArtifact();
+      return;
+    }
+    if (input === 'c' && onContinueWithArtifact && agent.artifact) {
+      onContinueWithArtifact();
+      return;
+    }
     if (key.upArrow || input === 'k') setScrollOffset(o => Math.max(0, o - 1));
     if (key.downArrow || input === 'j') setScrollOffset(o => Math.min(Math.max(0, agent.output.length - visibleLines), o + 1));
     if (input === 'g') setScrollOffset(0);
@@ -49,7 +72,7 @@ export const DetailViewPage = ({ agent, onPermissionResponse, onAlwaysAllow }: D
         setScrollOffset(Math.max(0, agent.output.length - visibleLines));
       }
     }
-  }, [agent.output.length, agent.pendingPermission]);
+  }, [agent.output.length, agent.pendingPermission, visibleLines]);
 
   const displayedLines = agent.output.slice(scrollOffset, scrollOffset + visibleLines);
   const displayedPromptLines = promptLines.slice(promptScrollOffset, promptScrollOffset + maxPromptHeight);
@@ -63,8 +86,16 @@ export const DetailViewPage = ({ agent, onPermissionResponse, onAlwaysAllow }: D
           <StatusBadge status={agent.status} />
           <Text bold color={agent.pendingPermission ? 'yellow' : 'cyan'} dimColor={isPending} italic={isPending}> {agent.title}</Text>
           {agent.worktreeName && <Text color="magenta"> * {agent.worktreeName}</Text>}
+          {agent.artifact && <Text color="magenta"> 📄</Text>}
           {agent.sessionId && <Text dimColor> (session: {agent.sessionId.slice(0, 8)}...)</Text>}
         </Box>
+
+        {agent.artifact && (
+          <Box borderStyle="single" borderColor="magenta" paddingX={1}>
+            <Text color="magenta" bold>Artifact: </Text>
+            <Text dimColor>{agent.artifact.path}</Text>
+          </Box>
+        )}
 
         <Box flexDirection="column">
           <Box>
@@ -112,12 +143,14 @@ export const DetailViewPage = ({ agent, onPermissionResponse, onAlwaysAllow }: D
   );
 };
 
-export const getDetailViewHelp = (promptNeedsScroll: boolean) => {
+export const getDetailViewHelp = (promptNeedsScroll: boolean, hasArtifact: boolean) => {
   return (
     <>
       <Text color="cyan">↑↓/jk</Text>{' '}Scroll{'  '}
       <Text color="cyan">g/G</Text>{' '}Top/Bottom{'  '}
       {promptNeedsScroll && <><Text color="cyan">p/P</Text>{' '}Prompt{'  '}</>}
+      {!hasArtifact && <><Text color="cyan">a</Text>{' '}Artifact{'  '}</>}
+      {hasArtifact && <><Text color="cyan">c</Text>{' '}Continue{'  '}</>}
       <Text color="cyan">q/Esc</Text>{' '}Back
     </>
   );

@@ -64,6 +64,7 @@ The AgentSDKManager emits events that the UI listens to:
 - `sessionId`: SDK session initialized
 - `permissionRequest`: Agent needs tool permission
 - `titleUpdate`: Generated title available
+- `artifactRequested`: Artifact creation requested for agent
 
 ### Permission System
 
@@ -85,6 +86,28 @@ Agents are created with "Pending..." title. The manager asynchronously calls the
 ### History Persistence
 
 Recent prompts are saved to `~/.agent-manager/history.json` (last 5 entries). History entries track: id, title, prompt, date, and workDir.
+
+### Artifact System
+
+Artifacts allow passing context between agents. When viewing an agent in detail view, press `a` to request the agent save its findings/plan to a markdown file. The artifact path is automatically generated and stored in `~/.agent-manager/artifacts/`.
+
+**Workflow:**
+1. Agent completes research/planning task
+2. User presses `a` in detail view to request artifact creation
+3. Agent receives instruction to save findings to a markdown file
+4. System automatically transitions to "new agent" screen with artifact attached
+5. New agent receives artifact path in its prompt and reads it for context
+6. Artifact indicator (📄) shows in UI for agents with attached artifacts
+
+**Artifact Storage:**
+- Location: `~/.agent-manager/artifacts/`
+- Naming: `YYYY-MM-DDTHH-MM-SS_sanitized-agent-title.md`
+- Format: Markdown files with findings, plans, or research results
+
+**UI Indicators:**
+- 📄 emoji badge on agents with artifacts (in list and detail views)
+- Artifact path displayed in detail view header
+- "Artifact Context" banner in new agent creation screen
 
 ## Key Technical Details
 

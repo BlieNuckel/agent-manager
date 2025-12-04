@@ -179,7 +179,7 @@ export const DemoApp = () => {
             onAlwaysAllow={handleAlwaysAllow}
           />
         ),
-        help: detailAgent.pendingPermission ? null : getDetailViewHelp(promptNeedsScroll),
+        help: detailAgent.pendingPermission ? null : getDetailViewHelp(promptNeedsScroll, !!detailAgent.artifact),
       };
     }
 
