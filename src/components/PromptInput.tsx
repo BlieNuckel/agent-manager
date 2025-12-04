@@ -8,9 +8,10 @@ import { AgentSDKManager } from '../agent/manager';
 import { SlashCommandMenu } from './SlashCommandMenu';
 import { MultilineInput } from './MultilineInput';
 
-export const PromptInput = ({ onSubmit, onCancel }: {
+export const PromptInput = ({ onSubmit, onCancel, onStateChange }: {
   onSubmit: (p: string, agentType: AgentType, worktree: { enabled: boolean; name: string }) => void;
   onCancel: () => void;
+  onStateChange?: (state: { step: InputStep; showSlashMenu: boolean }) => void;
 }) => {
   const [prompt, setPrompt] = useState('');
   const [agentType, setAgentType] = useState<AgentType>('normal');
@@ -26,6 +27,10 @@ export const PromptInput = ({ onSubmit, onCancel }: {
   useEffect(() => {
     AgentSDKManager.getAvailableCommands().then(setSlashCommands);
   }, []);
+
+  useEffect(() => {
+    onStateChange?.({ step, showSlashMenu });
+  }, [step, showSlashMenu, onStateChange]);
 
   useInput((input, key) => {
     if (showSlashMenu) {
@@ -239,47 +244,6 @@ export const PromptInput = ({ onSubmit, onCancel }: {
           selectedIndex={slashSelectedIndex}
         />
       )}
-
-      <Box borderStyle="single" borderColor="gray" paddingX={1} width="100%" marginTop={1}>
-        <Text dimColor>
-          {showSlashMenu ? (
-            <>
-              <Text color="cyan">↑↓</Text> Navigate{' '}
-              <Text color="cyan">Enter</Text> Select{' '}
-              <Text color="cyan">Esc</Text> Cancel{' '}
-              <Text color="cyan">Type</Text> Search
-            </>
-          ) : step === 'prompt' ? (
-            <>
-              <Text color="cyan">Enter</Text> Continue{' '}
-              <Text color="cyan">Shift+Enter</Text> New Line{' '}
-              <Text color="cyan">Ctrl+G</Text> Edit in Vim{' '}
-              <Text color="cyan">/</Text> Slash Commands{' '}
-              <Text color="cyan">Esc</Text> Cancel
-            </>
-          ) : step === 'agentType' ? (
-            <>
-              <Text color="cyan">1-3</Text> Select Type{' '}
-              <Text color="cyan">Enter</Text> Continue{' '}
-              <Text color="cyan">←</Text> Back{' '}
-              <Text color="cyan">Esc</Text> Cancel
-            </>
-          ) : step === 'worktree' ? (
-            <>
-              <Text color="cyan">Y/N</Text> Choose{' '}
-              <Text color="cyan">Enter</Text> Continue{' '}
-              <Text color="cyan">←</Text> Back{' '}
-              <Text color="cyan">Esc</Text> Cancel
-            </>
-          ) : (
-            <>
-              <Text color="cyan">Enter</Text> Submit{' '}
-              <Text color="cyan">←</Text> Back{' '}
-              <Text color="cyan">Esc</Text> Cancel
-            </>
-          )}
-        </Text>
-      </Box>
     </>
   );
 };

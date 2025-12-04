@@ -1,17 +1,15 @@
 import React, { useState, useEffect, useReducer } from 'react';
-import { Box, Text, useInput, useApp, useStdout, Spacer } from 'ink';
-import type { Agent, AgentType, HistoryEntry, Mode, PermissionRequest } from '../types';
+import { Box, useInput, useApp, useStdout } from 'ink';
+import type { Agent, AgentType, HistoryEntry, Mode, PermissionRequest, InputStep } from '../types';
 import { reducer } from '../state/reducer';
 import { loadHistory, saveHistory } from '../state/history';
 import { AgentSDKManager } from '../agent/manager';
 import { getGitRoot, createWorktreeWithAgent, attemptAutoMergeWithAgent } from '../git/worktree';
 import { genId } from '../utils/helpers';
 import { debug } from '../utils/logger';
-import { Tab } from './Tab';
-import { AgentItem } from './AgentItem';
-import { HistoryItem } from './HistoryItem';
+import { Header } from './Header';
+import { Body } from './Body';
 import { HelpBar } from './HelpBar';
-import { PromptInput } from './PromptInput';
 import { DetailView } from './DetailView';
 
 const agentManager = new AgentSDKManager();
@@ -26,6 +24,7 @@ export const App = () => {
   const [mode, setMode] = useState<Mode>('normal');
   const [detailAgentId, setDetailAgentId] = useState<string | null>(null);
   const [height, setHeight] = useState(stdout?.rows ?? 24);
+  const [inputState, setInputState] = useState<{ step: InputStep; showSlashMenu: boolean }>({ step: 'prompt', showSlashMenu: false });
 
   useEffect(() => {
     const onOutput = (id: string, line: string) => dispatch({ type: 'APPEND_OUTPUT', id, line });
@@ -317,48 +316,24 @@ export const App = () => {
 
   return (
     <Box flexDirection="column" height={height}>
-      <Box flexDirection="column" minHeight={0}>
-        <Box>
-          <Text bold color="cyan">🤖 Agent Manager</Text>
-          <Text dimColor> v2 (SDK)</Text>
-          <Text dimColor> • {state.agents.filter(a => a.status === 'working').length} active</Text>
-          {state.agents.some(a => a.status === 'waiting') && (
-            <Text color="yellow"> • {state.agents.filter(a => a.status === 'waiting').length} waiting</Text>
-          )}
-        </Box>
+      <Header
+        activeCount={state.agents.filter(a => a.status === 'working').length}
+        waitingCount={state.agents.filter(a => a.status === 'waiting').length}
+      />
 
-        <Box>
-          <Tab label="Inbox" active={tab === 'inbox'} count={state.agents.length} />
-          <Tab label="History" active={tab === 'history'} />
-        </Box>
+      <Body
+        tab={tab}
+        mode={mode}
+        agents={state.agents}
+        history={state.history}
+        inboxIdx={inboxIdx}
+        histIdx={histIdx}
+        onSubmit={(p, at, wt) => { createAgent(p, at, wt); setMode('normal'); setTab('inbox'); }}
+        onCancel={() => setMode('normal')}
+        onInputStateChange={setInputState}
+      />
 
-        <Box flexDirection="column" flexGrow={1} minHeight={0}>
-          {mode === 'input' ? (
-            <PromptInput
-              onSubmit={(p, at, wt) => { createAgent(p, at, wt); setMode('normal'); setTab('inbox'); }}
-              onCancel={() => setMode('normal')}
-            />
-          ) : tab === 'inbox' ? (
-            state.agents.length === 0 ? (
-              <Text dimColor>No active agents. Press 'n' to create one.</Text>
-            ) : (
-              state.agents.map((a, i) => (
-                <AgentItem key={a.id} agent={a} selected={i === inboxIdx} />
-              ))
-            )
-          ) : state.history.length === 0 ? (
-            <Text dimColor>No history yet.</Text>
-          ) : (
-            state.history.slice(0, 5).map((h, i) => (
-              <HistoryItem key={h.id} entry={h} selected={i === histIdx} />
-            ))
-          )}
-        </Box>
-      </Box>
-
-      <Spacer />
-
-      <HelpBar tab={tab} mode={mode} />
+      <HelpBar tab={tab} mode={mode} inputStep={inputState.step} showSlashMenu={inputState.showSlashMenu} />
     </Box>
   );
 };
