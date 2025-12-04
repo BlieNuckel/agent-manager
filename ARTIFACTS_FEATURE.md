@@ -8,9 +8,9 @@ The Artifact System enables seamless context passing between agents. When one ag
 
 ### Step 1: Request Artifact from Current Agent
 
-While viewing a **working** agent in detail view:
+While viewing an agent in detail view:
 
-1. Press `a` to trigger artifact creation (only available while agent is running)
+1. Press `a` to trigger artifact creation (available while agent is working or done)
 2. The agent receives a formatted instruction to save its findings
 3. The system generates a unique artifact path: `~/.agent-manager/artifacts/TIMESTAMP_agent-title.md`
 
@@ -87,7 +87,7 @@ In Detail View, agents with artifacts show:
 
 | Key | Context | Action |
 |-----|---------|--------|
-| `a` | Detail View (working agents) | Request artifact creation from running agent |
+| `a` | Detail View (working or done agents) | Request artifact creation from agent |
 | `c` | List View or Detail View | Continue with artifact - open new agent screen with artifact context |
 | `Esc` | New Agent (with artifact) | Cancel and clear pending artifact |
 

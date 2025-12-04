@@ -31,20 +31,6 @@ export const App = () => {
     const onDone = async (id: string, code: number) => {
       dispatch({ type: 'SET_PERMISSION', id, permission: undefined });
       dispatch({ type: 'UPDATE_AGENT', id, updates: { status: code === 0 ? 'done' : 'error' } });
-
-      if (code === 0) {
-        const agent = state.agents.find(a => a.id === id);
-        if (agent && !agent.artifact) {
-          try {
-            const filename = generateArtifactFilename(agent.title);
-            const artifactPath = getArtifactPath(filename);
-            debug('Auto-requesting artifact for completed agent:', agent.title);
-            await agentManager.requestArtifact(id, artifactPath);
-          } catch (error: any) {
-            debug('Error auto-requesting artifact:', error);
-          }
-        }
-      }
     };
     const onError = (id: string, msg: string) => {
       dispatch({ type: 'APPEND_OUTPUT', id, line: `[x] Error: ${msg}` });
@@ -193,9 +179,11 @@ export const App = () => {
 
       debug('Artifact path:', artifactPath);
       await agentManager.requestArtifact(detailAgentId, artifactPath);
+      dispatch({ type: 'UPDATE_AGENT', id: detailAgentId, updates: { status: 'working' } });
       debug('Artifact request sent successfully');
     } catch (error: any) {
       debug('Error creating artifact:', error);
+      dispatch({ type: 'APPEND_OUTPUT', id: detailAgentId, line: `[x] Error requesting artifact: ${error.message}` });
     }
   };
 

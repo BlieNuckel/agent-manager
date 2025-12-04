@@ -103,17 +103,16 @@ The detail view now supports chat-like interaction with agents. When an agent co
 
 ### Artifact System
 
-Artifacts allow passing context between agents. When an agent completes successfully, it automatically receives a request to save its findings to a markdown file.
+Artifacts allow passing context between agents. Users can manually request an agent to save its findings to a markdown file.
 
 **Workflow:**
-1. Agent completes task (status becomes 'done')
-2. System automatically sends artifact request via follow-up message
-3. Agent saves findings to the artifact path using the Write tool
-4. User can press `a` manually to request artifact if auto-request failed
-5. User presses `c` (either in list view or detail view) to continue with artifact
-6. System transitions to "new agent" screen with artifact attached
-7. New agent receives artifact path in its prompt and reads it for context
-8. Artifact indicator (📄) shows in UI for agents with attached artifacts
+1. User presses `a` in detail view when agent is working or done
+2. Agent receives request to save findings to the artifact path using the Write tool
+3. Agent saves findings to the artifact path
+4. User presses `c` (either in list view or detail view) to continue with artifact
+5. System transitions to "new agent" screen with artifact attached
+6. New agent receives artifact path in its prompt and reads it for context
+7. Artifact indicator (📄) shows in UI for agents with attached artifacts
 
 **Artifact Storage:**
 - Location: `~/.agent-manager/artifacts/`
@@ -126,8 +125,8 @@ Artifacts allow passing context between agents. When an agent completes successf
 - "Artifact Context" banner in new agent creation screen
 
 **Manual Artifact Request:**
-- Press `a` in detail view when agent is done (only if no artifact exists yet)
-- Useful if auto-artifact request failed or was interrupted
+- Press `a` in detail view when agent is working or done (only if no artifact exists yet)
+- Agent receives instructions to save its findings to a markdown file
 
 ## Key Technical Details
 

@@ -82,6 +82,10 @@ export class AgentSDKManager extends EventEmitter {
 
     this.queries.set(id, { query: q, abort: abortController, iterating: false });
 
+    this.iterateQuery(id, q);
+  }
+
+  private async iterateQuery(id: string, q: Query): Promise<void> {
     try {
       debug('Starting query iteration for:', id);
       const entry = this.queries.get(id);
@@ -210,10 +214,6 @@ export class AgentSDKManager extends EventEmitter {
       throw new Error(`Agent state ${id} not found`);
     }
 
-    if (entry.iterating) {
-      throw new Error(`Agent ${id} is still processing previous messages`);
-    }
-
     this.emit('output', id, '');
     this.emit('output', id, `[>] User: ${message}`);
     this.emit('output', id, '');
@@ -234,14 +234,7 @@ export class AgentSDKManager extends EventEmitter {
     try {
       entry.iterating = true;
       await entry.query.streamInput(messageGenerator());
-
-      for await (const msg of entry.query) {
-        this.processMessage(id, msg);
-      }
-
-      entry.iterating = false;
-      debug('Follow-up query completed for:', id);
-      this.emit('done', id, 0);
+      debug('Follow-up message streamed successfully for:', id);
     } catch (error: any) {
       entry.iterating = false;
       debug('Error sending follow-up message:', error);
