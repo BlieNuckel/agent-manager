@@ -292,7 +292,7 @@ export const App = () => {
             onToggleChatMode={handleToggleChatMode}
           />
         ),
-        help: detailAgent.pendingPermission ? null : getDetailViewHelp(promptNeedsScroll, !!detailAgent.artifact, detailAgent.status === 'done', chatMode),
+        help: detailAgent.pendingPermission ? null : getDetailViewHelp(promptNeedsScroll, !!detailAgent.artifact, detailAgent.status === 'working', chatMode),
       };
     }
 

@@ -205,8 +205,10 @@ export class AgentSDKManager extends EventEmitter {
 
   async sendFollowUpMessage(id: string, message: string): Promise<void> {
     const entry = this.queries.get(id);
-    if (!entry) {
-      throw new Error(`Agent ${id} not found`);
+    const isStillIterating = entry?.iterating ?? false;
+
+    if (!isStillIterating) {
+      throw new Error('Cannot send follow-up message: Agent has completed and transport is closed');
     }
 
     const state = this.agentStates.get(id);
@@ -232,11 +234,12 @@ export class AgentSDKManager extends EventEmitter {
     }
 
     try {
-      entry.iterating = true;
+      if (!entry) {
+        throw new Error(`Agent ${id} not found`);
+      }
       await entry.query.streamInput(messageGenerator());
       debug('Follow-up message streamed successfully for:', id);
     } catch (error: any) {
-      entry.iterating = false;
       debug('Error sending follow-up message:', error);
       this.emit('output', id, `[x] Failed to send message: ${error.message}`);
       this.emit('error', id, error.message);
@@ -245,6 +248,13 @@ export class AgentSDKManager extends EventEmitter {
   }
 
   async requestArtifact(id: string, artifactPath: string): Promise<void> {
+    const entry = this.queries.get(id);
+    const isStillIterating = entry?.iterating ?? false;
+
+    if (!isStillIterating) {
+      throw new Error('Cannot request artifact: Agent has completed. Please use the input feature to create a new agent with this agent\'s output as context.');
+    }
+
     const artifactMessage = `Please save your findings, plan, or research to: ${artifactPath}
 
 Include in the markdown document:

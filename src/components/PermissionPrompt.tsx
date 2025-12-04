@@ -25,7 +25,7 @@ export const PermissionPrompt = ({ permission, onResponse, onAlwaysAllow }: {
   });
 
   return (
-    <Box flexDirection="column" borderStyle="round" borderColor="yellow" padding={1} marginTop={1}>
+    <Box flexDirection="column" flexShrink={0} borderStyle="round" borderColor="yellow" padding={1}>
       <Text color="yellow" bold>[!] Permission Request</Text>
       <Box marginTop={1}>
         <Text>Tool: </Text>
@@ -34,14 +34,14 @@ export const PermissionPrompt = ({ permission, onResponse, onAlwaysAllow }: {
       <Box>
         <Text dimColor>Input: {formatToolInput(permission.toolInput)}</Text>
       </Box>
-      <Box marginTop={1} gap={2}>
-        <Box paddingX={2} borderStyle={selected === 0 ? 'bold' : 'single'} borderColor={selected === 0 ? 'green' : 'gray'}>
+      <Box marginTop={1} gap={2} flexShrink={0}>
+        <Box paddingX={2} flexShrink={0} borderStyle={selected === 0 ? 'bold' : 'single'} borderColor={selected === 0 ? 'green' : 'gray'}>
           <Text color={selected === 0 ? 'green' : 'white'} bold={selected === 0}>[Y]es</Text>
         </Box>
-        <Box paddingX={2} borderStyle={selected === 1 ? 'bold' : 'single'} borderColor={selected === 1 ? 'red' : 'gray'}>
+        <Box paddingX={2} flexShrink={0} borderStyle={selected === 1 ? 'bold' : 'single'} borderColor={selected === 1 ? 'red' : 'gray'}>
           <Text color={selected === 1 ? 'red' : 'white'} bold={selected === 1}>[N]o</Text>
         </Box>
-        <Box paddingX={2} borderStyle={selected === 2 ? 'bold' : 'single'} borderColor={selected === 2 ? 'yellow' : 'gray'}>
+        <Box paddingX={2} flexShrink={0} borderStyle={selected === 2 ? 'bold' : 'single'} borderColor={selected === 2 ? 'yellow' : 'gray'}>
           <Text color={selected === 2 ? 'yellow' : 'white'} bold={selected === 2}>[A]lways</Text>
         </Box>
       </Box>

@@ -16,8 +16,8 @@ export const DetailView = ({ agent, onBack, onPermissionResponse, onAlwaysAllow 
 
   const termHeight = (app as any).stdout?.rows || 24;
   const permissionHeight = agent.pendingPermission ? 10 : 0;
-  const headerHeight = 3;
-  const helpBarHeight = 3;
+  const headerHeight = 4;
+  const helpBarHeight = agent.pendingPermission ? 0 : 3;
   const promptHeaderHeight = 1;
   const workDirHeight = 1;
   const outputHeaderHeight = 1;
@@ -44,13 +44,17 @@ export const DetailView = ({ agent, onBack, onPermissionResponse, onAlwaysAllow 
   });
 
   useEffect(() => {
-    if (!agent.pendingPermission) {
-      const atBottom = scrollOffset >= agent.output.length - visibleLines - 2;
-      if (atBottom || agent.status === 'working') {
-        setScrollOffset(Math.max(0, agent.output.length - visibleLines));
-      }
+    const atBottom = scrollOffset >= agent.output.length - visibleLines - 2;
+    if (atBottom || agent.status === 'working') {
+      setScrollOffset(Math.max(0, agent.output.length - visibleLines));
     }
-  }, [agent.output.length, agent.pendingPermission]);
+  }, [agent.output.length, visibleLines, scrollOffset, agent.status]);
+
+  useEffect(() => {
+    if (agent.pendingPermission) {
+      setScrollOffset(Math.max(0, agent.output.length - visibleLines));
+    }
+  }, [agent.pendingPermission]);
 
   const displayedLines = agent.output.slice(scrollOffset, scrollOffset + visibleLines);
   const displayedPromptLines = promptLines.slice(promptScrollOffset, promptScrollOffset + maxPromptHeight);
@@ -82,7 +86,7 @@ export const DetailView = ({ agent, onBack, onPermissionResponse, onAlwaysAllow 
         </Box>
       </Box>
 
-      <Box flexDirection="column" flexGrow={1} borderStyle="round" borderColor="gray" padding={1}>
+      <Box flexDirection="column" height={visibleLines + 2} flexShrink={0} borderStyle="round" borderColor="gray" padding={1}>
         <Box flexShrink={0}>
           <Text dimColor>Output ({agent.output.length} lines, scroll: {scrollOffset + 1}-{Math.min(scrollOffset + visibleLines, agent.output.length)} of {agent.output.length})</Text>
         </Box>
