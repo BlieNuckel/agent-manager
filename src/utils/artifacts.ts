@@ -4,7 +4,7 @@ import { mkdirSync, existsSync } from 'fs';
 
 export function getArtifactsDir(): string {
   const baseDir = join(homedir(), '.agent-manager');
-  const artifactsDir = join(baseDir, 'memory');
+  const artifactsDir = join(baseDir, 'artifacts');
 
   if (!existsSync(artifactsDir)) {
     mkdirSync(artifactsDir, { recursive: true });

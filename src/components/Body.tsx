@@ -13,7 +13,7 @@ interface BodyProps {
   history: HistoryEntry[];
   inboxIdx: number;
   histIdx: number;
-  onSubmit: (prompt: string, agentType: AgentType, worktree: { enabled: boolean; name: string }) => void;
+  onSubmit: (title: string, prompt: string, agentType: AgentType, worktree: { enabled: boolean; name: string }) => void;
   onCancel: () => void;
   onInputStateChange?: (state: { step: InputStep; showSlashMenu: boolean }) => void;
 }

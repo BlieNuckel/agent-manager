@@ -8,9 +8,9 @@ The Artifact System enables seamless context passing between agents. When one ag
 
 ### Step 1: Request Artifact from Current Agent
 
-While viewing an agent in detail view:
+While viewing a **working** agent in detail view:
 
-1. Press `a` to trigger artifact creation
+1. Press `a` to trigger artifact creation (only available while agent is running)
 2. The agent receives a formatted instruction to save its findings
 3. The system generates a unique artifact path: `~/.agent-manager/artifacts/TIMESTAMP_agent-title.md`
 
@@ -37,15 +37,16 @@ The agent sees this instruction in its output:
 
 The agent will then use the Write tool to create the markdown file.
 
-### Step 3: Automatic Transition to New Agent
+### Step 3: Continue with Artifact
 
-After pressing `a`:
+After the artifact is created:
 
-1. The system automatically opens the "New Agent" screen
-2. A prominent "📄 Artifact Context" banner appears at the top
-3. The artifact path is displayed in a magenta-colored box
-4. You enter your prompt for the new agent
-5. The new agent automatically receives the artifact path in its initial prompt
+1. Press `c` either in **list view** or **detail view** to continue with the artifact
+2. The system opens the "New Agent" screen
+3. A prominent "📄 Artifact Context" banner appears at the top
+4. The artifact path is displayed in a magenta-colored box
+5. You enter your prompt for the new agent
+6. The new agent automatically receives the artifact path in its initial prompt
 
 ### Step 4: New Agent Uses Context
 
@@ -86,7 +87,8 @@ In Detail View, agents with artifacts show:
 
 | Key | Context | Action |
 |-----|---------|--------|
-| `a` | Detail View | Request artifact creation and open new agent screen |
+| `a` | Detail View (working agents) | Request artifact creation from running agent |
+| `c` | List View or Detail View | Continue with artifact - open new agent screen with artifact context |
 | `Esc` | New Agent (with artifact) | Cancel and clear pending artifact |
 
 ## Technical Implementation
@@ -124,10 +126,12 @@ interface Agent {
 1. User presses `a` → `handleCreateArtifact()` in App.tsx
 2. Generate artifact path using `generateArtifactFilename()`
 3. Call `agentManager.requestArtifact(id, path)`
-4. Manager emits `artifactRequested` event
-5. Reducer updates agent with artifact info
-6. UI transitions to new agent screen with `pendingArtifact` state
-7. New agent created with artifact included in prompt
+4. Agent receives message and creates artifact file
+5. Manager emits `artifactRequested` event
+6. Reducer updates agent with artifact info (SAVE_ARTIFACT action)
+7. User presses `c` → `handleContinueWithArtifact()` or `c` in list view
+8. UI transitions to new agent screen with `pendingArtifact` state
+9. New agent created with artifact included in prompt
 
 ## Use Cases
 

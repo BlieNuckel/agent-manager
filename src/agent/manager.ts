@@ -7,25 +7,13 @@ import type { WorktreeContext } from './systemPromptTemplates';
 import { buildSystemPrompt } from './systemPromptTemplates';
 
 export class AgentSDKManager extends EventEmitter {
-  private queries: Map<string, { query: Query; abort: AbortController }> = new Map();
+  private queries: Map<string, { query: Query; abort: AbortController; iterating: boolean }> = new Map();
   private agentStates: Map<string, { agentType: AgentType; autoAcceptPermissions: boolean; hasTitle: boolean }> = new Map();
   private static commandsCache: SlashCommand[] | null = null;
 
-  async spawn(id: string, prompt: string, workDir: string, agentType: AgentType, autoAcceptPermissions: boolean, worktreeContext?: WorktreeContext): Promise<void> {
+  async spawn(id: string, prompt: string, workDir: string, agentType: AgentType, autoAcceptPermissions: boolean, worktreeContext?: WorktreeContext, title?: string): Promise<void> {
     const abortController = new AbortController();
-    this.agentStates.set(id, { agentType, autoAcceptPermissions, hasTitle: false });
-
-    generateTitle(prompt).then(title => {
-      const state = this.agentStates.get(id);
-      if (state && !state.hasTitle) {
-        debug('Generated title:', title);
-        this.emit('titleUpdate', id, title);
-        state.hasTitle = true;
-        this.agentStates.set(id, state);
-      }
-    }).catch(error => {
-      debug('Title generation failed:', error);
-    });
+    this.agentStates.set(id, { agentType, autoAcceptPermissions, hasTitle: true });
 
     const autoAllowTools = ['Read', 'Glob', 'Grep', 'WebSearch', 'WebFetch', 'Task', 'TodoRead', 'TodoWrite'];
     const permissionRequiredTools = ['Write', 'Edit', 'MultiEdit', 'Bash', 'NotebookEdit', 'KillBash'];
@@ -92,25 +80,39 @@ export class AgentSDKManager extends EventEmitter {
       options: queryOptions,
     });
 
-    this.queries.set(id, { query: q, abort: abortController });
+    this.queries.set(id, { query: q, abort: abortController, iterating: false });
 
     try {
       debug('Starting query iteration for:', id);
+      const entry = this.queries.get(id);
+      if (entry) {
+        entry.iterating = true;
+      }
+
       for await (const message of q) {
         this.processMessage(id, message);
       }
+
+      const currentEntry = this.queries.get(id);
+      if (currentEntry) {
+        currentEntry.iterating = false;
+      }
+
       debug('Query completed normally for:', id);
       this.emit('done', id, 0);
     } catch (error: any) {
       debug('Query error:', { id, name: error.name, message: error.message, stack: error.stack });
+
+      const currentEntry = this.queries.get(id);
+      if (currentEntry) {
+        currentEntry.iterating = false;
+      }
+
       if (error.name === 'AbortError') {
         this.emit('done', id, 0);
       } else {
         this.emit('error', id, error.message);
       }
-    } finally {
-      this.queries.delete(id);
-      this.agentStates.delete(id);
     }
   }
 
@@ -161,15 +163,28 @@ export class AgentSDKManager extends EventEmitter {
     const entry = this.queries.get(id);
     if (entry) {
       entry.abort.abort();
-      this.queries.delete(id);
-      this.agentStates.delete(id);
+      this.cleanup(id);
       return true;
     }
     return false;
   }
 
+  private cleanup(id: string): void {
+    this.queries.delete(id);
+    this.agentStates.delete(id);
+  }
+
   isRunning(id: string): boolean {
     return this.queries.has(id);
+  }
+
+  isIterating(id: string): boolean {
+    const entry = this.queries.get(id);
+    return entry?.iterating ?? false;
+  }
+
+  close(id: string): void {
+    this.cleanup(id);
   }
 
   setAutoAccept(id: string, autoAccept: boolean): void {
@@ -184,12 +199,59 @@ export class AgentSDKManager extends EventEmitter {
     this.emit('permissionResolved', id, allowed);
   }
 
-  async requestArtifact(id: string, artifactPath: string): Promise<void> {
+  async sendFollowUpMessage(id: string, message: string): Promise<void> {
     const entry = this.queries.get(id);
     if (!entry) {
       throw new Error(`Agent ${id} not found`);
     }
 
+    const state = this.agentStates.get(id);
+    if (!state) {
+      throw new Error(`Agent state ${id} not found`);
+    }
+
+    if (entry.iterating) {
+      throw new Error(`Agent ${id} is still processing previous messages`);
+    }
+
+    this.emit('output', id, '');
+    this.emit('output', id, `[>] User: ${message}`);
+    this.emit('output', id, '');
+
+    async function* messageGenerator() {
+      yield {
+        type: 'user' as const,
+        message: {
+          role: 'user' as const,
+          content: message,
+        },
+        parent_tool_use_id: null,
+        session_id: '',
+        isSynthetic: false,
+      };
+    }
+
+    try {
+      entry.iterating = true;
+      await entry.query.streamInput(messageGenerator());
+
+      for await (const msg of entry.query) {
+        this.processMessage(id, msg);
+      }
+
+      entry.iterating = false;
+      debug('Follow-up query completed for:', id);
+      this.emit('done', id, 0);
+    } catch (error: any) {
+      entry.iterating = false;
+      debug('Error sending follow-up message:', error);
+      this.emit('output', id, `[x] Failed to send message: ${error.message}`);
+      this.emit('error', id, error.message);
+      throw error;
+    }
+  }
+
+  async requestArtifact(id: string, artifactPath: string): Promise<void> {
     const artifactMessage = `Please save your findings, plan, or research to: ${artifactPath}
 
 Include in the markdown document:
@@ -200,36 +262,11 @@ Include in the markdown document:
 
 This artifact will be passed to another agent as context.`;
 
-    const state = this.agentStates.get(id);
-    if (!state) {
-      throw new Error(`Agent state ${id} not found`);
-    }
-
-    this.emit('output', id, '');
-    this.emit('output', id, '[i] ═══════════════════════════════════════════════════════');
-    this.emit('output', id, '[i] ARTIFACT REQUEST SENT');
-    this.emit('output', id, '[i] ═══════════════════════════════════════════════════════');
-    this.emit('output', id, '');
-
-    async function* messageGenerator() {
-      yield {
-        type: 'user' as const,
-        message: {
-          role: 'user' as const,
-          content: artifactMessage,
-        },
-        parent_tool_use_id: null,
-        session_id: '',
-        isSynthetic: false,
-      };
-    }
-
     try {
-      await entry.query.streamInput(messageGenerator());
+      await this.sendFollowUpMessage(id, artifactMessage);
       this.emit('artifactRequested', id, artifactPath);
     } catch (error: any) {
-      debug('Error sending artifact request:', error);
-      this.emit('output', id, `[x] Failed to send artifact request: ${error.message}`);
+      debug('Error requesting artifact:', error);
       throw error;
     }
   }

@@ -87,17 +87,33 @@ Agents are created with "Pending..." title. The manager asynchronously calls the
 
 Recent prompts are saved to `~/.agent-manager/history.json` (last 5 entries). History entries track: id, title, prompt, date, and workDir.
 
+### Chat Mode and Follow-up Messages
+
+The detail view now supports chat-like interaction with agents. When an agent completes its task:
+- Press `i` to enter chat mode and send a follow-up message
+- The agent receives the message and continues working
+- This allows iterative refinement and follow-up questions
+- Press `Esc` to cancel chat input without sending
+
+**Key Features:**
+- Chat mode only available when agent status is 'done'
+- Follow-up messages are sent via `AgentSDKManager.sendFollowUpMessage()`
+- Agent status automatically changes back to 'working' when message is sent
+- The detail view becomes a persistent chat interface for agent interaction
+
 ### Artifact System
 
-Artifacts allow passing context between agents. When viewing an agent in detail view, press `a` to request the agent save its findings/plan to a markdown file. The artifact path is automatically generated and stored in `~/.agent-manager/artifacts/`.
+Artifacts allow passing context between agents. When an agent completes successfully, it automatically receives a request to save its findings to a markdown file.
 
 **Workflow:**
-1. Agent completes research/planning task
-2. User presses `a` in detail view to request artifact creation
-3. Agent receives instruction to save findings to a markdown file
-4. System automatically transitions to "new agent" screen with artifact attached
-5. New agent receives artifact path in its prompt and reads it for context
-6. Artifact indicator (📄) shows in UI for agents with attached artifacts
+1. Agent completes task (status becomes 'done')
+2. System automatically sends artifact request via follow-up message
+3. Agent saves findings to the artifact path using the Write tool
+4. User can press `a` manually to request artifact if auto-request failed
+5. User presses `c` (either in list view or detail view) to continue with artifact
+6. System transitions to "new agent" screen with artifact attached
+7. New agent receives artifact path in its prompt and reads it for context
+8. Artifact indicator (📄) shows in UI for agents with attached artifacts
 
 **Artifact Storage:**
 - Location: `~/.agent-manager/artifacts/`
@@ -108,6 +124,10 @@ Artifacts allow passing context between agents. When viewing an agent in detail 
 - 📄 emoji badge on agents with artifacts (in list and detail views)
 - Artifact path displayed in detail view header
 - "Artifact Context" banner in new agent creation screen
+
+**Manual Artifact Request:**
+- Press `a` in detail view when agent is done (only if no artifact exists yet)
+- Useful if auto-artifact request failed or was interrupted
 
 ## Key Technical Details
 
@@ -126,6 +146,7 @@ Artifacts allow passing context between agents. When viewing an agent in detail 
 ### Data Storage
 - History: `~/.agent-manager/history.json`
 - Debug logs: `~/.agent-manager/debug.log`
+- Artifacts: `~/.agent-manager/artifacts/`
 
 ## Architectural Patterns
 

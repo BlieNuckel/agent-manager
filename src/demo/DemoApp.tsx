@@ -14,7 +14,7 @@ export const DemoApp = () => {
   const [histIdx, setHistIdx] = useState(0);
   const [mode, setMode] = useState<Mode>('normal');
   const [detailAgentId, setDetailAgentId] = useState<string | null>(null);
-  const [inputState, setInputState] = useState<{ step: InputStep; showSlashMenu: boolean }>({ step: 'prompt', showSlashMenu: false });
+  const [inputState, setInputState] = useState<{ step: InputStep; showSlashMenu: boolean }>({ step: 'title', showSlashMenu: false });
   const [demoMode, setDemoMode] = useState<'list' | 'detail' | 'input' | 'cycling'>('list');
   const [cycleState, setCycleState] = useState(0);
 
@@ -177,9 +177,10 @@ export const DemoApp = () => {
             agent={detailAgent}
             onPermissionResponse={handlePermissionResponse}
             onAlwaysAllow={handleAlwaysAllow}
+            onBack={() => setMode('normal')}
           />
         ),
-        help: detailAgent.pendingPermission ? null : getDetailViewHelp(promptNeedsScroll, !!detailAgent.artifact),
+        help: detailAgent.pendingPermission ? null : getDetailViewHelp(promptNeedsScroll, !!detailAgent.artifact, detailAgent.status === 'done', false),
       };
     }
 
@@ -187,7 +188,7 @@ export const DemoApp = () => {
       return {
         content: (
           <NewAgentPage
-            onSubmit={() => { setMode('normal'); setTab('inbox'); }}
+            onSubmit={(title, prompt, agentType, worktree) => { setMode('normal'); setTab('inbox'); }}
             onCancel={() => setMode('normal')}
             onStateChange={setInputState}
           />

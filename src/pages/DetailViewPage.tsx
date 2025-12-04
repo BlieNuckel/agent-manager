@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Box, Text, useInput, useStdout } from 'ink';
+import TextInput from 'ink-text-input';
 import type { Agent } from '../types';
 import { StatusBadge } from '../components/StatusBadge';
 import { PermissionPrompt } from '../components/PermissionPrompt';
@@ -10,12 +11,27 @@ interface DetailViewPageProps {
   onAlwaysAllow: () => void;
   onRequestArtifact?: () => void;
   onContinueWithArtifact?: () => void;
+  onSendMessage?: (message: string) => void;
+  onBack: () => void;
+  chatMode?: boolean;
+  onToggleChatMode?: () => void;
 }
 
-export const DetailViewPage = ({ agent, onPermissionResponse, onAlwaysAllow, onRequestArtifact, onContinueWithArtifact }: DetailViewPageProps) => {
+export const DetailViewPage = ({
+  agent,
+  onPermissionResponse,
+  onAlwaysAllow,
+  onRequestArtifact,
+  onContinueWithArtifact,
+  onSendMessage,
+  onBack,
+  chatMode = false,
+  onToggleChatMode
+}: DetailViewPageProps) => {
   const { stdout } = useStdout();
   const [scrollOffset, setScrollOffset] = useState(0);
   const [promptScrollOffset, setPromptScrollOffset] = useState(0);
+  const [chatInput, setChatInput] = useState('');
 
   const termHeight = stdout?.rows || 24;
 
@@ -24,6 +40,7 @@ export const DetailViewPage = ({ agent, onPermissionResponse, onAlwaysAllow, onR
   const availableForPage = termHeight - appHeaderHeight - appHelpBarHeight;
 
   const permissionHeight = agent.pendingPermission ? 10 : 0;
+  const chatInputHeight = chatMode ? 3 : 0;
   const agentTitleHeight = 3;
   const promptHeaderHeight = 1;
   const workDirHeight = 1;
@@ -33,7 +50,7 @@ export const DetailViewPage = ({ agent, onPermissionResponse, onAlwaysAllow, onR
   const promptLines = agent.prompt.split('\n');
   const artifactHeight = agent.artifact ? 3 : 0;
 
-  const fixedHeight = agentTitleHeight + artifactHeight + promptHeaderHeight + workDirHeight + outputHeaderHeight + outputBorderHeight + permissionHeight;
+  const fixedHeight = agentTitleHeight + artifactHeight + promptHeaderHeight + workDirHeight + outputHeaderHeight + outputBorderHeight + permissionHeight + chatInputHeight;
   const availableHeight = Math.max(10, availableForPage - fixedHeight);
 
   const maxPromptHeight = Math.min(promptLines.length, Math.floor(availableHeight * 0.3));
@@ -44,12 +61,25 @@ export const DetailViewPage = ({ agent, onPermissionResponse, onAlwaysAllow, onR
   useInput((input, key) => {
     if (agent.pendingPermission) return;
 
-    if (input === 'a') {
-      console.log('[DEBUG] Key "a" pressed, onRequestArtifact:', !!onRequestArtifact, 'agent.artifact:', !!agent.artifact);
+    if (chatMode && key.escape && onToggleChatMode) {
+      setChatInput('');
+      onToggleChatMode();
+      return;
     }
 
-    if (input === 'a' && onRequestArtifact && !agent.artifact) {
-      console.log('[DEBUG] Calling onRequestArtifact');
+    if (chatMode) return;
+
+    if (key.escape || input === 'q') {
+      onBack();
+      return;
+    }
+
+    if (input === 'i' && onToggleChatMode && agent.status === 'done') {
+      onToggleChatMode();
+      return;
+    }
+
+    if (input === 'a' && onRequestArtifact && !agent.artifact && agent.status === 'done') {
       onRequestArtifact();
       return;
     }
@@ -64,6 +94,16 @@ export const DetailViewPage = ({ agent, onPermissionResponse, onAlwaysAllow, onR
     if (input === 'p') setPromptScrollOffset(o => Math.max(0, o - 1));
     if (input === 'P') setPromptScrollOffset(o => Math.min(Math.max(0, promptLines.length - maxPromptHeight), o + 1));
   });
+
+  const handleChatSubmit = () => {
+    if (chatInput.trim() && onSendMessage) {
+      onSendMessage(chatInput);
+      setChatInput('');
+      if (onToggleChatMode) {
+        onToggleChatMode();
+      }
+    }
+  };
 
   useEffect(() => {
     if (!agent.pendingPermission) {
@@ -139,17 +179,38 @@ export const DetailViewPage = ({ agent, onPermissionResponse, onAlwaysAllow, onR
           onAlwaysAllow={onAlwaysAllow}
         />
       )}
+
+      {chatMode && (
+        <Box flexDirection="column" flexShrink={0} borderStyle="single" borderColor="cyan" paddingX={1}>
+          <Text color="cyan" bold>Send message (Esc to cancel):</Text>
+          <TextInput
+            value={chatInput}
+            onChange={setChatInput}
+            onSubmit={handleChatSubmit}
+          />
+        </Box>
+      )}
     </>
   );
 };
 
-export const getDetailViewHelp = (promptNeedsScroll: boolean, hasArtifact: boolean) => {
+export const getDetailViewHelp = (promptNeedsScroll: boolean, hasArtifact: boolean, isDone: boolean, chatMode: boolean) => {
+  if (chatMode) {
+    return (
+      <>
+        <Text color="cyan">Enter</Text>{' '}Send{'  '}
+        <Text color="cyan">Esc</Text>{' '}Cancel
+      </>
+    );
+  }
+
   return (
     <>
       <Text color="cyan">↑↓/jk</Text>{' '}Scroll{'  '}
       <Text color="cyan">g/G</Text>{' '}Top/Bottom{'  '}
       {promptNeedsScroll && <><Text color="cyan">p/P</Text>{' '}Prompt{'  '}</>}
-      {!hasArtifact && <><Text color="cyan">a</Text>{' '}Artifact{'  '}</>}
+      {isDone && !hasArtifact && <><Text color="cyan">a</Text>{' '}Artifact{'  '}</>}
+      {isDone && <><Text color="cyan">i</Text>{' '}Chat{'  '}</>}
       {hasArtifact && <><Text color="cyan">c</Text>{' '}Continue{'  '}</>}
       <Text color="cyan">q/Esc</Text>{' '}Back
     </>

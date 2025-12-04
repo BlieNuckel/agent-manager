@@ -1,6 +1,6 @@
 export type Status = 'working' | 'waiting' | 'done' | 'error';
-export type Mode = 'normal' | 'input' | 'detail';
-export type InputStep = 'prompt' | 'agentType' | 'worktree' | 'worktreeName';
+export type Mode = 'normal' | 'input' | 'detail' | 'detail-chat';
+export type InputStep = 'title' | 'prompt' | 'agentType' | 'worktree' | 'worktreeName';
 export type AgentType = 'normal' | 'planning' | 'auto-accept';
 
 export interface PermissionRequest {

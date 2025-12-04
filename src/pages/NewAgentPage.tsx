@@ -9,18 +9,19 @@ import { SlashCommandMenu } from '../components/SlashCommandMenu';
 import { MultilineInput } from '../components/MultilineInput';
 
 interface NewAgentPageProps {
-  onSubmit: (p: string, agentType: AgentType, worktree: { enabled: boolean; name: string }) => void;
+  onSubmit: (title: string, p: string, agentType: AgentType, worktree: { enabled: boolean; name: string }) => void;
   onCancel: () => void;
   onStateChange?: (state: { step: InputStep; showSlashMenu: boolean }) => void;
   artifact?: { path: string; createdAt: Date };
 }
 
 export const NewAgentPage = ({ onSubmit, onCancel, onStateChange, artifact }: NewAgentPageProps) => {
+  const [title, setTitle] = useState('');
   const [prompt, setPrompt] = useState('');
   const [agentType, setAgentType] = useState<AgentType>('normal');
   const [useWorktree, setUseWorktree] = useState(false);
   const [worktreeName, setWorktreeName] = useState('');
-  const [step, setStep] = useState<InputStep>('prompt');
+  const [step, setStep] = useState<InputStep>('title');
   const [gitRoot] = useState(() => getGitRoot());
   const [slashCommands, setSlashCommands] = useState<SlashCommand[]>([]);
   const [showSlashMenu, setShowSlashMenu] = useState(false);
@@ -88,7 +89,10 @@ export const NewAgentPage = ({ onSubmit, onCancel, onStateChange, artifact }: Ne
     if (key.escape) { onCancel(); return; }
 
     if (key.leftArrow) {
-      if (step === 'agentType') {
+      if (step === 'prompt') {
+        setStep('title');
+        return;
+      } else if (step === 'agentType') {
         setStep('prompt');
         return;
       } else if (step === 'worktree') {
@@ -120,6 +124,12 @@ export const NewAgentPage = ({ onSubmit, onCancel, onStateChange, artifact }: Ne
     if (step === 'worktree' && (input === 'n' || input === 'N')) { setUseWorktree(false); return; }
   });
 
+  const handleTitleSubmit = (value: string) => {
+    if (value.trim()) {
+      setStep('prompt');
+    }
+  };
+
   const handlePromptSubmit = (value: string) => {
     if (value.trim()) {
       setStep('agentType');
@@ -128,7 +138,7 @@ export const NewAgentPage = ({ onSubmit, onCancel, onStateChange, artifact }: Ne
 
   const handleWorktreeNameSubmit = (value: string) => {
     const name = value.trim();
-    onSubmit(prompt, agentType, { enabled: true, name });
+    onSubmit(title, prompt, agentType, { enabled: true, name });
   };
 
   const handlePromptChange = (value: string) => {
@@ -151,7 +161,7 @@ export const NewAgentPage = ({ onSubmit, onCancel, onStateChange, artifact }: Ne
     if (gitRoot) {
       setStep('worktree');
     } else {
-      onSubmit(prompt, agentType, { enabled: false, name: '' });
+      onSubmit(title, prompt, agentType, { enabled: false, name: '' });
     }
   };
 
@@ -159,7 +169,7 @@ export const NewAgentPage = ({ onSubmit, onCancel, onStateChange, artifact }: Ne
     if (useWorktree) {
       setStep('worktreeName');
     } else {
-      onSubmit(prompt, agentType, { enabled: false, name: '' });
+      onSubmit(title, prompt, agentType, { enabled: false, name: '' });
     }
   };
 
@@ -183,8 +193,28 @@ export const NewAgentPage = ({ onSubmit, onCancel, onStateChange, artifact }: Ne
         )}
 
         <Box marginTop={1} flexDirection="column">
-          <Text color={step === 'prompt' ? 'cyan' : 'green'}>
-            {step === 'prompt' ? '>' : '+'} Prompt:{' '}
+          <Text color={step === 'title' ? 'cyan' : step === 'prompt' || step === 'agentType' || step === 'worktree' || step === 'worktreeName' ? 'green' : 'gray'}>
+            {step === 'title' ? '>' : title ? '+' : '○'} Title:{' '}
+          </Text>
+          {step === 'title' ? (
+            <Box marginLeft={2}>
+              <TextInput
+                value={title}
+                onChange={setTitle}
+                onSubmit={handleTitleSubmit}
+                placeholder="Enter agent title..."
+              />
+            </Box>
+          ) : (
+            <Box marginLeft={2}>
+              <Text dimColor={!title}>{title || ''}</Text>
+            </Box>
+          )}
+        </Box>
+
+        <Box marginTop={1} flexDirection="column">
+          <Text color={step === 'prompt' ? 'cyan' : step === 'title' ? 'gray' : 'green'}>
+            {step === 'title' ? '○' : step === 'prompt' ? '>' : '+'} Prompt:{' '}
           </Text>
           {step === 'prompt' ? (
             <Box marginLeft={2}>
@@ -197,14 +227,14 @@ export const NewAgentPage = ({ onSubmit, onCancel, onStateChange, artifact }: Ne
             </Box>
           ) : (
             <Box marginLeft={2}>
-              <Text>{prompt}</Text>
+              <Text dimColor={step === 'title'}>{prompt}</Text>
             </Box>
           )}
         </Box>
 
         <Box marginTop={1}>
-          <Text color={step === 'agentType' ? 'cyan' : step === 'prompt' ? 'gray' : 'green'}>
-            {step === 'prompt' ? '○' : step === 'agentType' ? '▸' : '✓'} Agent Type:{' '}
+          <Text color={step === 'agentType' ? 'cyan' : step === 'title' || step === 'prompt' ? 'gray' : 'green'}>
+            {step === 'title' || step === 'prompt' ? '○' : step === 'agentType' ? '▸' : '✓'} Agent Type:{' '}
           </Text>
           {step === 'agentType' ? (
             <Box flexDirection="column">
@@ -213,7 +243,7 @@ export const NewAgentPage = ({ onSubmit, onCancel, onStateChange, artifact }: Ne
               <Text>[<Text color={agentType === 'auto-accept' ? 'cyan' : 'white'} bold={agentType === 'auto-accept'}>3</Text>] Auto-accept (no permission prompts)</Text>
             </Box>
           ) : (
-            <Text dimColor={step === 'prompt'}>
+            <Text dimColor={step === 'title' || step === 'prompt'}>
               {agentType === 'normal' ? 'Normal' : agentType === 'planning' ? 'Planning' : 'Auto-accept'}
             </Text>
           )}
@@ -228,11 +258,11 @@ export const NewAgentPage = ({ onSubmit, onCancel, onStateChange, artifact }: Ne
               {step === 'worktree' ? (
                 <Text>[<Text color={useWorktree ? 'green' : 'white'} bold={useWorktree}>Y</Text>/<Text color={!useWorktree ? 'red' : 'white'} bold={!useWorktree}>N</Text>]</Text>
               ) : (
-                <Text dimColor={step === 'prompt'}>{useWorktree ? 'Yes' : 'No'}</Text>
+                <Text dimColor={step === 'title' || step === 'prompt'}>{useWorktree ? 'Yes' : 'No'}</Text>
               )}
             </Box>
 
-            {(step === 'worktreeName' || (useWorktree && step !== 'prompt')) && (
+            {(step === 'worktreeName' || (useWorktree && step !== 'title' && step !== 'prompt')) && (
               <Box marginTop={1}>
                 <Text color={step === 'worktreeName' ? 'cyan' : 'gray'}>
                   {step === 'worktreeName' ? '>' : '○'} Worktree name:{' '}
@@ -277,6 +307,15 @@ export const getNewAgentHelp = (inputStep?: InputStep, showSlashMenu?: boolean) 
     );
   }
 
+  if (inputStep === 'title') {
+    return (
+      <>
+        <Text color="cyan">Enter</Text> Continue{' '}
+        <Text color="cyan">Esc</Text> Cancel
+      </>
+    );
+  }
+
   if (inputStep === 'prompt') {
     return (
       <>
@@ -284,6 +323,7 @@ export const getNewAgentHelp = (inputStep?: InputStep, showSlashMenu?: boolean) 
         <Text color="cyan">Shift+Enter</Text> New Line{' '}
         <Text color="cyan">Ctrl+G</Text> Edit in Vim{' '}
         <Text color="cyan">/</Text> Slash Commands{' '}
+        <Text color="cyan">←</Text> Back{' '}
         <Text color="cyan">Esc</Text> Cancel
       </>
     );

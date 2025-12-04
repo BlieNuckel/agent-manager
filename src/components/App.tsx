@@ -22,6 +22,7 @@ export const App = () => {
   const [histIdx, setHistIdx] = useState(0);
   const [mode, setMode] = useState<Mode>('normal');
   const [detailAgentId, setDetailAgentId] = useState<string | null>(null);
+  const [chatMode, setChatMode] = useState(false);
   const [inputState, setInputState] = useState<{ step: InputStep; showSlashMenu: boolean }>({ step: 'prompt', showSlashMenu: false });
   const [pendingArtifact, setPendingArtifact] = useState<{ path: string; createdAt: Date } | null>(null);
 
@@ -30,6 +31,20 @@ export const App = () => {
     const onDone = async (id: string, code: number) => {
       dispatch({ type: 'SET_PERMISSION', id, permission: undefined });
       dispatch({ type: 'UPDATE_AGENT', id, updates: { status: code === 0 ? 'done' : 'error' } });
+
+      if (code === 0) {
+        const agent = state.agents.find(a => a.id === id);
+        if (agent && !agent.artifact) {
+          try {
+            const filename = generateArtifactFilename(agent.title);
+            const artifactPath = getArtifactPath(filename);
+            debug('Auto-requesting artifact for completed agent:', agent.title);
+            await agentManager.requestArtifact(id, artifactPath);
+          } catch (error: any) {
+            debug('Error auto-requesting artifact:', error);
+          }
+        }
+      }
     };
     const onError = (id: string, msg: string) => {
       dispatch({ type: 'APPEND_OUTPUT', id, line: `[x] Error: ${msg}` });
@@ -77,7 +92,7 @@ export const App = () => {
     };
   }, [state.history]);
 
-  const createAgent = async (prompt: string, agentType: AgentType, worktree: { enabled: boolean; name: string }, artifact?: { path: string; createdAt: Date }) => {
+  const createAgent = async (title: string, prompt: string, agentType: AgentType, worktree: { enabled: boolean; name: string }, artifact?: { path: string; createdAt: Date }) => {
     const id = genId();
     const workDir = process.cwd();
     let worktreeContext: WorktreeContext | undefined;
@@ -108,7 +123,7 @@ export const App = () => {
 
     const placeholderAgent: Agent = {
       id,
-      title: 'Pending...',
+      title: title || 'Untitled Agent',
       prompt,
       status: 'working',
       output: worktree.enabled ? ['[i] Agent will create git worktree as first action'] : artifact ? ['[i] Agent will receive artifact context'] : [],
@@ -123,9 +138,9 @@ export const App = () => {
     dispatch({ type: 'ADD_AGENT', agent: placeholderAgent });
 
     debug('Spawning agent:', { id, workDir, agentType, hasWorktreeContext: !!worktreeContext, hasArtifact: !!artifact });
-    agentManager.spawn(id, finalPrompt, workDir, agentType, false, worktreeContext);
+    agentManager.spawn(id, finalPrompt, workDir, agentType, false, worktreeContext, title);
 
-    const entry: HistoryEntry = { id, title: 'Pending...', prompt, date: new Date(), workDir };
+    const entry: HistoryEntry = { id, title: title || 'Untitled Agent', prompt, date: new Date(), workDir };
     const newHistory = [entry, ...state.history.filter(h => h.prompt !== prompt)].slice(0, 5);
     saveHistory(newHistory);
   };
@@ -194,16 +209,28 @@ export const App = () => {
     setMode('input');
   };
 
-  useInput((input, key) => {
-    if (mode === 'detail') {
-      if (key.escape || input === 'q') {
-        setMode('normal');
-        return;
-      }
-      return;
-    }
+  const handleBackFromDetail = () => {
+    setMode('normal');
+    setChatMode(false);
+  };
 
-    if (mode === 'input') return;
+  const handleSendMessage = async (message: string) => {
+    if (!detailAgentId) return;
+
+    try {
+      await agentManager.sendFollowUpMessage(detailAgentId, message);
+      dispatch({ type: 'UPDATE_AGENT', id: detailAgentId, updates: { status: 'working' } });
+    } catch (error: any) {
+      debug('Error sending message:', error);
+    }
+  };
+
+  const handleToggleChatMode = () => {
+    setChatMode(prev => !prev);
+  };
+
+  useInput((input, key) => {
+    if (mode === 'detail' || mode === 'input') return;
 
     if (key.tab) { setTab(t => t === 'inbox' ? 'history' : 'inbox'); return; }
     if (input === 'q') { exit(); return; }
@@ -222,12 +249,17 @@ export const App = () => {
         setMode('detail');
       } else {
         const entry = state.history[idx] as HistoryEntry;
-        createAgent(entry.prompt, 'normal', { enabled: false, name: '' }, undefined);
+        createAgent(entry.title, entry.prompt, 'normal', { enabled: false, name: '' }, undefined);
         setTab('inbox');
       }
     }
 
     if (tab === 'inbox' && state.agents[idx]) {
+      if (input === 'c' && state.agents[idx].artifact) {
+        setPendingArtifact(state.agents[idx].artifact!);
+        setMode('input');
+        return;
+      }
       if (input === 'x') {
         agentManager.kill(state.agents[idx].id);
         dispatch({ type: 'UPDATE_AGENT', id: state.agents[idx].id, updates: { status: 'done' } });
@@ -266,9 +298,13 @@ export const App = () => {
             onAlwaysAllow={handleAlwaysAllow}
             onRequestArtifact={handleCreateArtifact}
             onContinueWithArtifact={handleContinueWithArtifact}
+            onSendMessage={handleSendMessage}
+            onBack={handleBackFromDetail}
+            chatMode={chatMode}
+            onToggleChatMode={handleToggleChatMode}
           />
         ),
-        help: detailAgent.pendingPermission ? null : getDetailViewHelp(promptNeedsScroll, !!detailAgent.artifact),
+        help: detailAgent.pendingPermission ? null : getDetailViewHelp(promptNeedsScroll, !!detailAgent.artifact, detailAgent.status === 'done', chatMode),
       };
     }
 
@@ -276,7 +312,7 @@ export const App = () => {
       return {
         content: (
           <NewAgentPage
-            onSubmit={(p, at, wt) => { createAgent(p, at, wt, pendingArtifact || undefined); setMode('normal'); setTab('inbox'); setPendingArtifact(null); }}
+            onSubmit={(t, p, at, wt) => { createAgent(t, p, at, wt, pendingArtifact || undefined); setMode('normal'); setTab('inbox'); setPendingArtifact(null); }}
             onCancel={() => { setMode('normal'); setPendingArtifact(null); }}
             onStateChange={setInputState}
             artifact={pendingArtifact || undefined}
@@ -286,6 +322,7 @@ export const App = () => {
       };
     }
 
+    const selectedAgent = tab === 'inbox' ? state.agents[inboxIdx] : undefined;
     return {
       content: (
         <ListViewPage
@@ -296,7 +333,7 @@ export const App = () => {
           histIdx={histIdx}
         />
       ),
-      help: getListViewHelp(tab),
+      help: getListViewHelp(tab, selectedAgent?.artifact !== undefined),
     };
   };
 
