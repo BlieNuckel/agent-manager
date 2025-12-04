@@ -92,7 +92,7 @@ export const PromptInput = ({ onSubmit, onCancel }: {
       }
     }
 
-    if (key.return) {
+    if (key.return && !key.shift) {
       if (step === 'agentType') {
         handleAgentTypeReturn();
         return;
