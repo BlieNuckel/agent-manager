@@ -3,13 +3,15 @@ import { query, type Query, type SDKMessage, type SlashCommand } from '@anthropi
 import type { AgentType } from '../types';
 import { debug } from '../utils/logger';
 import { generateTitle } from '../utils/titleGenerator';
+import type { WorktreeContext } from './systemPromptTemplates';
+import { buildSystemPrompt } from './systemPromptTemplates';
 
 export class AgentSDKManager extends EventEmitter {
   private queries: Map<string, { query: Query; abort: AbortController }> = new Map();
   private agentStates: Map<string, { agentType: AgentType; autoAcceptPermissions: boolean; hasTitle: boolean }> = new Map();
   private static commandsCache: SlashCommand[] | null = null;
 
-  async spawn(id: string, prompt: string, workDir: string, agentType: AgentType, autoAcceptPermissions: boolean): Promise<void> {
+  async spawn(id: string, prompt: string, workDir: string, agentType: AgentType, autoAcceptPermissions: boolean, worktreeContext?: WorktreeContext): Promise<void> {
     const abortController = new AbortController();
     this.agentStates.set(id, { agentType, autoAcceptPermissions, hasTitle: false });
 
@@ -28,13 +30,12 @@ export class AgentSDKManager extends EventEmitter {
     const autoAllowTools = ['Read', 'Glob', 'Grep', 'WebSearch', 'WebFetch', 'Task', 'TodoRead', 'TodoWrite'];
     const permissionRequiredTools = ['Write', 'Edit', 'MultiEdit', 'Bash', 'NotebookEdit', 'KillBash'];
 
-    const q = query({
-      prompt,
-      options: {
-        cwd: workDir,
-        abortController,
-        permissionMode: 'default',
-        canUseTool: async (toolName: string, toolInput: Record<string, unknown>, options: { signal: AbortSignal }) => {
+    const systemPromptAppend = buildSystemPrompt(worktreeContext);
+    const queryOptions: any = {
+      cwd: workDir,
+      abortController,
+      permissionMode: 'default',
+      canUseTool: async (toolName: string, toolInput: Record<string, unknown>, options: { signal: AbortSignal }) => {
           const currentState = this.agentStates.get(id);
           debug('canUseTool called:', { toolName, toolInput, currentState });
 
@@ -75,7 +76,20 @@ export class AgentSDKManager extends EventEmitter {
           return { behavior: 'allow', updatedInput: toolInput };
         },
         settingSources: ['project'],
-      },
+      };
+
+    if (systemPromptAppend) {
+      queryOptions.systemPrompt = {
+        type: 'preset',
+        preset: 'claude_code',
+        append: systemPromptAppend
+      };
+      debug('Injecting systemPrompt with worktree instructions');
+    }
+
+    const q = query({
+      prompt,
+      options: queryOptions,
     });
 
     this.queries.set(id, { query: q, abort: abortController });

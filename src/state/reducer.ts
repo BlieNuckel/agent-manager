@@ -38,20 +38,6 @@ export function reducer(state: State, action: Action): State {
             : a
         ),
       };
-    case 'SET_MERGE_CONFIRMATION':
-      return {
-        ...state,
-        agents: state.agents.map(a =>
-          a.id === action.id
-            ? {
-                ...a,
-                pendingMergeConfirmation: action.confirmation,
-                mergeStatus: action.confirmation ? 'awaiting_confirmation' : a.mergeStatus,
-                status: action.confirmation ? 'waiting' : a.status
-              }
-            : a
-        ),
-      };
     case 'REMOVE_HISTORY':
       return { ...state, history: state.history.filter((_, i) => i !== action.index) };
     case 'UPDATE_HISTORY_TITLE':

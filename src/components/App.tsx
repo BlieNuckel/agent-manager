@@ -4,7 +4,8 @@ import type { Agent, AgentType, HistoryEntry, Mode, PermissionRequest, InputStep
 import { reducer } from '../state/reducer';
 import { loadHistory, saveHistory } from '../state/history';
 import { AgentSDKManager } from '../agent/manager';
-import { getGitRoot, createWorktreeWithAgent, attemptAutoMergeWithAgent } from '../git/worktree';
+import { getGitRoot, getCurrentBranch, getRepoName, generateWorktreeName } from '../git/worktree';
+import type { WorktreeContext } from '../agent/systemPromptTemplates';
 import { genId } from '../utils/helpers';
 import { debug } from '../utils/logger';
 import { Header } from './Header';
@@ -31,59 +32,6 @@ export const App = () => {
     const onDone = async (id: string, code: number) => {
       dispatch({ type: 'SET_PERMISSION', id, permission: undefined });
       dispatch({ type: 'UPDATE_AGENT', id, updates: { status: code === 0 ? 'done' : 'error' } });
-
-      if (code === 0) {
-        const agent = state.agents.find(a => a.id === id);
-        if (agent?.worktreeName) {
-          const gitRoot = getGitRoot();
-          if (gitRoot) {
-            dispatch({ type: 'UPDATE_AGENT', id, updates: { mergeStatus: 'pending' } });
-            dispatch({ type: 'APPEND_OUTPUT', id, line: `[>] Checking if branch can be merged...` });
-
-            try {
-              const mergeResult = await attemptAutoMergeWithAgent(agent.worktreeName, gitRoot, false);
-
-              if (mergeResult.needsConfirmation) {
-                dispatch({ type: 'APPEND_OUTPUT', id, line: `[!] Branch is ready to merge - awaiting confirmation` });
-                dispatch({
-                  type: 'SET_MERGE_CONFIRMATION', id, confirmation: {
-                    worktreeName: agent.worktreeName,
-                    gitRoot,
-                    resolve: async (confirmed: boolean) => {
-                      dispatch({ type: 'SET_MERGE_CONFIRMATION', id, confirmation: undefined });
-
-                      if (confirmed) {
-                        dispatch({ type: 'APPEND_OUTPUT', id, line: `[>] Merging branch...` });
-                        const finalMerge = await attemptAutoMergeWithAgent(agent.worktreeName!, gitRoot, true);
-
-                        if (finalMerge.success) {
-                          dispatch({ type: 'UPDATE_AGENT', id, updates: { mergeStatus: 'merged' } });
-                          dispatch({ type: 'APPEND_OUTPUT', id, line: `[✓] Successfully merged and cleaned up` });
-                        } else {
-                          dispatch({ type: 'UPDATE_AGENT', id, updates: { mergeStatus: 'failed', mergeError: finalMerge.error } });
-                          dispatch({ type: 'APPEND_OUTPUT', id, line: `[x] Merge failed: ${finalMerge.error}` });
-                        }
-                      } else {
-                        dispatch({ type: 'UPDATE_AGENT', id, updates: { mergeStatus: 'pending' } });
-                        dispatch({ type: 'APPEND_OUTPUT', id, line: `[-] Merge cancelled by user` });
-                      }
-                    }
-                  }
-                });
-              } else if (mergeResult.conflict) {
-                dispatch({ type: 'UPDATE_AGENT', id, updates: { mergeStatus: 'conflict', mergeError: mergeResult.error } });
-                dispatch({ type: 'APPEND_OUTPUT', id, line: `[!] Merge conflicts detected - requires manual resolution` });
-              } else if (mergeResult.error) {
-                dispatch({ type: 'UPDATE_AGENT', id, updates: { mergeStatus: 'failed', mergeError: mergeResult.error } });
-                dispatch({ type: 'APPEND_OUTPUT', id, line: `[x] Merge check failed: ${mergeResult.error}` });
-              }
-            } catch (e: any) {
-              dispatch({ type: 'UPDATE_AGENT', id, updates: { mergeStatus: 'failed', mergeError: e.message } });
-              dispatch({ type: 'APPEND_OUTPUT', id, line: `[x] Merge error: ${e.message}` });
-            }
-          }
-        }
-      }
     };
     const onError = (id: string, msg: string) => {
       dispatch({ type: 'APPEND_OUTPUT', id, line: `[x] Error: ${msg}` });
@@ -95,7 +43,10 @@ export const App = () => {
     const onPermissionRequest = (id: string, permission: PermissionRequest) => {
       debug('Permission request received in UI:', { id, toolName: permission.toolName });
       dispatch({ type: 'SET_PERMISSION', id, permission });
-      process.stdout.write('\u0007');
+
+      if (mode !== 'detail' || detailAgentId !== id) {
+        process.stdout.write('\u0007');
+      }
     };
     const onTitleUpdate = (id: string, title: string) => {
       debug('Title update received in UI:', { id, title });
@@ -128,86 +79,45 @@ export const App = () => {
 
   const createAgent = async (prompt: string, agentType: AgentType, worktree: { enabled: boolean; name: string }) => {
     const id = genId();
-    let workDir = process.cwd();
-    let worktreeName: string | undefined;
+    const workDir = process.cwd();
+    let worktreeContext: WorktreeContext | undefined;
 
     if (worktree.enabled) {
-      debug('Creating worktree for prompt:', prompt);
+      const gitRoot = getGitRoot();
+      if (gitRoot) {
+        const currentBranch = getCurrentBranch();
+        const repoName = getRepoName(gitRoot);
+        const suggestedName = worktree.name || generateWorktreeName(prompt);
 
-      const placeholderAgent: Agent = {
-        id,
-        title: 'Creating worktree...',
-        prompt,
-        status: 'working',
-        output: ['[>] Creating git worktree...'],
-        workDir,
-        worktreeName: undefined,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-        agentType,
-        autoAcceptPermissions: false,
-      };
-      dispatch({ type: 'ADD_AGENT', agent: placeholderAgent });
+        worktreeContext = {
+          enabled: true,
+          suggestedName,
+          gitRoot,
+          currentBranch,
+          repoName
+        };
 
-      try {
-        const result = await createWorktreeWithAgent(prompt, worktree.name || undefined);
-        debug('Worktree creation result:', result);
-
-        if (result.success) {
-          workDir = result.path;
-          worktreeName = result.name;
-          debug('Worktree created successfully:', { workDir, worktreeName });
-
-          dispatch({
-            type: 'UPDATE_AGENT', id, updates: {
-              title: 'Pending...',
-              workDir,
-              worktreeName,
-            }
-          });
-          dispatch({ type: 'APPEND_OUTPUT', id, line: `[✓] Worktree created: ${worktreeName} at ${workDir}` });
-          dispatch({ type: 'APPEND_OUTPUT', id, line: `[>] Starting agent...` });
-        } else {
-          debug('Failed to create worktree:', result.error);
-          dispatch({
-            type: 'UPDATE_AGENT', id, updates: {
-              title: 'Worktree creation failed',
-              status: 'error',
-            }
-          });
-          dispatch({ type: 'APPEND_OUTPUT', id, line: `[x] Failed to create worktree: ${result.error}` });
-          return;
-        }
-      } catch (error: any) {
-        debug('Exception while creating worktree:', error.message, error.stack);
-        dispatch({
-          type: 'UPDATE_AGENT', id, updates: {
-            title: 'Worktree creation error',
-            status: 'error',
-          }
-        });
-        dispatch({ type: 'APPEND_OUTPUT', id, line: `[x] Exception: ${error.message}` });
-        return;
+        debug('Worktree context created:', worktreeContext);
       }
-    } else {
-      const placeholderAgent: Agent = {
-        id,
-        title: 'Pending...',
-        prompt,
-        status: 'working',
-        output: [],
-        workDir,
-        worktreeName: undefined,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-        agentType,
-        autoAcceptPermissions: false,
-      };
-      dispatch({ type: 'ADD_AGENT', agent: placeholderAgent });
     }
 
-    debug('Spawning agent:', { id, workDir, agentType });
-    agentManager.spawn(id, prompt, workDir, agentType, false);
+    const placeholderAgent: Agent = {
+      id,
+      title: 'Pending...',
+      prompt,
+      status: 'working',
+      output: worktree.enabled ? ['[i] Agent will create git worktree as first action'] : [],
+      workDir,
+      worktreeName: worktreeContext?.suggestedName,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      agentType,
+      autoAcceptPermissions: false,
+    };
+    dispatch({ type: 'ADD_AGENT', agent: placeholderAgent });
+
+    debug('Spawning agent:', { id, workDir, agentType, hasWorktreeContext: !!worktreeContext });
+    agentManager.spawn(id, prompt, workDir, agentType, false, worktreeContext);
 
     const entry: HistoryEntry = { id, title: 'Pending...', prompt, date: new Date(), workDir };
     const newHistory = [entry, ...state.history.filter(h => h.prompt !== prompt)].slice(0, 5);
@@ -237,18 +147,6 @@ export const App = () => {
         agentManager.setAutoAccept(detailAgentId, true);
         dispatch({ type: 'UPDATE_AGENT', id: detailAgentId, updates: { autoAcceptPermissions: true } });
         dispatch({ type: 'SET_PERMISSION', id: detailAgentId, permission: undefined });
-      }
-    }
-  };
-
-  const handleMergeConfirmationResponse = (confirmed: boolean) => {
-    debug('handleMergeConfirmationResponse called:', { detailAgentId, confirmed });
-    if (detailAgentId) {
-      const agent = state.agents.find(a => a.id === detailAgentId);
-      debug('Found agent:', { id: agent?.id, hasPendingMergeConfirmation: !!agent?.pendingMergeConfirmation });
-      if (agent?.pendingMergeConfirmation) {
-        debug('Resolving merge confirmation with:', confirmed);
-        agent.pendingMergeConfirmation.resolve(confirmed);
       }
     }
   };
@@ -309,7 +207,6 @@ export const App = () => {
         onBack={() => setMode('normal')}
         onPermissionResponse={handlePermissionResponse}
         onAlwaysAllow={handleAlwaysAllow}
-        onMergeConfirmationResponse={handleMergeConfirmationResponse}
       />
     );
   }

@@ -9,12 +9,6 @@ export interface PermissionRequest {
   resolve: (allowed: boolean) => void;
 }
 
-export interface MergeConfirmation {
-  worktreeName: string;
-  gitRoot: string;
-  resolve: (confirmed: boolean) => void;
-}
-
 export interface Agent {
   id: string;
   title: string;
@@ -27,11 +21,8 @@ export interface Agent {
   worktreeName?: string;
   sessionId?: string;
   pendingPermission?: PermissionRequest;
-  pendingMergeConfirmation?: MergeConfirmation;
   agentType: AgentType;
   autoAcceptPermissions: boolean;
-  mergeStatus?: 'pending' | 'awaiting_confirmation' | 'merged' | 'conflict' | 'failed';
-  mergeError?: string;
 }
 
 export interface HistoryEntry {
@@ -49,7 +40,6 @@ export type Action =
   | { type: 'REMOVE_AGENT'; id: string }
   | { type: 'APPEND_OUTPUT'; id: string; line: string }
   | { type: 'SET_PERMISSION'; id: string; permission: PermissionRequest | undefined }
-  | { type: 'SET_MERGE_CONFIRMATION'; id: string; confirmation: MergeConfirmation | undefined }
   | { type: 'REMOVE_HISTORY'; index: number }
   | { type: 'UPDATE_HISTORY_TITLE'; id: string; title: string };
 
