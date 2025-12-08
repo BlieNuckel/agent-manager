@@ -11,6 +11,7 @@ import { debug } from '../utils/logger';
 import { Layout } from './Layout';
 import { ListViewPage, getListViewHelp, NewAgentPage, getNewAgentHelp, DetailViewPage, getDetailViewHelp } from '../pages';
 import { QuitConfirmationPrompt } from './QuitConfirmationPrompt';
+import { DeleteConfirmationPrompt } from './DeleteConfirmationPrompt';
 
 const agentManager = new AgentSDKManager();
 
@@ -26,6 +27,8 @@ export const App = () => {
   const [inputState, setInputState] = useState<{ step: InputStep; showSlashMenu: boolean }>({ step: 'prompt', showSlashMenu: false });
   const [editingHistoryEntry, setEditingHistoryEntry] = useState<HistoryEntry | null>(null);
   const [showQuitConfirmation, setShowQuitConfirmation] = useState(false);
+  const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false);
+  const [agentToDelete, setAgentToDelete] = useState<string | null>(null);
 
   useEffect(() => {
     const onOutput = (id: string, line: string, isSubagent: boolean = false, subagentId?: string, subagentType?: string) => {
@@ -265,6 +268,35 @@ export const App = () => {
     setShowQuitConfirmation(false);
   };
 
+  const handleDeleteRequest = (agentId: string) => {
+    const agent = state.agents.find(a => a.id === agentId);
+    if (!agent) return;
+
+    if (agent.status === 'idle' || agent.status === 'done') {
+      agentManager.kill(agentId);
+      dispatch({ type: 'REMOVE_AGENT', id: agentId });
+      setInboxIdx(Math.min(inboxIdx, state.agents.length - 2));
+    } else {
+      setAgentToDelete(agentId);
+      setShowDeleteConfirmation(true);
+    }
+  };
+
+  const handleDeleteConfirm = () => {
+    if (agentToDelete) {
+      agentManager.kill(agentToDelete);
+      dispatch({ type: 'REMOVE_AGENT', id: agentToDelete });
+      setInboxIdx(Math.min(inboxIdx, state.agents.length - 2));
+      setAgentToDelete(null);
+    }
+    setShowDeleteConfirmation(false);
+  };
+
+  const handleDeleteCancel = () => {
+    setShowDeleteConfirmation(false);
+    setAgentToDelete(null);
+  };
+
   const handleMergeResponse = async (approved: boolean) => {
     if (!detailAgentId) return;
 
@@ -319,6 +351,15 @@ Please execute these commands and report the results.`;
       return;
     }
 
+    if (showDeleteConfirmation) {
+      if (input === 'y') {
+        handleDeleteConfirm();
+      } else if (input === 'n' || key.escape) {
+        handleDeleteCancel();
+      }
+      return;
+    }
+
     if (mode === 'detail' || mode === 'input') return;
 
     if (key.tab) { setTab(t => t === 'inbox' ? 'history' : 'inbox'); return; }
@@ -349,9 +390,7 @@ Please execute these commands and report the results.`;
         dispatch({ type: 'UPDATE_AGENT', id: state.agents[idx].id, updates: { status: 'done' } });
       }
       if (input === 'd') {
-        agentManager.kill(state.agents[idx].id);
-        dispatch({ type: 'REMOVE_AGENT', id: state.agents[idx].id });
-        setInboxIdx(Math.min(inboxIdx, state.agents.length - 2));
+        handleDeleteRequest(state.agents[idx].id);
       }
     }
 
@@ -450,8 +489,18 @@ Please execute these commands and report the results.`;
     />
   ) : undefined;
 
+  const agentToDeleteData = agentToDelete ? state.agents.find(a => a.id === agentToDelete) : null;
+  const deletePrompt = showDeleteConfirmation && agentToDeleteData ? (
+    <DeleteConfirmationPrompt
+      agentTitle={agentToDeleteData.title}
+      agentStatus={agentToDeleteData.status}
+      onConfirm={handleDeleteConfirm}
+      onCancel={handleDeleteCancel}
+    />
+  ) : undefined;
+
   return (
-    <Layout activeCount={activeCount} waitingCount={waitingCount} helpContent={help} splitPanes={splitPanes} quitPrompt={quitPrompt}>
+    <Layout activeCount={activeCount} waitingCount={waitingCount} helpContent={help} splitPanes={splitPanes} quitPrompt={quitPrompt} deletePrompt={deletePrompt}>
       {content}
     </Layout>
   );
