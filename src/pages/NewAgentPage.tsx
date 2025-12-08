@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Box, Text, useInput } from 'ink';
 import TextInput from 'ink-text-input';
-import type { AgentType, InputStep } from '../types';
+import type { AgentType, InputStep, HistoryEntry } from '../types';
 import type { SlashCommand } from '@anthropic-ai/claude-agent-sdk';
 import { getGitRoot } from '../git/worktree';
 import { AgentSDKManager } from '../agent/manager';
@@ -12,15 +12,16 @@ interface NewAgentPageProps {
   onSubmit: (title: string, p: string, agentType: AgentType, worktree: { enabled: boolean; name: string }) => void;
   onCancel: () => void;
   onStateChange?: (state: { step: InputStep; showSlashMenu: boolean }) => void;
+  initialHistoryEntry?: HistoryEntry | null;
 }
 
-export const NewAgentPage = ({ onSubmit, onCancel, onStateChange }: NewAgentPageProps) => {
-  const [title, setTitle] = useState('');
-  const [prompt, setPrompt] = useState('');
+export const NewAgentPage = ({ onSubmit, onCancel, onStateChange, initialHistoryEntry }: NewAgentPageProps) => {
+  const [title, setTitle] = useState(initialHistoryEntry?.title || '');
+  const [prompt, setPrompt] = useState(initialHistoryEntry?.prompt || '');
   const [agentType, setAgentType] = useState<AgentType>('normal');
   const [useWorktree, setUseWorktree] = useState(false);
   const [worktreeName, setWorktreeName] = useState('');
-  const [step, setStep] = useState<InputStep>('title');
+  const [step, setStep] = useState<InputStep>(initialHistoryEntry ? 'prompt' : 'title');
   const [gitRoot] = useState(() => getGitRoot());
   const [slashCommands, setSlashCommands] = useState<SlashCommand[]>([]);
   const [showSlashMenu, setShowSlashMenu] = useState(false);
@@ -176,7 +177,8 @@ export const NewAgentPage = ({ onSubmit, onCancel, onStateChange }: NewAgentPage
     <>
       <Box flexDirection="column" borderStyle="round" borderColor="cyan" padding={1}>
         <Box flexDirection="row" justifyContent="space-between">
-          <Text bold color="cyan">New Agent</Text>
+          <Text bold color="cyan">{initialHistoryEntry ? 'Edit & Create Agent' : 'New Agent'}</Text>
+          {initialHistoryEntry && <Text dimColor>(from history)</Text>}
         </Box>
 
         <Box marginTop={1} flexDirection="column">

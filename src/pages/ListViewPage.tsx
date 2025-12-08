@@ -48,6 +48,7 @@ export const getListViewHelp = (tab: 'inbox' | 'history') => {
       <Text color="cyan">Tab</Text>{' '}Switch{'  '}
       <Text color="cyan">↑↓jk</Text>{' '}Nav{'  '}
       <Text color="cyan">Enter</Text>{' '}{tab === 'inbox' ? 'Open' : 'Resume'}{'  '}
+      {tab === 'history' && <><Text color="cyan">e</Text>{' '}Edit{'  '}</>}
       <Text color="cyan">n</Text>{' '}New{'  '}
       {tab === 'inbox' && <><Text color="cyan">x</Text>{' '}Kill{'  '}</>}
       <Text color="cyan">d</Text>{' '}{tab === 'inbox' ? 'Remove' : 'Delete'}{'  '}

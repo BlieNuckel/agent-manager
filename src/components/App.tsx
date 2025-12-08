@@ -23,6 +23,7 @@ export const App = () => {
   const [detailAgentId, setDetailAgentId] = useState<string | null>(null);
   const [chatMode, setChatMode] = useState(false);
   const [inputState, setInputState] = useState<{ step: InputStep; showSlashMenu: boolean }>({ step: 'prompt', showSlashMenu: false });
+  const [editingHistoryEntry, setEditingHistoryEntry] = useState<HistoryEntry | null>(null);
 
   useEffect(() => {
     const onOutput = (id: string, line: string, isSubagent: boolean = false, subagentId?: string, subagentType?: string) => {
@@ -333,6 +334,11 @@ Please execute these commands and report the results.`;
         saveHistory(newHistory);
         setHistIdx(Math.min(histIdx, state.history.length - 2));
       }
+      if (input === 'e') {
+        const entry = state.history[idx] as HistoryEntry;
+        setEditingHistoryEntry(entry);
+        setMode('input');
+      }
     }
   });
 
@@ -382,9 +388,10 @@ Please execute these commands and report the results.`;
       return {
         content: (
           <NewAgentPage
-            onSubmit={(t, p, at, wt) => { createAgent(t, p, at, wt); setMode('normal'); setTab('inbox'); setInboxIdx(state.agents.length); }}
-            onCancel={() => { setMode('normal'); }}
+            onSubmit={(t, p, at, wt) => { createAgent(t, p, at, wt); setMode('normal'); setTab('inbox'); setInboxIdx(state.agents.length); setEditingHistoryEntry(null); }}
+            onCancel={() => { setMode('normal'); setEditingHistoryEntry(null); }}
             onStateChange={setInputState}
+            initialHistoryEntry={editingHistoryEntry}
           />
         ),
         help: getNewAgentHelp(inputState.step, inputState.showSlashMenu),
