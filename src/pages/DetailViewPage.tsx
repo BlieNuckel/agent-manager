@@ -169,7 +169,7 @@ export const DetailViewPage = ({
             const subagentLabel = outputLine.isSubagent && outputLine.subagentType ? `[${outputLine.subagentType}] ` : '';
 
             return (
-              <Text key={scrollOffset + i} wrap="truncate-ellipsis">
+              <Text key={scrollOffset + i} wrap="wrap">
                 {outputLine.isSubagent && <Text dimColor>{prefix}</Text>}
                 {subagentLabel && <Text color="magenta" dimColor>{subagentLabel}</Text>}
                 {line.startsWith('[x]') ? <Text color="red">{line}</Text> :
