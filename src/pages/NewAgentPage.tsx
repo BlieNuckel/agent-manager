@@ -7,6 +7,7 @@ import { getGitRoot } from '../git/worktree';
 import { AgentSDKManager } from '../agent/manager';
 import { SlashCommandMenu } from '../components/SlashCommandMenu';
 import { MultilineInput } from '../components/MultilineInput';
+import { listArtifacts, formatArtifactReference, type ArtifactInfo } from '../utils/artifacts';
 
 interface NewAgentPageProps {
   onSubmit: (title: string, p: string, agentType: AgentType, worktree: { enabled: boolean; name: string }) => void;
@@ -27,9 +28,12 @@ export const NewAgentPage = ({ onSubmit, onCancel, onStateChange, initialHistory
   const [showSlashMenu, setShowSlashMenu] = useState(false);
   const [slashSearchQuery, setSlashSearchQuery] = useState('');
   const [slashSelectedIndex, setSlashSelectedIndex] = useState(0);
+  const [artifacts, setArtifacts] = useState<ArtifactInfo[]>([]);
+  const [selectedArtifactIndex, setSelectedArtifactIndex] = useState(-1);
 
   useEffect(() => {
     AgentSDKManager.getAvailableCommands().then(setSlashCommands);
+    listArtifacts().then(setArtifacts);
   }, []);
 
   useEffect(() => {
@@ -95,8 +99,11 @@ export const NewAgentPage = ({ onSubmit, onCancel, onStateChange, initialHistory
       } else if (step === 'agentType') {
         setStep('prompt');
         return;
-      } else if (step === 'worktree') {
+      } else if (step === 'artifact') {
         setStep('agentType');
+        return;
+      } else if (step === 'worktree') {
+        setStep('artifact');
         return;
       } else if (step === 'worktreeName') {
         setStep('worktree');
@@ -108,6 +115,9 @@ export const NewAgentPage = ({ onSubmit, onCancel, onStateChange, initialHistory
       if (step === 'agentType') {
         handleAgentTypeReturn();
         return;
+      } else if (step === 'artifact') {
+        handleArtifactReturn();
+        return;
       } else if (step === 'worktree') {
         handleWorktreeReturn();
         return;
@@ -118,6 +128,24 @@ export const NewAgentPage = ({ onSubmit, onCancel, onStateChange, initialHistory
       if (input === '1') { setAgentType('normal'); return; }
       if (input === '2') { setAgentType('planning'); return; }
       if (input === '3') { setAgentType('auto-accept'); return; }
+    }
+
+    if (step === 'artifact') {
+      if (key.upArrow) {
+        setSelectedArtifactIndex(i => Math.max(-1, i - 1));
+        return;
+      }
+      if (key.downArrow) {
+        setSelectedArtifactIndex(i => Math.min(artifacts.length - 1, i + 1));
+        return;
+      }
+      if (input && !key.ctrl && !key.meta) {
+        const num = parseInt(input);
+        if (!isNaN(num) && num >= 0 && num <= artifacts.length) {
+          setSelectedArtifactIndex(num - 1);
+          return;
+        }
+      }
     }
 
     if (step === 'worktree' && (input === 'y' || input === 'Y')) { setUseWorktree(true); return; }
@@ -138,7 +166,8 @@ export const NewAgentPage = ({ onSubmit, onCancel, onStateChange, initialHistory
 
   const handleWorktreeNameSubmit = (value: string) => {
     const name = value.trim();
-    onSubmit(title, prompt, agentType, { enabled: true, name });
+    const finalPrompt = getFinalPrompt();
+    onSubmit(title, finalPrompt, agentType, { enabled: true, name });
   };
 
   const handlePromptChange = (value: string) => {
@@ -158,10 +187,15 @@ export const NewAgentPage = ({ onSubmit, onCancel, onStateChange, initialHistory
   };
 
   const handleAgentTypeReturn = () => {
+    setStep('artifact');
+  };
+
+  const handleArtifactReturn = () => {
     if (gitRoot) {
       setStep('worktree');
     } else {
-      onSubmit(title, prompt, agentType, { enabled: false, name: '' });
+      const finalPrompt = getFinalPrompt();
+      onSubmit(title, finalPrompt, agentType, { enabled: false, name: '' });
     }
   };
 
@@ -169,8 +203,18 @@ export const NewAgentPage = ({ onSubmit, onCancel, onStateChange, initialHistory
     if (useWorktree) {
       setStep('worktreeName');
     } else {
-      onSubmit(title, prompt, agentType, { enabled: false, name: '' });
+      const finalPrompt = getFinalPrompt();
+      onSubmit(title, finalPrompt, agentType, { enabled: false, name: '' });
     }
+  };
+
+  const getFinalPrompt = () => {
+    if (selectedArtifactIndex >= 0 && selectedArtifactIndex < artifacts.length) {
+      const artifact = artifacts[selectedArtifactIndex];
+      const artifactRef = formatArtifactReference(artifact.name);
+      return `${artifactRef}\n\n${prompt}`;
+    }
+    return prompt;
   };
 
   return (
@@ -235,6 +279,37 @@ export const NewAgentPage = ({ onSubmit, onCancel, onStateChange, initialHistory
             <Text dimColor={step === 'title' || step === 'prompt'}>
               {agentType === 'normal' ? 'Normal' : agentType === 'planning' ? 'Planning' : 'Auto-accept'}
             </Text>
+          )}
+        </Box>
+
+        <Box marginTop={1} flexDirection="column">
+          <Text color={step === 'artifact' ? 'cyan' : step === 'title' || step === 'prompt' || step === 'agentType' ? 'gray' : 'green'}>
+            {step === 'title' || step === 'prompt' || step === 'agentType' ? '○' : step === 'artifact' ? '▸' : '✓'} Include Artifact:{' '}
+          </Text>
+          {step === 'artifact' ? (
+            <Box flexDirection="column" marginLeft={2}>
+              {artifacts.length === 0 ? (
+                <Text dimColor>No artifacts found in ~/.agent-manager/artifacts/</Text>
+              ) : (
+                <>
+                  <Text>[<Text color={selectedArtifactIndex === -1 ? 'cyan' : 'white'} bold={selectedArtifactIndex === -1}>0</Text>] None</Text>
+                  {artifacts.map((artifact, i) => (
+                    <Text key={artifact.name}>
+                      [<Text color={selectedArtifactIndex === i ? 'cyan' : 'white'} bold={selectedArtifactIndex === i}>{i + 1}</Text>] {artifact.name}
+                    </Text>
+                  ))}
+                  <Box marginTop={1}>
+                    <Text dimColor>Use arrow keys or numbers to select</Text>
+                  </Box>
+                </>
+              )}
+            </Box>
+          ) : (
+            <Box marginLeft={2}>
+              <Text dimColor={step === 'title' || step === 'prompt' || step === 'agentType'}>
+                {selectedArtifactIndex >= 0 ? artifacts[selectedArtifactIndex].name : 'None'}
+              </Text>
+            </Box>
           )}
         </Box>
 
@@ -322,6 +397,18 @@ export const getNewAgentHelp = (inputStep?: InputStep, showSlashMenu?: boolean) 
     return (
       <>
         <Text color="cyan">1-3</Text> Select Type{' '}
+        <Text color="cyan">Enter</Text> Continue{' '}
+        <Text color="cyan">←</Text> Back{' '}
+        <Text color="cyan">Esc</Text> Cancel
+      </>
+    );
+  }
+
+  if (inputStep === 'artifact') {
+    return (
+      <>
+        <Text color="cyan">↑↓</Text> Select{' '}
+        <Text color="cyan">0-9</Text> Quick Select{' '}
         <Text color="cyan">Enter</Text> Continue{' '}
         <Text color="cyan">←</Text> Back{' '}
         <Text color="cyan">Esc</Text> Cancel
