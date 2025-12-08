@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useReducer } from 'react';
 import { useInput, useApp } from 'ink';
-import type { Agent, AgentType, HistoryEntry, Mode, PermissionRequest, InputStep } from '../types';
+import type { Agent, AgentType, HistoryEntry, Mode, PermissionRequest, QuestionRequest, InputStep } from '../types';
 import { reducer } from '../state/reducer';
 import { loadHistory, saveHistory } from '../state/history';
 import { AgentSDKManager } from '../agent/manager';
@@ -46,6 +46,14 @@ export const App = () => {
     const onPermissionRequest = (id: string, permission: PermissionRequest) => {
       debug('Permission request received in UI:', { id, toolName: permission.toolName });
       dispatch({ type: 'SET_PERMISSION', id, permission });
+
+      if (mode !== 'detail' || detailAgentId !== id) {
+        process.stdout.write('\u0007');
+      }
+    };
+    const onQuestionRequest = (id: string, question: QuestionRequest) => {
+      debug('Question request received in UI:', { id, questionCount: question.questions.length });
+      dispatch({ type: 'SET_QUESTION', id, question });
 
       if (mode !== 'detail' || detailAgentId !== id) {
         process.stdout.write('\u0007');
@@ -106,6 +114,7 @@ export const App = () => {
     agentManager.on('error', onError);
     agentManager.on('sessionId', onSessionId);
     agentManager.on('permissionRequest', onPermissionRequest);
+    agentManager.on('questionRequest', onQuestionRequest);
     agentManager.on('titleUpdate', onTitleUpdate);
     agentManager.on('worktreeCreated', onWorktreeCreated);
     agentManager.on('mergeReady', onMergeReady);
@@ -120,6 +129,7 @@ export const App = () => {
       agentManager.off('error', onError);
       agentManager.off('sessionId', onSessionId);
       agentManager.off('permissionRequest', onPermissionRequest);
+      agentManager.off('questionRequest', onQuestionRequest);
       agentManager.off('titleUpdate', onTitleUpdate);
       agentManager.off('worktreeCreated', onWorktreeCreated);
       agentManager.off('mergeReady', onMergeReady);
@@ -199,6 +209,18 @@ export const App = () => {
         agentManager.setAutoAccept(detailAgentId, true);
         dispatch({ type: 'UPDATE_AGENT', id: detailAgentId, updates: { autoAcceptPermissions: true } });
         dispatch({ type: 'SET_PERMISSION', id: detailAgentId, permission: undefined });
+      }
+    }
+  };
+
+  const handleQuestionResponse = (answers: Record<string, string | string[]>) => {
+    debug('handleQuestionResponse called:', { detailAgentId, answers });
+    if (detailAgentId) {
+      const agent = state.agents.find(a => a.id === detailAgentId);
+      if (agent?.pendingQuestion) {
+        debug('Resolving question with answers:', answers);
+        agent.pendingQuestion.resolve(answers);
+        dispatch({ type: 'SET_QUESTION', id: detailAgentId, question: undefined });
       }
     }
   };
@@ -329,6 +351,7 @@ Please execute these commands and report the results.`;
             agent={detailAgent}
             onPermissionResponse={handlePermissionResponse}
             onAlwaysAllow={handleAlwaysAllow}
+            onQuestionResponse={handleQuestionResponse}
             onMergeResponse={handleMergeResponse}
             onSendMessage={handleSendMessage}
             onBack={handleBackFromDetail}
@@ -336,7 +359,7 @@ Please execute these commands and report the results.`;
             onToggleChatMode={handleToggleChatMode}
           />
         ),
-        help: detailAgent.pendingPermission ? null : getDetailViewHelp(promptNeedsScroll, detailAgent.status === 'working' || detailAgent.status === 'idle', chatMode, detailAgent.pendingMerge),
+        help: (detailAgent.pendingPermission || detailAgent.pendingQuestion) ? null : getDetailViewHelp(promptNeedsScroll, detailAgent.status === 'working' || detailAgent.status === 'idle', chatMode, detailAgent.pendingMerge),
       };
     }
 

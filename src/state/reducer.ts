@@ -38,6 +38,15 @@ export function reducer(state: State, action: Action): State {
             : a
         ),
       };
+    case 'SET_QUESTION':
+      return {
+        ...state,
+        agents: state.agents.map(a =>
+          a.id === action.id
+            ? { ...a, pendingQuestion: action.question, status: action.question ? 'waiting' : 'working' }
+            : a
+        ),
+      };
     case 'SET_MERGE_STATE':
       return {
         ...state,

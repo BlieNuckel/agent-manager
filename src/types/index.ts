@@ -9,6 +9,23 @@ export interface PermissionRequest {
   resolve: (allowed: boolean) => void;
 }
 
+export interface QuestionOption {
+  label: string;
+  description: string;
+}
+
+export interface Question {
+  question: string;
+  header: string;
+  options: QuestionOption[];
+  multiSelect: boolean;
+}
+
+export interface QuestionRequest {
+  questions: Question[];
+  resolve: (answers: Record<string, string | string[]>) => void;
+}
+
 export interface MergeState {
   branchName: string;
   status: 'ready' | 'conflicts' | 'failed';
@@ -34,6 +51,7 @@ export interface Agent {
   worktreeName?: string;
   sessionId?: string;
   pendingPermission?: PermissionRequest;
+  pendingQuestion?: QuestionRequest;
   pendingMerge?: MergeState;
   agentType: AgentType;
   autoAcceptPermissions: boolean;
@@ -54,6 +72,7 @@ export type Action =
   | { type: 'REMOVE_AGENT'; id: string }
   | { type: 'APPEND_OUTPUT'; id: string; line: OutputLine }
   | { type: 'SET_PERMISSION'; id: string; permission: PermissionRequest | undefined }
+  | { type: 'SET_QUESTION'; id: string; question: QuestionRequest | undefined }
   | { type: 'SET_MERGE_STATE'; id: string; mergeState: MergeState | undefined }
   | { type: 'REMOVE_HISTORY'; index: number }
   | { type: 'UPDATE_HISTORY_TITLE'; id: string; title: string };

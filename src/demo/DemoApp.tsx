@@ -177,6 +177,7 @@ export const DemoApp = () => {
             agent={detailAgent}
             onPermissionResponse={handlePermissionResponse}
             onAlwaysAllow={handleAlwaysAllow}
+            onQuestionResponse={() => {}}
             onBack={() => setMode('normal')}
           />
         ),

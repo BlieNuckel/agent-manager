@@ -4,12 +4,14 @@ import TextInput from 'ink-text-input';
 import type { Agent } from '../types';
 import { StatusBadge } from '../components/StatusBadge';
 import { PermissionPrompt } from '../components/PermissionPrompt';
+import { QuestionPrompt } from '../components/QuestionPrompt';
 import { MergePrompt } from '../components/MergePrompt';
 
 interface DetailViewPageProps {
   agent: Agent;
   onPermissionResponse: (allowed: boolean) => void;
   onAlwaysAllow: () => void;
+  onQuestionResponse: (answers: Record<string, string | string[]>) => void;
   onMergeResponse?: (approved: boolean) => void;
   onSendMessage?: (message: string) => void;
   onBack: () => void;
@@ -21,6 +23,7 @@ export const DetailViewPage = ({
   agent,
   onPermissionResponse,
   onAlwaysAllow,
+  onQuestionResponse,
   onMergeResponse,
   onSendMessage,
   onBack,
@@ -39,6 +42,7 @@ export const DetailViewPage = ({
   const availableForPage = termHeight - appHeaderHeight - appHelpBarHeight;
 
   const permissionHeight = agent.pendingPermission ? 10 : 0;
+  const questionHeight = agent.pendingQuestion ? Math.min(15, 8 + (agent.pendingQuestion.questions.length * 3)) : 0;
   const mergePromptHeight = agent.pendingMerge ? 8 : 0;
   const chatInputHeight = chatMode ? 3 : 0;
   const agentTitleHeight = 3;
@@ -49,7 +53,7 @@ export const DetailViewPage = ({
 
   const promptLines = agent.prompt.split('\n');
 
-  const fixedHeight = agentTitleHeight + promptHeaderHeight + workDirHeight + outputHeaderHeight + outputBorderHeight + permissionHeight + mergePromptHeight + chatInputHeight;
+  const fixedHeight = agentTitleHeight + promptHeaderHeight + workDirHeight + outputHeaderHeight + outputBorderHeight + permissionHeight + questionHeight + mergePromptHeight + chatInputHeight;
   const availableHeight = Math.max(10, availableForPage - fixedHeight);
 
   const maxPromptHeight = Math.min(promptLines.length, Math.floor(availableHeight * 0.3));
@@ -59,6 +63,7 @@ export const DetailViewPage = ({
 
   useInput((input, key) => {
     if (agent.pendingPermission) return;
+    if (agent.pendingQuestion) return;
 
     if (agent.pendingMerge) {
       if (agent.pendingMerge.status === 'ready' && onMergeResponse) {
@@ -113,13 +118,13 @@ export const DetailViewPage = ({
   };
 
   useEffect(() => {
-    if (!agent.pendingPermission) {
+    if (!agent.pendingPermission && !agent.pendingQuestion) {
       const atBottom = scrollOffset >= agent.output.length - visibleLines - 2;
       if (atBottom || agent.status === 'working') {
         setScrollOffset(Math.max(0, agent.output.length - visibleLines));
       }
     }
-  }, [agent.output.length, agent.pendingPermission, visibleLines]);
+  }, [agent.output.length, agent.pendingPermission, agent.pendingQuestion, visibleLines]);
 
   const displayedLines = agent.output.slice(scrollOffset, scrollOffset + visibleLines);
   const displayedPromptLines = promptLines.slice(promptScrollOffset, promptScrollOffset + maxPromptHeight);
@@ -129,9 +134,9 @@ export const DetailViewPage = ({
   return (
     <>
       <Box flexDirection="column" flexShrink={0}>
-        <Box borderStyle="single" borderColor={agent.pendingPermission ? 'yellow' : 'cyan'} paddingX={1}>
+        <Box borderStyle="single" borderColor={agent.pendingPermission ? 'yellow' : agent.pendingQuestion ? 'magenta' : 'cyan'} paddingX={1}>
           <StatusBadge status={agent.status} />
-          <Text bold color={agent.pendingPermission ? 'yellow' : 'cyan'} dimColor={isPending} italic={isPending}> {agent.title}</Text>
+          <Text bold color={agent.pendingPermission ? 'yellow' : agent.pendingQuestion ? 'magenta' : 'cyan'} dimColor={isPending} italic={isPending}> {agent.title}</Text>
           {agent.worktreeName && <Text color="magenta"> * {agent.worktreeName}</Text>}
           {agent.sessionId && <Text dimColor> (session: {agent.sessionId.slice(0, 8)}...)</Text>}
         </Box>
@@ -184,6 +189,13 @@ export const DetailViewPage = ({
           permission={agent.pendingPermission}
           onResponse={onPermissionResponse}
           onAlwaysAllow={onAlwaysAllow}
+        />
+      )}
+
+      {agent.pendingQuestion && (
+        <QuestionPrompt
+          questionRequest={agent.pendingQuestion}
+          onResponse={onQuestionResponse}
         />
       )}
 

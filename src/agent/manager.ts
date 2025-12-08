@@ -1,6 +1,7 @@
 import { EventEmitter } from 'events';
-import { query, type Query, type SDKMessage, type SlashCommand } from '@anthropic-ai/claude-agent-sdk';
-import type { AgentType } from '../types';
+import { query, type Query, type SDKMessage, type SlashCommand, createSdkMcpServer, tool } from '@anthropic-ai/claude-agent-sdk';
+import { z } from 'zod';
+import type { AgentType, Question } from '../types';
 import { debug } from '../utils/logger';
 import { generateTitle } from '../utils/titleGenerator';
 import type { WorktreeContext } from './systemPromptTemplates';
@@ -85,6 +86,58 @@ export class AgentSDKManager extends EventEmitter {
     };
   }
 
+  private createQuestionMcpServer(id: string) {
+    const questionOptionSchema = z.object({
+      label: z.string().describe('The display text for this option (1-5 words)'),
+      description: z.string().describe('Explanation of what this option means or what will happen if chosen'),
+    });
+
+    const questionSchema = z.object({
+      question: z.string().describe('The complete question to ask the user. Should be clear, specific, and end with a question mark.'),
+      header: z.string().max(12).describe('Very short label displayed as a chip/tag (max 12 chars). Examples: "Auth method", "Library", "Approach".'),
+      options: z.array(questionOptionSchema).min(2).max(4).describe('The available choices for this question. Must have 2-4 options.'),
+      multiSelect: z.boolean().describe('Set to true to allow multiple selections instead of just one'),
+    });
+
+    const inputSchema = z.object({
+      questions: z.array(questionSchema).min(1).max(4).describe('Questions to ask the user (1-4 questions)'),
+    });
+
+    return createSdkMcpServer({
+      name: 'question-handler',
+      version: '1.0.0',
+      tools: [
+        tool(
+          'AskQuestion',
+          'Ask the user questions during task execution. Use this when you need user input to make decisions, choose between alternatives, or clarify requirements. The user will see a prompt with the questions and options you provide.',
+          inputSchema.shape,
+          async (args) => {
+            debug('AskQuestion tool called:', { agentId: id, questions: args.questions });
+
+            this.emit('output', id, '[?] Asking user for input...', false);
+
+            const answers = await new Promise<Record<string, string | string[]>>((resolveQuestion) => {
+              this.emit('questionRequest', id, {
+                questions: args.questions as Question[],
+                resolve: resolveQuestion
+              });
+            });
+
+            debug('Question answers received:', { agentId: id, answers });
+            this.emit('output', id, '[+] User provided answers', false);
+
+            return {
+              content: [{
+                type: 'text' as const,
+                text: JSON.stringify({ answers }, null, 2)
+              }]
+            };
+          }
+        )
+      ]
+    });
+  }
+
   async spawn(id: string, prompt: string, workDir: string, agentType: AgentType, autoAcceptPermissions: boolean, worktreeContext?: WorktreeContext, title?: string): Promise<void> {
     const abortController = new AbortController();
     this.agentStates.set(id, { agentType, autoAcceptPermissions, hasTitle: true });
@@ -105,6 +158,9 @@ export class AgentSDKManager extends EventEmitter {
       canUseTool: this.createCanUseTool(id),
       settingSources: ['project'],
       maxThinkingTokens: 16384,
+      mcpServers: {
+        'question-handler': this.createQuestionMcpServer(id)
+      }
     };
 
     if (systemPromptAppend) {
@@ -284,6 +340,8 @@ export class AgentSDKManager extends EventEmitter {
               }
             }
             this.checkForWorktreeSignals(id, content.text);
+          } else if (content.type === 'thinking') {
+            this.emit('output', id, '[💭] Thinking...', isSubagent, subagentInfo.subagentId, subagentInfo.subagentType);
           } else if (content.type === 'tool_use') {
             debug('Tool use in assistant message:', { name: content.name, id: content.id, isSubagent });
 
@@ -407,6 +465,9 @@ export class AgentSDKManager extends EventEmitter {
       canUseTool: this.createCanUseTool(id),
       settingSources: ['project'],
       maxThinkingTokens: 16384,
+      mcpServers: {
+        'question-handler': this.createQuestionMcpServer(id)
+      }
     };
 
     if (entry.systemPromptAppend) {
