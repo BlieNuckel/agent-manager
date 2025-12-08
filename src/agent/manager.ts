@@ -24,6 +24,7 @@ const PERMISSION_REQUIRED_TOOLS = ['Write', 'Edit', 'MultiEdit', 'Bash', 'Notebo
 export class AgentSDKManager extends EventEmitter {
   private queries: Map<string, QueryEntry> = new Map();
   private agentStates: Map<string, { agentType: AgentType; autoAcceptPermissions: boolean; hasTitle: boolean }> = new Map();
+  private thinkingStates: Map<string, boolean> = new Map();
   private static commandsCache: SlashCommand[] | null = null;
 
   private createCanUseTool(id: string) {
@@ -331,6 +332,23 @@ export class AgentSDKManager extends EventEmitter {
           }
         }
 
+        const wasThinking = this.thinkingStates.get(id) || false;
+        let hasThinking = false;
+        let hasNonThinking = false;
+
+        for (const content of message.message.content) {
+          if (content.type === 'thinking') {
+            hasThinking = true;
+          } else if (content.type === 'text' || content.type === 'tool_use') {
+            hasNonThinking = true;
+          }
+        }
+
+        if (hasThinking && !wasThinking) {
+          this.emit('output', id, '[•] thinking...', isSubagent, subagentInfo.subagentId, subagentInfo.subagentType);
+          this.thinkingStates.set(id, true);
+        }
+
         for (const content of message.message.content) {
           if (content.type === 'text') {
             const lines = content.text.split('\n');
@@ -340,8 +358,6 @@ export class AgentSDKManager extends EventEmitter {
               }
             }
             this.checkForWorktreeSignals(id, content.text);
-          } else if (content.type === 'thinking') {
-            this.emit('output', id, '[💭] Thinking...', isSubagent, subagentInfo.subagentId, subagentInfo.subagentType);
           } else if (content.type === 'tool_use') {
             debug('Tool use in assistant message:', { name: content.name, id: content.id, isSubagent });
 
@@ -349,6 +365,11 @@ export class AgentSDKManager extends EventEmitter {
               this.emit('output', id, `[>] Using tool: ${content.name}`, isSubagent, subagentInfo.subagentId, subagentInfo.subagentType);
             }
           }
+        }
+
+        if (wasThinking && !hasThinking && hasNonThinking) {
+          this.emit('output', id, '[>] done thinking', isSubagent, subagentInfo.subagentId, subagentInfo.subagentType);
+          this.thinkingStates.set(id, false);
         }
         break;
 
@@ -396,6 +417,7 @@ export class AgentSDKManager extends EventEmitter {
   private cleanup(id: string): void {
     this.queries.delete(id);
     this.agentStates.delete(id);
+    this.thinkingStates.delete(id);
   }
 
   isRunning(id: string): boolean {
