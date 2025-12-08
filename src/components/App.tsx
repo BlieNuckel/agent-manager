@@ -10,6 +10,7 @@ import { genId } from '../utils/helpers';
 import { debug } from '../utils/logger';
 import { Layout } from './Layout';
 import { ListViewPage, getListViewHelp, NewAgentPage, getNewAgentHelp, DetailViewPage, getDetailViewHelp } from '../pages';
+import { QuitConfirmationPrompt } from './QuitConfirmationPrompt';
 
 const agentManager = new AgentSDKManager();
 
@@ -24,6 +25,7 @@ export const App = () => {
   const [chatMode, setChatMode] = useState(false);
   const [inputState, setInputState] = useState<{ step: InputStep; showSlashMenu: boolean }>({ step: 'prompt', showSlashMenu: false });
   const [editingHistoryEntry, setEditingHistoryEntry] = useState<HistoryEntry | null>(null);
+  const [showQuitConfirmation, setShowQuitConfirmation] = useState(false);
 
   useEffect(() => {
     const onOutput = (id: string, line: string, isSubagent: boolean = false, subagentId?: string, subagentType?: string) => {
@@ -246,6 +248,23 @@ export const App = () => {
     setChatMode(prev => !prev);
   };
 
+  const handleQuitRequest = () => {
+    const hasActiveAgents = state.agents.some(a => a.status === 'working' || a.status === 'idle');
+    if (hasActiveAgents) {
+      setShowQuitConfirmation(true);
+    } else {
+      exit();
+    }
+  };
+
+  const handleQuitConfirm = () => {
+    exit();
+  };
+
+  const handleQuitCancel = () => {
+    setShowQuitConfirmation(false);
+  };
+
   const handleMergeResponse = async (approved: boolean) => {
     if (!detailAgentId) return;
 
@@ -291,10 +310,19 @@ Please execute these commands and report the results.`;
   };
 
   useInput((input, key) => {
+    if (showQuitConfirmation) {
+      if (input === 'y') {
+        handleQuitConfirm();
+      } else if (input === 'n' || key.escape) {
+        handleQuitCancel();
+      }
+      return;
+    }
+
     if (mode === 'detail' || mode === 'input') return;
 
     if (key.tab) { setTab(t => t === 'inbox' ? 'history' : 'inbox'); return; }
-    if (input === 'q') { exit(); return; }
+    if (input === 'q') { handleQuitRequest(); return; }
     if (input === 'n') { setMode('input'); return; }
 
     const list = tab === 'inbox' ? state.agents : state.history;
@@ -414,8 +442,16 @@ Please execute these commands and report the results.`;
 
   const { content, help, splitPanes } = renderPage();
 
+  const quitPrompt = showQuitConfirmation ? (
+    <QuitConfirmationPrompt
+      activeCount={state.agents.filter(a => a.status === 'working' || a.status === 'idle').length}
+      onConfirm={handleQuitConfirm}
+      onCancel={handleQuitCancel}
+    />
+  ) : undefined;
+
   return (
-    <Layout activeCount={activeCount} waitingCount={waitingCount} helpContent={help} splitPanes={splitPanes}>
+    <Layout activeCount={activeCount} waitingCount={waitingCount} helpContent={help} splitPanes={splitPanes} quitPrompt={quitPrompt}>
       {content}
     </Layout>
   );
