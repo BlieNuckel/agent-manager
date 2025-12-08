@@ -23,11 +23,9 @@ export const SplitPane = ({ panes }: SplitPaneProps) => {
         return (
           <Box key={index} width={width} flexDirection="column" flexGrow={0} flexShrink={0} minHeight={0}>
             {isFirst ? (
-              <Box flexDirection="column" flexGrow={1} minHeight={0} borderStyle="single" borderColor="gray" borderRight={true}>
-                {pane.content}
-              </Box>
+              pane.content
             ) : (
-              <Box flexDirection="column" flexGrow={1} minHeight={0} paddingLeft={1}>
+              <Box flexDirection="column" flexGrow={1} minHeight={0} borderStyle="single" borderColor="gray" borderLeft={true}>
                 {pane.content}
               </Box>
             )}
