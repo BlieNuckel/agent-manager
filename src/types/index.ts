@@ -9,11 +9,6 @@ export interface PermissionRequest {
   resolve: (allowed: boolean) => void;
 }
 
-export interface Artifact {
-  path: string;
-  createdAt: Date;
-}
-
 export interface Agent {
   id: string;
   title: string;
@@ -28,7 +23,6 @@ export interface Agent {
   pendingPermission?: PermissionRequest;
   agentType: AgentType;
   autoAcceptPermissions: boolean;
-  artifact?: Artifact;
 }
 
 export interface HistoryEntry {
@@ -46,7 +40,6 @@ export type Action =
   | { type: 'REMOVE_AGENT'; id: string }
   | { type: 'APPEND_OUTPUT'; id: string; line: string }
   | { type: 'SET_PERMISSION'; id: string; permission: PermissionRequest | undefined }
-  | { type: 'SAVE_ARTIFACT'; id: string; artifact: Artifact }
   | { type: 'REMOVE_HISTORY'; index: number }
   | { type: 'UPDATE_HISTORY_TITLE'; id: string; title: string };
 

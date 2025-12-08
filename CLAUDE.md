@@ -65,7 +65,6 @@ The AgentSDKManager emits events that the UI listens to:
 - `sessionId`: SDK session initialized
 - `permissionRequest`: Agent needs tool permission
 - `titleUpdate`: Generated title available
-- `artifactRequested`: Artifact creation requested for agent
 
 ### Permission System
 
@@ -112,33 +111,6 @@ The detail view supports persistent chat-like interaction with agents. Agents re
 - Agent status automatically changes back to 'working' when message is sent
 - The detail view becomes a persistent chat interface for agent interaction
 
-### Artifact System
-
-Artifacts allow passing context between agents. Users can manually request an agent to save its findings to a markdown file.
-
-**Workflow:**
-1. User presses `a` in detail view when agent is working or idle
-2. Agent receives request to save findings to the artifact path using the Write tool
-3. Agent saves findings to the artifact path
-4. User presses `c` (either in list view or detail view) to continue with artifact
-5. System transitions to "new agent" screen with artifact attached
-6. New agent receives artifact path in its prompt and reads it for context
-7. Artifact indicator (📄) shows in UI for agents with attached artifacts
-
-**Artifact Storage:**
-- Location: `~/.agent-manager/artifacts/`
-- Naming: `YYYY-MM-DDTHH-MM-SS_sanitized-agent-title.md`
-- Format: Markdown files with findings, plans, or research results
-
-**UI Indicators:**
-- 📄 emoji badge on agents with artifacts (in list and detail views)
-- Artifact path displayed in detail view header
-- "Artifact Context" banner in new agent creation screen
-
-**Manual Artifact Request:**
-- Press `a` in detail view when agent is working or idle (only if no artifact exists yet)
-- Agent receives instructions to save its findings to a markdown file
-
 ## Key Technical Details
 
 ### TypeScript Configuration
@@ -156,7 +128,6 @@ Artifacts allow passing context between agents. Users can manually request an ag
 ### Data Storage
 - History: `~/.agent-manager/history.json`
 - Debug logs: `~/.agent-manager/debug.log`
-- Artifacts: `~/.agent-manager/artifacts/`
 
 ## Architectural Patterns
 

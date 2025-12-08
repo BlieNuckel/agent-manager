@@ -180,7 +180,7 @@ export const DemoApp = () => {
             onBack={() => setMode('normal')}
           />
         ),
-        help: detailAgent.pendingPermission ? null : getDetailViewHelp(promptNeedsScroll, !!detailAgent.artifact, detailAgent.status === 'done', false),
+        help: detailAgent.pendingPermission ? null : getDetailViewHelp(promptNeedsScroll, detailAgent.status === 'done', false),
       };
     }
 

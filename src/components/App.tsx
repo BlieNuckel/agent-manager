@@ -8,7 +8,6 @@ import { getGitRoot, getCurrentBranch, getRepoName, generateWorktreeName } from 
 import type { WorktreeContext } from '../agent/systemPromptTemplates';
 import { genId } from '../utils/helpers';
 import { debug } from '../utils/logger';
-import { generateArtifactFilename, getArtifactPath } from '../utils/artifacts';
 import { Layout } from './Layout';
 import { ListViewPage, getListViewHelp, NewAgentPage, getNewAgentHelp, DetailViewPage, getDetailViewHelp } from '../pages';
 
@@ -24,7 +23,6 @@ export const App = () => {
   const [detailAgentId, setDetailAgentId] = useState<string | null>(null);
   const [chatMode, setChatMode] = useState(false);
   const [inputState, setInputState] = useState<{ step: InputStep; showSlashMenu: boolean }>({ step: 'prompt', showSlashMenu: false });
-  const [pendingArtifact, setPendingArtifact] = useState<{ path: string; createdAt: Date } | null>(null);
 
   useEffect(() => {
     const onOutput = (id: string, line: string) => dispatch({ type: 'APPEND_OUTPUT', id, line });
@@ -58,10 +56,6 @@ export const App = () => {
       const newHistory = state.history.map(h => h.id === id ? { ...h, title } : h);
       saveHistory(newHistory);
     };
-    const onArtifactRequested = (id: string, path: string) => {
-      debug('Artifact requested:', { id, path });
-      dispatch({ type: 'SAVE_ARTIFACT', id, artifact: { path, createdAt: new Date() } });
-    };
 
     agentManager.on('output', onOutput);
     agentManager.on('idle', onIdle);
@@ -70,7 +64,6 @@ export const App = () => {
     agentManager.on('sessionId', onSessionId);
     agentManager.on('permissionRequest', onPermissionRequest);
     agentManager.on('titleUpdate', onTitleUpdate);
-    agentManager.on('artifactRequested', onArtifactRequested);
 
     return () => {
       agentManager.off('output', onOutput);
@@ -80,19 +73,13 @@ export const App = () => {
       agentManager.off('sessionId', onSessionId);
       agentManager.off('permissionRequest', onPermissionRequest);
       agentManager.off('titleUpdate', onTitleUpdate);
-      agentManager.off('artifactRequested', onArtifactRequested);
     };
   }, [state.history]);
 
-  const createAgent = async (title: string, prompt: string, agentType: AgentType, worktree: { enabled: boolean; name: string }, artifact?: { path: string; createdAt: Date }) => {
+  const createAgent = async (title: string, prompt: string, agentType: AgentType, worktree: { enabled: boolean; name: string }) => {
     const id = genId();
     const workDir = process.cwd();
     let worktreeContext: WorktreeContext | undefined;
-    let finalPrompt = prompt;
-
-    if (artifact) {
-      finalPrompt = `${prompt}\n\n[Context from previous agent]\nPlease refer to the artifact at: ${artifact.path}\nRead this file for context before proceeding with the task.`;
-    }
 
     if (worktree.enabled) {
       const gitRoot = getGitRoot();
@@ -118,19 +105,18 @@ export const App = () => {
       title: title || 'Untitled Agent',
       prompt,
       status: 'working',
-      output: worktree.enabled ? ['[i] Agent will create git worktree as first action'] : artifact ? ['[i] Agent will receive artifact context'] : [],
+      output: worktree.enabled ? ['[i] Agent will create git worktree as first action'] : [],
       workDir,
       worktreeName: worktreeContext?.suggestedName,
       createdAt: new Date(),
       updatedAt: new Date(),
       agentType,
       autoAcceptPermissions: false,
-      artifact,
     };
     dispatch({ type: 'ADD_AGENT', agent: placeholderAgent });
 
-    debug('Spawning agent:', { id, workDir, agentType, hasWorktreeContext: !!worktreeContext, hasArtifact: !!artifact });
-    agentManager.spawn(id, finalPrompt, workDir, agentType, false, worktreeContext, title);
+    debug('Spawning agent:', { id, workDir, agentType, hasWorktreeContext: !!worktreeContext });
+    agentManager.spawn(id, prompt, workDir, agentType, false, worktreeContext, title);
 
     const entry: HistoryEntry = { id, title: title || 'Untitled Agent', prompt, date: new Date(), workDir };
     const newHistory = [entry, ...state.history.filter(h => h.prompt !== prompt)].slice(0, 5);
@@ -164,45 +150,6 @@ export const App = () => {
     }
   };
 
-  const handleCreateArtifact = async () => {
-    debug('handleCreateArtifact called');
-    if (!detailAgentId) {
-      debug('No detailAgentId');
-      return;
-    }
-
-    const agent = state.agents.find(a => a.id === detailAgentId);
-    if (!agent) {
-      debug('Agent not found:', detailAgentId);
-      return;
-    }
-
-    debug('Creating artifact for agent:', agent.title);
-
-    try {
-      const filename = generateArtifactFilename(agent.title);
-      const artifactPath = getArtifactPath(filename);
-
-      debug('Artifact path:', artifactPath);
-      await agentManager.requestArtifact(detailAgentId, artifactPath);
-      dispatch({ type: 'UPDATE_AGENT', id: detailAgentId, updates: { status: 'working' } });
-      debug('Artifact request sent successfully');
-    } catch (error: any) {
-      debug('Error creating artifact:', error);
-      dispatch({ type: 'APPEND_OUTPUT', id: detailAgentId, line: `[x] Error requesting artifact: ${error.message}` });
-    }
-  };
-
-  const handleContinueWithArtifact = () => {
-    if (!detailAgentId) return;
-
-    const agent = state.agents.find(a => a.id === detailAgentId);
-    if (!agent || !agent.artifact) return;
-
-    setPendingArtifact(agent.artifact);
-    setMode('input');
-  };
-
   const handleBackFromDetail = () => {
     setMode('normal');
     setChatMode(false);
@@ -228,7 +175,7 @@ export const App = () => {
 
     if (key.tab) { setTab(t => t === 'inbox' ? 'history' : 'inbox'); return; }
     if (input === 'q') { exit(); return; }
-    if (input === 'n') { setMode('input'); setPendingArtifact(null); return; }
+    if (input === 'n') { setMode('input'); return; }
 
     const list = tab === 'inbox' ? state.agents : state.history;
     const idx = tab === 'inbox' ? inboxIdx : histIdx;
@@ -243,17 +190,12 @@ export const App = () => {
         setMode('detail');
       } else {
         const entry = state.history[idx] as HistoryEntry;
-        createAgent(entry.title, entry.prompt, 'normal', { enabled: false, name: '' }, undefined);
+        createAgent(entry.title, entry.prompt, 'normal', { enabled: false, name: '' });
         setTab('inbox');
       }
     }
 
     if (tab === 'inbox' && state.agents[idx]) {
-      if (input === 'c' && state.agents[idx].artifact) {
-        setPendingArtifact(state.agents[idx].artifact!);
-        setMode('input');
-        return;
-      }
       if (input === 'x') {
         agentManager.kill(state.agents[idx].id);
         dispatch({ type: 'UPDATE_AGENT', id: state.agents[idx].id, updates: { status: 'done' } });
@@ -290,15 +232,13 @@ export const App = () => {
             agent={detailAgent}
             onPermissionResponse={handlePermissionResponse}
             onAlwaysAllow={handleAlwaysAllow}
-            onRequestArtifact={handleCreateArtifact}
-            onContinueWithArtifact={handleContinueWithArtifact}
             onSendMessage={handleSendMessage}
             onBack={handleBackFromDetail}
             chatMode={chatMode}
             onToggleChatMode={handleToggleChatMode}
           />
         ),
-        help: detailAgent.pendingPermission ? null : getDetailViewHelp(promptNeedsScroll, !!detailAgent.artifact, detailAgent.status === 'working' || detailAgent.status === 'idle', chatMode),
+        help: detailAgent.pendingPermission ? null : getDetailViewHelp(promptNeedsScroll, detailAgent.status === 'working' || detailAgent.status === 'idle', chatMode),
       };
     }
 
@@ -306,17 +246,15 @@ export const App = () => {
       return {
         content: (
           <NewAgentPage
-            onSubmit={(t, p, at, wt) => { createAgent(t, p, at, wt, pendingArtifact || undefined); setMode('normal'); setTab('inbox'); setPendingArtifact(null); }}
-            onCancel={() => { setMode('normal'); setPendingArtifact(null); }}
+            onSubmit={(t, p, at, wt) => { createAgent(t, p, at, wt); setMode('normal'); setTab('inbox'); }}
+            onCancel={() => { setMode('normal'); }}
             onStateChange={setInputState}
-            artifact={pendingArtifact || undefined}
           />
         ),
         help: getNewAgentHelp(inputState.step, inputState.showSlashMenu),
       };
     }
 
-    const selectedAgent = tab === 'inbox' ? state.agents[inboxIdx] : undefined;
     return {
       content: (
         <ListViewPage
@@ -327,7 +265,7 @@ export const App = () => {
           histIdx={histIdx}
         />
       ),
-      help: getListViewHelp(tab, selectedAgent?.artifact !== undefined),
+      help: getListViewHelp(tab),
     };
   };
 

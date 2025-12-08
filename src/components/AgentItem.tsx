@@ -12,7 +12,6 @@ export const AgentItem = ({ agent, selected }: { agent: Agent; selected: boolean
         <Text color={selected ? 'cyan' : 'white'} bold={selected}>{selected ? '> ' : '  '}</Text>
         <StatusBadge status={agent.status} />
         <Text bold={selected} color={selected ? 'cyan' : 'white'} dimColor={isPending} italic={isPending}> {agent.title}</Text>
-        {agent.artifact && <Text color="magenta"> 📄</Text>}
         <Text dimColor> ({formatTime(agent.updatedAt)})</Text>
         {agent.pendingPermission && <Text color="yellow"> [!] Permission needed</Text>}
       </Box>

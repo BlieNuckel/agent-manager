@@ -9,8 +9,6 @@ interface DetailViewPageProps {
   agent: Agent;
   onPermissionResponse: (allowed: boolean) => void;
   onAlwaysAllow: () => void;
-  onRequestArtifact?: () => void;
-  onContinueWithArtifact?: () => void;
   onSendMessage?: (message: string) => void;
   onBack: () => void;
   chatMode?: boolean;
@@ -21,8 +19,6 @@ export const DetailViewPage = ({
   agent,
   onPermissionResponse,
   onAlwaysAllow,
-  onRequestArtifact,
-  onContinueWithArtifact,
   onSendMessage,
   onBack,
   chatMode = false,
@@ -48,9 +44,8 @@ export const DetailViewPage = ({
   const outputBorderHeight = 2;
 
   const promptLines = agent.prompt.split('\n');
-  const artifactHeight = agent.artifact ? 3 : 0;
 
-  const fixedHeight = agentTitleHeight + artifactHeight + promptHeaderHeight + workDirHeight + outputHeaderHeight + outputBorderHeight + permissionHeight + chatInputHeight;
+  const fixedHeight = agentTitleHeight + promptHeaderHeight + workDirHeight + outputHeaderHeight + outputBorderHeight + permissionHeight + chatInputHeight;
   const availableHeight = Math.max(10, availableForPage - fixedHeight);
 
   const maxPromptHeight = Math.min(promptLines.length, Math.floor(availableHeight * 0.3));
@@ -80,14 +75,6 @@ export const DetailViewPage = ({
       return;
     }
 
-    if (input === 'a' && onRequestArtifact && !agent.artifact && canChat) {
-      onRequestArtifact();
-      return;
-    }
-    if (input === 'c' && onContinueWithArtifact && agent.artifact) {
-      onContinueWithArtifact();
-      return;
-    }
     if (key.upArrow || input === 'k') setScrollOffset(o => Math.max(0, o - 1));
     if (key.downArrow || input === 'j') setScrollOffset(o => Math.min(Math.max(0, agent.output.length - visibleLines), o + 1));
     if (input === 'g') setScrollOffset(0);
@@ -127,16 +114,8 @@ export const DetailViewPage = ({
           <StatusBadge status={agent.status} />
           <Text bold color={agent.pendingPermission ? 'yellow' : 'cyan'} dimColor={isPending} italic={isPending}> {agent.title}</Text>
           {agent.worktreeName && <Text color="magenta"> * {agent.worktreeName}</Text>}
-          {agent.artifact && <Text color="magenta"> 📄</Text>}
           {agent.sessionId && <Text dimColor> (session: {agent.sessionId.slice(0, 8)}...)</Text>}
         </Box>
-
-        {agent.artifact && (
-          <Box borderStyle="single" borderColor="magenta" paddingX={1}>
-            <Text color="magenta" bold>Artifact: </Text>
-            <Text dimColor>{agent.artifact.path}</Text>
-          </Box>
-        )}
 
         <Box flexDirection="column">
           <Box>
@@ -195,7 +174,7 @@ export const DetailViewPage = ({
   );
 };
 
-export const getDetailViewHelp = (promptNeedsScroll: boolean, hasArtifact: boolean, canChat: boolean, chatMode: boolean) => {
+export const getDetailViewHelp = (promptNeedsScroll: boolean, canChat: boolean, chatMode: boolean) => {
   if (chatMode) {
     return (
       <>
@@ -210,9 +189,7 @@ export const getDetailViewHelp = (promptNeedsScroll: boolean, hasArtifact: boole
       <Text color="cyan">↑↓/jk</Text>{' '}Scroll{'  '}
       <Text color="cyan">g/G</Text>{' '}Top/Bottom{'  '}
       {promptNeedsScroll && <><Text color="cyan">p/P</Text>{' '}Prompt{'  '}</>}
-      {canChat && !hasArtifact && <><Text color="cyan">a</Text>{' '}Artifact{'  '}</>}
       {canChat && <><Text color="cyan">i</Text>{' '}Chat{'  '}</>}
-      {hasArtifact && <><Text color="cyan">c</Text>{' '}Continue{'  '}</>}
       <Text color="cyan">q/Esc</Text>{' '}Back
     </>
   );

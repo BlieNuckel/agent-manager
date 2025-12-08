@@ -42,14 +42,13 @@ export const ListViewPage = ({ tab, agents, history, inboxIdx, histIdx }: ListVi
   );
 };
 
-export const getListViewHelp = (tab: 'inbox' | 'history', selectedAgentHasArtifact?: boolean) => {
+export const getListViewHelp = (tab: 'inbox' | 'history') => {
   return (
     <>
       <Text color="cyan">Tab</Text>{' '}Switch{'  '}
       <Text color="cyan">↑↓jk</Text>{' '}Nav{'  '}
       <Text color="cyan">Enter</Text>{' '}{tab === 'inbox' ? 'Open' : 'Resume'}{'  '}
       <Text color="cyan">n</Text>{' '}New{'  '}
-      {tab === 'inbox' && selectedAgentHasArtifact && <><Text color="cyan">c</Text>{' '}Continue{'  '}</>}
       {tab === 'inbox' && <><Text color="cyan">x</Text>{' '}Kill{'  '}</>}
       <Text color="cyan">d</Text>{' '}{tab === 'inbox' ? 'Remove' : 'Delete'}{'  '}
       <Text color="cyan">q</Text>{' '}Quit
