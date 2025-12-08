@@ -35,7 +35,7 @@ export const DetailView = ({ agent, onBack, onPermissionResponse, onAlwaysAllow 
   useInput((input, key) => {
     if (agent.pendingPermission) return;
 
-    if (key.escape || input === 'q') { onBack(); return; }
+    if (key.escape || input === 'q' || input === 'h') { onBack(); return; }
     if (key.upArrow || input === 'k') setScrollOffset(o => Math.max(0, o - 1));
     if (key.downArrow || input === 'j') setScrollOffset(o => Math.min(Math.max(0, agent.output.length - visibleLines), o + 1));
     if (input === 'g') setScrollOffset(0);
@@ -156,7 +156,7 @@ export const DetailView = ({ agent, onBack, onPermissionResponse, onAlwaysAllow 
             <Text color="cyan">↑↓/jk</Text>{' '}Scroll{'  '}
             <Text color="cyan">g/G</Text>{' '}Top/Bottom{'  '}
             {promptNeedsScroll && <><Text color="cyan">p/P</Text>{' '}Prompt{'  '}</>}
-            <Text color="cyan">q/Esc</Text>{' '}Back
+            <Text color="cyan">q/h/Esc</Text>{' '}Back
           </Text>
         </Box>
       )}
