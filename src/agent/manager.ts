@@ -104,6 +104,7 @@ export class AgentSDKManager extends EventEmitter {
       permissionMode: 'default',
       canUseTool: this.createCanUseTool(id),
       settingSources: ['project'],
+      maxThinkingTokens: 16384,
     };
 
     if (systemPromptAppend) {
@@ -405,6 +406,7 @@ export class AgentSDKManager extends EventEmitter {
       resume: entry.sessionId,
       canUseTool: this.createCanUseTool(id),
       settingSources: ['project'],
+      maxThinkingTokens: 16384,
     };
 
     if (entry.systemPromptAppend) {
