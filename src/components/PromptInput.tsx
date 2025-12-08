@@ -7,6 +7,7 @@ import { getGitRoot } from '../git/worktree';
 import { AgentSDKManager } from '../agent/manager';
 import { SlashCommandMenu } from './SlashCommandMenu';
 import { MultilineInput } from './MultilineInput';
+import { listArtifacts, formatArtifactReference, type ArtifactInfo } from '../utils/artifacts';
 
 export const PromptInput = ({ onSubmit, onCancel, onStateChange }: {
   onSubmit: (title: string, p: string, agentType: AgentType, worktree: { enabled: boolean; name: string }) => void;
@@ -16,6 +17,8 @@ export const PromptInput = ({ onSubmit, onCancel, onStateChange }: {
   const [title, setTitle] = useState('');
   const [prompt, setPrompt] = useState('');
   const [agentType, setAgentType] = useState<AgentType>('normal');
+  const [artifacts, setArtifacts] = useState<ArtifactInfo[]>([]);
+  const [selectedArtifactIndex, setSelectedArtifactIndex] = useState(-1);
   const [useWorktree, setUseWorktree] = useState(false);
   const [worktreeName, setWorktreeName] = useState('');
   const [step, setStep] = useState<InputStep>('title');
@@ -27,6 +30,7 @@ export const PromptInput = ({ onSubmit, onCancel, onStateChange }: {
 
   useEffect(() => {
     AgentSDKManager.getAvailableCommands().then(setSlashCommands);
+    listArtifacts().then(setArtifacts);
   }, []);
 
   useEffect(() => {
@@ -92,8 +96,11 @@ export const PromptInput = ({ onSubmit, onCancel, onStateChange }: {
       } else if (step === 'agentType') {
         setStep('prompt');
         return;
-      } else if (step === 'worktree') {
+      } else if (step === 'artifact') {
         setStep('agentType');
+        return;
+      } else if (step === 'worktree') {
+        setStep('artifact');
         return;
       } else if (step === 'worktreeName') {
         setStep('worktree');
@@ -105,6 +112,9 @@ export const PromptInput = ({ onSubmit, onCancel, onStateChange }: {
       if (step === 'agentType') {
         handleAgentTypeReturn();
         return;
+      } else if (step === 'artifact') {
+        handleArtifactReturn();
+        return;
       } else if (step === 'worktree') {
         handleWorktreeReturn();
         return;
@@ -115,6 +125,24 @@ export const PromptInput = ({ onSubmit, onCancel, onStateChange }: {
       if (input === '1') { setAgentType('normal'); return; }
       if (input === '2') { setAgentType('planning'); return; }
       if (input === '3') { setAgentType('auto-accept'); return; }
+    }
+
+    if (step === 'artifact') {
+      if (key.upArrow) {
+        setSelectedArtifactIndex(i => Math.max(-1, i - 1));
+        return;
+      }
+      if (key.downArrow) {
+        setSelectedArtifactIndex(i => Math.min(artifacts.length - 1, i + 1));
+        return;
+      }
+      if (input && !key.ctrl && !key.meta) {
+        const num = parseInt(input);
+        if (!isNaN(num) && num >= 0 && num <= artifacts.length) {
+          setSelectedArtifactIndex(num - 1);
+          return;
+        }
+      }
     }
 
     if (step === 'worktree' && (input === 'y' || input === 'Y')) { setUseWorktree(true); return; }
@@ -135,7 +163,17 @@ export const PromptInput = ({ onSubmit, onCancel, onStateChange }: {
 
   const handleWorktreeNameSubmit = (value: string) => {
     const name = value.trim();
-    onSubmit(title, prompt, agentType, { enabled: true, name });
+    const finalPrompt = getFinalPrompt();
+    onSubmit(title, finalPrompt, agentType, { enabled: true, name });
+  };
+
+  const getFinalPrompt = () => {
+    if (selectedArtifactIndex >= 0 && selectedArtifactIndex < artifacts.length) {
+      const artifact = artifacts[selectedArtifactIndex];
+      const artifactRef = formatArtifactReference(artifact.name);
+      return `${artifactRef}\n\n${prompt}`;
+    }
+    return prompt;
   };
 
   const handlePromptChange = (value: string) => {
@@ -155,10 +193,15 @@ export const PromptInput = ({ onSubmit, onCancel, onStateChange }: {
   };
 
   const handleAgentTypeReturn = () => {
+    setStep('artifact');
+  };
+
+  const handleArtifactReturn = () => {
     if (gitRoot) {
       setStep('worktree');
     } else {
-      onSubmit(title, prompt, agentType, { enabled: false, name: '' });
+      const finalPrompt = getFinalPrompt();
+      onSubmit(title, finalPrompt, agentType, { enabled: false, name: '' });
     }
   };
 
@@ -166,7 +209,8 @@ export const PromptInput = ({ onSubmit, onCancel, onStateChange }: {
     if (useWorktree) {
       setStep('worktreeName');
     } else {
-      onSubmit(title, prompt, agentType, { enabled: false, name: '' });
+      const finalPrompt = getFinalPrompt();
+      onSubmit(title, finalPrompt, agentType, { enabled: false, name: '' });
     }
   };
 
@@ -229,6 +273,37 @@ export const PromptInput = ({ onSubmit, onCancel, onStateChange }: {
             <Text dimColor={step === 'title' || step === 'prompt'}>
               {agentType === 'normal' ? 'Normal' : agentType === 'planning' ? 'Planning' : 'Auto-accept'}
             </Text>
+          )}
+        </Box>
+
+        <Box marginTop={1} flexDirection="column">
+          <Text color={step === 'artifact' ? 'cyan' : step === 'title' || step === 'prompt' || step === 'agentType' ? 'gray' : 'green'}>
+            {step === 'title' || step === 'prompt' || step === 'agentType' ? '○' : step === 'artifact' ? '▸' : '✓'} Include Artifact:{' '}
+          </Text>
+          {step === 'artifact' ? (
+            <Box flexDirection="column" marginLeft={2}>
+              {artifacts.length === 0 ? (
+                <Text dimColor>No artifacts found in ~/.agent-manager/artifacts/</Text>
+              ) : (
+                <>
+                  <Text>[<Text color={selectedArtifactIndex === -1 ? 'cyan' : 'white'} bold={selectedArtifactIndex === -1}>0</Text>] None</Text>
+                  {artifacts.map((artifact, i) => (
+                    <Text key={artifact.name}>
+                      [<Text color={selectedArtifactIndex === i ? 'cyan' : 'white'} bold={selectedArtifactIndex === i}>{i + 1}</Text>] {artifact.name}
+                    </Text>
+                  ))}
+                  <Box marginTop={1}>
+                    <Text dimColor>Use arrow keys or numbers to select</Text>
+                  </Box>
+                </>
+              )}
+            </Box>
+          ) : (
+            <Box marginLeft={2}>
+              <Text dimColor={step === 'title' || step === 'prompt' || step === 'agentType'}>
+                {selectedArtifactIndex >= 0 ? artifacts[selectedArtifactIndex].name : 'None'}
+              </Text>
+            </Box>
           )}
         </Box>
 
