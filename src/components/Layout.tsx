@@ -2,15 +2,22 @@ import React, { ReactNode } from 'react';
 import { Box, useStdout } from 'ink';
 import { Header } from './Header';
 import { HelpBar } from './HelpBar';
+import { SplitPane } from './SplitPane';
+
+interface PaneConfig {
+  content: ReactNode;
+  widthPercent: number;
+}
 
 interface LayoutProps {
   activeCount: number;
   waitingCount: number;
   helpContent: ReactNode;
-  children: ReactNode;
+  children?: ReactNode;
+  splitPanes?: PaneConfig[];
 }
 
-export const Layout = ({ activeCount, waitingCount, helpContent, children }: LayoutProps) => {
+export const Layout = ({ activeCount, waitingCount, helpContent, children, splitPanes }: LayoutProps) => {
   const { stdout } = useStdout();
   const height = stdout?.rows ?? 24;
 
@@ -21,7 +28,11 @@ export const Layout = ({ activeCount, waitingCount, helpContent, children }: Lay
       </Box>
 
       <Box flexDirection="column" flexGrow={1} minHeight={0}>
-        {children}
+        {splitPanes ? (
+          <SplitPane panes={splitPanes} />
+        ) : (
+          children
+        )}
       </Box>
 
       <Box flexShrink={0}>
