@@ -59,7 +59,8 @@ node --import tsx src/demo/index.tsx      # Run demo mode
 
 The AgentSDKManager emits events that the UI listens to:
 - `output`: New output line from agent
-- `done`: Agent completed (exit code)
+- `idle`: Agent finished current task but remains alive for follow-ups
+- `done`: Agent terminated (via abort/kill)
 - `error`: Agent error occurred
 - `sessionId`: SDK session initialized
 - `permissionRequest`: Agent needs tool permission
@@ -89,15 +90,25 @@ Recent prompts are saved to `~/.agent-manager/history.json` (last 5 entries). Hi
 
 ### Chat Mode and Follow-up Messages
 
-The detail view now supports chat-like interaction with agents. When an agent completes its task:
+The detail view supports persistent chat-like interaction with agents. Agents remain alive after completing tasks, allowing continuous conversation:
+- Agents transition to 'idle' status when finished (not 'done')
 - Press `i` to enter chat mode and send a follow-up message
-- The agent receives the message and continues working
+- The agent receives the message, returns to 'working', and continues
 - This allows iterative refinement and follow-up questions
 - Press `Esc` to cancel chat input without sending
+- Agents only terminate when explicitly killed by the user (press `d` or `x` in list view)
+
+**Agent Lifecycle:**
+1. `working`: Agent is actively processing
+2. `waiting`: Agent is waiting for permission approval
+3. `idle`: Agent finished task but is alive and accepting follow-up messages
+4. `done`: Agent was terminated (killed/aborted)
+5. `error`: Agent encountered an error
 
 **Key Features:**
-- Chat mode only available when agent status is 'done'
+- Chat mode available when agent status is 'working' or 'idle'
 - Follow-up messages are sent via `AgentSDKManager.sendFollowUpMessage()`
+- The SDK Query object remains alive to accept new input via `streamInput()`
 - Agent status automatically changes back to 'working' when message is sent
 - The detail view becomes a persistent chat interface for agent interaction
 
@@ -106,7 +117,7 @@ The detail view now supports chat-like interaction with agents. When an agent co
 Artifacts allow passing context between agents. Users can manually request an agent to save its findings to a markdown file.
 
 **Workflow:**
-1. User presses `a` in detail view when agent is working or done
+1. User presses `a` in detail view when agent is working or idle
 2. Agent receives request to save findings to the artifact path using the Write tool
 3. Agent saves findings to the artifact path
 4. User presses `c` (either in list view or detail view) to continue with artifact
@@ -125,7 +136,7 @@ Artifacts allow passing context between agents. Users can manually request an ag
 - "Artifact Context" banner in new agent creation screen
 
 **Manual Artifact Request:**
-- Press `a` in detail view when agent is working or done (only if no artifact exists yet)
+- Press `a` in detail view when agent is working or idle (only if no artifact exists yet)
 - Agent receives instructions to save its findings to a markdown file
 
 ## Key Technical Details

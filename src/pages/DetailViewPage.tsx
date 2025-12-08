@@ -74,12 +74,13 @@ export const DetailViewPage = ({
       return;
     }
 
-    if (input === 'i' && onToggleChatMode && agent.status === 'working') {
+    const canChat = agent.status === 'working' || agent.status === 'idle';
+    if (input === 'i' && onToggleChatMode && canChat) {
       onToggleChatMode();
       return;
     }
 
-    if (input === 'a' && onRequestArtifact && !agent.artifact && agent.status === 'working') {
+    if (input === 'a' && onRequestArtifact && !agent.artifact && canChat) {
       onRequestArtifact();
       return;
     }
@@ -194,7 +195,7 @@ export const DetailViewPage = ({
   );
 };
 
-export const getDetailViewHelp = (promptNeedsScroll: boolean, hasArtifact: boolean, isWorking: boolean, chatMode: boolean) => {
+export const getDetailViewHelp = (promptNeedsScroll: boolean, hasArtifact: boolean, canChat: boolean, chatMode: boolean) => {
   if (chatMode) {
     return (
       <>
@@ -209,8 +210,8 @@ export const getDetailViewHelp = (promptNeedsScroll: boolean, hasArtifact: boole
       <Text color="cyan">↑↓/jk</Text>{' '}Scroll{'  '}
       <Text color="cyan">g/G</Text>{' '}Top/Bottom{'  '}
       {promptNeedsScroll && <><Text color="cyan">p/P</Text>{' '}Prompt{'  '}</>}
-      {isWorking && !hasArtifact && <><Text color="cyan">a</Text>{' '}Artifact{'  '}</>}
-      {isWorking && <><Text color="cyan">i</Text>{' '}Chat{'  '}</>}
+      {canChat && !hasArtifact && <><Text color="cyan">a</Text>{' '}Artifact{'  '}</>}
+      {canChat && <><Text color="cyan">i</Text>{' '}Chat{'  '}</>}
       {hasArtifact && <><Text color="cyan">c</Text>{' '}Continue{'  '}</>}
       <Text color="cyan">q/Esc</Text>{' '}Back
     </>

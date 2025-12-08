@@ -7,6 +7,7 @@ export const StatusBadge = ({ status }: { status: Status }) => {
   const cfg: Record<Status, { color: string; icon: string; label: string }> = {
     working: { color: 'yellow', icon: '', label: 'Working' },
     waiting: { color: 'cyan', icon: '?', label: 'Waiting' },
+    idle: { color: 'blue', icon: '~', label: 'Idle' },
     done: { color: 'green', icon: '+', label: 'Done' },
     error: { color: 'red', icon: 'x', label: 'Error' },
   };

@@ -28,6 +28,10 @@ export const App = () => {
 
   useEffect(() => {
     const onOutput = (id: string, line: string) => dispatch({ type: 'APPEND_OUTPUT', id, line });
+    const onIdle = (id: string) => {
+      dispatch({ type: 'SET_PERMISSION', id, permission: undefined });
+      dispatch({ type: 'UPDATE_AGENT', id, updates: { status: 'idle' } });
+    };
     const onDone = async (id: string, code: number) => {
       dispatch({ type: 'SET_PERMISSION', id, permission: undefined });
       dispatch({ type: 'UPDATE_AGENT', id, updates: { status: code === 0 ? 'done' : 'error' } });
@@ -60,6 +64,7 @@ export const App = () => {
     };
 
     agentManager.on('output', onOutput);
+    agentManager.on('idle', onIdle);
     agentManager.on('done', onDone);
     agentManager.on('error', onError);
     agentManager.on('sessionId', onSessionId);
@@ -69,6 +74,7 @@ export const App = () => {
 
     return () => {
       agentManager.off('output', onOutput);
+      agentManager.off('idle', onIdle);
       agentManager.off('done', onDone);
       agentManager.off('error', onError);
       agentManager.off('sessionId', onSessionId);
@@ -292,7 +298,7 @@ export const App = () => {
             onToggleChatMode={handleToggleChatMode}
           />
         ),
-        help: detailAgent.pendingPermission ? null : getDetailViewHelp(promptNeedsScroll, !!detailAgent.artifact, detailAgent.status === 'working', chatMode),
+        help: detailAgent.pendingPermission ? null : getDetailViewHelp(promptNeedsScroll, !!detailAgent.artifact, detailAgent.status === 'working' || detailAgent.status === 'idle', chatMode),
       };
     }
 

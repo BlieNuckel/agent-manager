@@ -7,7 +7,7 @@ import type { WorktreeContext } from './systemPromptTemplates';
 import { buildSystemPrompt } from './systemPromptTemplates';
 
 export class AgentSDKManager extends EventEmitter {
-  private queries: Map<string, { query: Query; abort: AbortController; iterating: boolean }> = new Map();
+  private queries: Map<string, { query: Query; abort: AbortController; alive: boolean; iterating: boolean }> = new Map();
   private agentStates: Map<string, { agentType: AgentType; autoAcceptPermissions: boolean; hasTitle: boolean }> = new Map();
   private static commandsCache: SlashCommand[] | null = null;
 
@@ -80,7 +80,7 @@ export class AgentSDKManager extends EventEmitter {
       options: queryOptions,
     });
 
-    this.queries.set(id, { query: q, abort: abortController, iterating: false });
+    this.queries.set(id, { query: q, abort: abortController, alive: true, iterating: false });
 
     this.iterateQuery(id, q);
   }
@@ -102,14 +102,15 @@ export class AgentSDKManager extends EventEmitter {
         currentEntry.iterating = false;
       }
 
-      debug('Query completed normally for:', id);
-      this.emit('done', id, 0);
+      debug('Query iteration completed for:', id);
+      this.emit('idle', id);
     } catch (error: any) {
       debug('Query error:', { id, name: error.name, message: error.message, stack: error.stack });
 
       const currentEntry = this.queries.get(id);
       if (currentEntry) {
         currentEntry.iterating = false;
+        currentEntry.alive = false;
       }
 
       if (error.name === 'AbortError') {
@@ -166,6 +167,7 @@ export class AgentSDKManager extends EventEmitter {
   kill(id: string): boolean {
     const entry = this.queries.get(id);
     if (entry) {
+      entry.alive = false;
       entry.abort.abort();
       this.cleanup(id);
       return true;
@@ -180,6 +182,11 @@ export class AgentSDKManager extends EventEmitter {
 
   isRunning(id: string): boolean {
     return this.queries.has(id);
+  }
+
+  isAlive(id: string): boolean {
+    const entry = this.queries.get(id);
+    return entry?.alive ?? false;
   }
 
   isIterating(id: string): boolean {
@@ -205,10 +212,17 @@ export class AgentSDKManager extends EventEmitter {
 
   async sendFollowUpMessage(id: string, message: string): Promise<void> {
     const entry = this.queries.get(id);
-    const isStillIterating = entry?.iterating ?? false;
 
-    if (!isStillIterating) {
-      throw new Error('Cannot send follow-up message: Agent has completed and transport is closed');
+    if (!entry) {
+      throw new Error(`Agent ${id} not found`);
+    }
+
+    if (!entry.alive) {
+      throw new Error('Cannot send follow-up message: Agent has been terminated');
+    }
+
+    if (entry.iterating) {
+      throw new Error('Cannot send follow-up message: Agent is still processing');
     }
 
     const state = this.agentStates.get(id);
@@ -234,11 +248,9 @@ export class AgentSDKManager extends EventEmitter {
     }
 
     try {
-      if (!entry) {
-        throw new Error(`Agent ${id} not found`);
-      }
       await entry.query.streamInput(messageGenerator());
       debug('Follow-up message streamed successfully for:', id);
+      this.iterateQuery(id, entry.query);
     } catch (error: any) {
       debug('Error sending follow-up message:', error);
       this.emit('output', id, `[x] Failed to send message: ${error.message}`);
@@ -249,10 +261,9 @@ export class AgentSDKManager extends EventEmitter {
 
   async requestArtifact(id: string, artifactPath: string): Promise<void> {
     const entry = this.queries.get(id);
-    const isStillIterating = entry?.iterating ?? false;
 
-    if (!isStillIterating) {
-      throw new Error('Cannot request artifact: Agent has completed. Please use the input feature to create a new agent with this agent\'s output as context.');
+    if (!entry?.alive) {
+      throw new Error('Cannot request artifact: Agent has been terminated');
     }
 
     const artifactMessage = `Please save your findings, plan, or research to: ${artifactPath}

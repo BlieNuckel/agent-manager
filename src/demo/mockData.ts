@@ -61,7 +61,7 @@ export const mockAgents: Agent[] = [
   {
     id: 'agent-3',
     title: 'Fix TypeScript errors in utils',
-    status: 'done',
+    status: 'idle',
     prompt: 'Fix all TypeScript errors in the utils directory',
     output: [
       '🔍 Running TypeScript compiler...',
@@ -76,7 +76,7 @@ export const mockAgents: Agent[] = [
       '✅ All tests pass',
       '✅ All TypeScript errors resolved!',
       '',
-      '✨ Task completed successfully'
+      '✨ Task completed - waiting for follow-up'
     ],
     createdAt: new Date(Date.now() - 1200000),
     updatedAt: new Date(Date.now() - 60000),
