@@ -17,8 +17,12 @@ export const PromptInput = ({ onSubmit, onCancel, onStateChange }: {
   const [title, setTitle] = useState('');
   const [prompt, setPrompt] = useState('');
   const [agentType, setAgentType] = useState<AgentType>('normal');
+  const [agentTypeFilter, setAgentTypeFilter] = useState('');
+  const [agentTypeSelectedIndex, setAgentTypeSelectedIndex] = useState(0);
   const [artifacts, setArtifacts] = useState<ArtifactInfo[]>([]);
   const [selectedArtifactIndex, setSelectedArtifactIndex] = useState(-1);
+  const [artifactFilter, setArtifactFilter] = useState('');
+  const [artifactSelectedIndex, setArtifactSelectedIndex] = useState(0);
   const [useWorktree, setUseWorktree] = useState(false);
   const [worktreeName, setWorktreeName] = useState('');
   const [step, setStep] = useState<InputStep>('title');
@@ -36,6 +40,33 @@ export const PromptInput = ({ onSubmit, onCancel, onStateChange }: {
   useEffect(() => {
     onStateChange?.({ step, showSlashMenu });
   }, [step, showSlashMenu, onStateChange]);
+
+  const agentTypeOptions = [
+    { value: 'normal', label: 'Normal', description: 'ask for permissions' },
+    { value: 'planning', label: 'Planning', description: 'plan before executing' },
+    { value: 'auto-accept', label: 'Auto-accept', description: 'no permission prompts' },
+  ] as const;
+
+  const getFilteredAgentTypes = () => {
+    if (!agentTypeFilter) return agentTypeOptions;
+    const filter = agentTypeFilter.toLowerCase();
+    return agentTypeOptions.filter(opt =>
+      opt.label.toLowerCase().includes(filter) ||
+      opt.description.toLowerCase().includes(filter)
+    );
+  };
+
+  const getFilteredArtifacts = () => {
+    const noneOption = { index: -1, name: 'None' };
+    if (!artifactFilter) {
+      return [noneOption, ...artifacts.map((a, i) => ({ index: i, name: a.name }))];
+    }
+    const filter = artifactFilter.toLowerCase();
+    const filtered = artifacts
+      .map((a, i) => ({ index: i, name: a.name }))
+      .filter(a => a.name.toLowerCase().includes(filter));
+    return [noneOption, ...filtered];
+  };
 
   useInput((input, key) => {
     if (showSlashMenu) {
@@ -122,26 +153,52 @@ export const PromptInput = ({ onSubmit, onCancel, onStateChange }: {
     }
 
     if (step === 'agentType') {
-      if (input === '1') { setAgentType('normal'); return; }
-      if (input === '2') { setAgentType('planning'); return; }
-      if (input === '3') { setAgentType('auto-accept'); return; }
-    }
+      const filteredTypes = getFilteredAgentTypes();
 
-    if (step === 'artifact') {
       if (key.upArrow) {
-        setSelectedArtifactIndex(i => Math.max(-1, i - 1));
+        setAgentTypeSelectedIndex(i => Math.max(0, i - 1));
         return;
       }
       if (key.downArrow) {
-        setSelectedArtifactIndex(i => Math.min(artifacts.length - 1, i + 1));
+        setAgentTypeSelectedIndex(i => Math.min(filteredTypes.length - 1, i + 1));
+        return;
+      }
+      if (key.backspace || key.delete) {
+        if (agentTypeFilter.length > 0) {
+          setAgentTypeFilter(f => f.slice(0, -1));
+          setAgentTypeSelectedIndex(0);
+        }
         return;
       }
       if (input && !key.ctrl && !key.meta) {
-        const num = parseInt(input);
-        if (!isNaN(num) && num >= 0 && num <= artifacts.length) {
-          setSelectedArtifactIndex(num - 1);
-          return;
+        setAgentTypeFilter(f => f + input);
+        setAgentTypeSelectedIndex(0);
+        return;
+      }
+    }
+
+    if (step === 'artifact') {
+      const filteredArtifacts = getFilteredArtifacts();
+
+      if (key.upArrow) {
+        setArtifactSelectedIndex(i => Math.max(0, i - 1));
+        return;
+      }
+      if (key.downArrow) {
+        setArtifactSelectedIndex(i => Math.min(filteredArtifacts.length - 1, i + 1));
+        return;
+      }
+      if (key.backspace || key.delete) {
+        if (artifactFilter.length > 0) {
+          setArtifactFilter(f => f.slice(0, -1));
+          setArtifactSelectedIndex(0);
         }
+        return;
+      }
+      if (input && !key.ctrl && !key.meta) {
+        setArtifactFilter(f => f + input);
+        setArtifactSelectedIndex(0);
+        return;
       }
     }
 
@@ -193,15 +250,30 @@ export const PromptInput = ({ onSubmit, onCancel, onStateChange }: {
   };
 
   const handleAgentTypeReturn = () => {
-    setStep('artifact');
+    const filteredTypes = getFilteredAgentTypes();
+    if (filteredTypes.length > 0) {
+      const selected = filteredTypes[agentTypeSelectedIndex];
+      setAgentType(selected.value as AgentType);
+      setAgentTypeFilter('');
+      setAgentTypeSelectedIndex(0);
+      setStep('artifact');
+    }
   };
 
   const handleArtifactReturn = () => {
-    if (gitRoot) {
-      setStep('worktree');
-    } else {
-      const finalPrompt = getFinalPrompt();
-      onSubmit(title, finalPrompt, agentType, { enabled: false, name: '' });
+    const filteredArtifacts = getFilteredArtifacts();
+    if (filteredArtifacts.length > 0) {
+      const selected = filteredArtifacts[artifactSelectedIndex];
+      setSelectedArtifactIndex(selected.index);
+      setArtifactFilter('');
+      setArtifactSelectedIndex(0);
+
+      if (gitRoot) {
+        setStep('worktree');
+      } else {
+        const finalPrompt = getFinalPrompt();
+        onSubmit(title, finalPrompt, agentType, { enabled: false, name: '' });
+      }
     }
   };
 
@@ -259,50 +331,72 @@ export const PromptInput = ({ onSubmit, onCancel, onStateChange }: {
           )}
         </Box>
 
-        <Box marginTop={1}>
-          <Text color={step === 'agentType' ? 'cyan' : step === 'title' || step === 'prompt' ? 'gray' : 'green'}>
-            {step === 'title' || step === 'prompt' ? '○' : step === 'agentType' ? '▸' : '✓'} Agent Type:{' '}
-          </Text>
-          {step === 'agentType' ? (
-            <Box flexDirection="column">
-              <Text>[<Text color={agentType === 'normal' ? 'cyan' : 'white'} bold={agentType === 'normal'}>1</Text>] Normal (ask for permissions)</Text>
-              <Text>[<Text color={agentType === 'planning' ? 'cyan' : 'white'} bold={agentType === 'planning'}>2</Text>] Planning (plan before executing)</Text>
-              <Text>[<Text color={agentType === 'auto-accept' ? 'cyan' : 'white'} bold={agentType === 'auto-accept'}>3</Text>] Auto-accept (no permission prompts)</Text>
-            </Box>
-          ) : (
-            <Text dimColor={step === 'title' || step === 'prompt'}>
-              {agentType === 'normal' ? 'Normal' : agentType === 'planning' ? 'Planning' : 'Auto-accept'}
+        <Box marginTop={1} flexDirection="column">
+          <Box>
+            <Text color={step === 'agentType' ? 'cyan' : step === 'title' || step === 'prompt' ? 'gray' : 'green'}>
+              {step === 'title' || step === 'prompt' ? '○' : step === 'agentType' ? '▸' : '✓'} Agent Type:{' '}
             </Text>
+            {step === 'agentType' ? (
+              <TextInput
+                value={agentTypeFilter}
+                onChange={() => {}}
+                placeholder="Filter..."
+                showCursor={true}
+              />
+            ) : (
+              <Text dimColor={step === 'title' || step === 'prompt'}>
+                {agentType === 'normal' ? 'Normal' : agentType === 'planning' ? 'Planning' : 'Auto-accept'}
+              </Text>
+            )}
+          </Box>
+          {step === 'agentType' && (
+            <Box flexDirection="column" marginLeft={2}>
+              {getFilteredAgentTypes().slice(0, 5).map((opt, i) => (
+                <Text key={opt.value} color={i === agentTypeSelectedIndex ? 'cyan' : 'white'} bold={i === agentTypeSelectedIndex}>
+                  {i === agentTypeSelectedIndex ? '▸' : ' '} {opt.label} ({opt.description})
+                </Text>
+              ))}
+              {getFilteredAgentTypes().length === 0 && (
+                <Text dimColor>No matches found</Text>
+              )}
+            </Box>
           )}
         </Box>
 
         <Box marginTop={1} flexDirection="column">
-          <Text color={step === 'artifact' ? 'cyan' : step === 'title' || step === 'prompt' || step === 'agentType' ? 'gray' : 'green'}>
-            {step === 'title' || step === 'prompt' || step === 'agentType' ? '○' : step === 'artifact' ? '▸' : '✓'} Include Artifact:{' '}
-          </Text>
-          {step === 'artifact' ? (
+          <Box>
+            <Text color={step === 'artifact' ? 'cyan' : step === 'title' || step === 'prompt' || step === 'agentType' ? 'gray' : 'green'}>
+              {step === 'title' || step === 'prompt' || step === 'agentType' ? '○' : step === 'artifact' ? '▸' : '✓'} Include Artifact:{' '}
+            </Text>
+            {step === 'artifact' ? (
+              <TextInput
+                value={artifactFilter}
+                onChange={() => {}}
+                placeholder="Filter or leave empty for None..."
+                showCursor={true}
+              />
+            ) : (
+              <Text dimColor={step === 'title' || step === 'prompt' || step === 'agentType'}>
+                {selectedArtifactIndex >= 0 ? artifacts[selectedArtifactIndex].name : 'None'}
+              </Text>
+            )}
+          </Box>
+          {step === 'artifact' && (
             <Box flexDirection="column" marginLeft={2}>
               {artifacts.length === 0 ? (
                 <Text dimColor>No artifacts found in ~/.agent-manager/artifacts/</Text>
               ) : (
                 <>
-                  <Text>[<Text color={selectedArtifactIndex === -1 ? 'cyan' : 'white'} bold={selectedArtifactIndex === -1}>0</Text>] None</Text>
-                  {artifacts.map((artifact, i) => (
-                    <Text key={artifact.name}>
-                      [<Text color={selectedArtifactIndex === i ? 'cyan' : 'white'} bold={selectedArtifactIndex === i}>{i + 1}</Text>] {artifact.name}
+                  {getFilteredArtifacts().slice(0, 5).map((artifact, i) => (
+                    <Text key={artifact.name} color={i === artifactSelectedIndex ? 'cyan' : 'white'} bold={i === artifactSelectedIndex}>
+                      {i === artifactSelectedIndex ? '▸' : ' '} {artifact.name}
                     </Text>
                   ))}
-                  <Box marginTop={1}>
-                    <Text dimColor>Use arrow keys or numbers to select</Text>
-                  </Box>
+                  {getFilteredArtifacts().length === 0 && (
+                    <Text dimColor>No matches found</Text>
+                  )}
                 </>
               )}
-            </Box>
-          ) : (
-            <Box marginLeft={2}>
-              <Text dimColor={step === 'title' || step === 'prompt' || step === 'agentType'}>
-                {selectedArtifactIndex >= 0 ? artifacts[selectedArtifactIndex].name : 'None'}
-              </Text>
             </Box>
           )}
         </Box>
