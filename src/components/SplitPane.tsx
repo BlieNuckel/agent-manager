@@ -1,5 +1,5 @@
 import React, { ReactNode } from 'react';
-import { Box, useStdout } from 'ink';
+import { Box, Text, useStdout } from 'ink';
 
 interface PaneConfig {
   content: ReactNode;
@@ -19,17 +19,19 @@ export const SplitPane = ({ panes }: SplitPaneProps) => {
       {panes.map((pane, index) => {
         const width = Math.floor(termWidth * pane.widthPercent / 100);
         const isFirst = index === 0;
+        const isLast = index === panes.length - 1;
 
         return (
-          <Box key={index} width={width} flexDirection="column" flexGrow={0} flexShrink={0} minHeight={0}>
-            {isFirst ? (
-              pane.content
-            ) : (
-              <Box flexDirection="column" flexGrow={1} minHeight={0} borderStyle="single" borderColor="gray" borderLeft={true}>
-                {pane.content}
+          <React.Fragment key={index}>
+            {!isFirst && (
+              <Box width={1} flexDirection="column" flexGrow={0} flexShrink={0}>
+                <Text color="gray">│</Text>
               </Box>
             )}
-          </Box>
+            <Box width={isFirst ? width : width - 1} flexDirection="column" flexGrow={0} flexShrink={0} minHeight={0}>
+              {pane.content}
+            </Box>
+          </React.Fragment>
         );
       })}
     </Box>
