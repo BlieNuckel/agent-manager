@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Box, Text, useInput, useApp } from 'ink';
+import Markdown from 'ink-markdown';
 import type { Agent } from '../types';
 import { StatusBadge } from './StatusBadge';
 import { PermissionPrompt } from './PermissionPrompt';
@@ -66,17 +67,42 @@ export const DetailView = ({ agent, onBack, onPermissionResponse, onAlwaysAllow 
     const prefix = outputLine.isSubagent ? '  → ' : '';
     const subagentLabel = outputLine.isSubagent && outputLine.subagentType ? `[${outputLine.subagentType}] ` : '';
 
+    // Check for special prefixes
+    let statusPrefix = '';
+    let statusColor = '';
+    let content = line;
+
+    if (line.startsWith('[x]')) {
+      statusPrefix = '[x] ';
+      statusColor = 'red';
+      content = line.slice(4);
+    } else if (line.startsWith('[+]')) {
+      statusPrefix = '[+] ';
+      statusColor = 'green';
+      content = line.slice(4);
+    } else if (line.startsWith('[>]')) {
+      statusPrefix = '[>] ';
+      statusColor = 'blue';
+      content = line.slice(4);
+    } else if (line.startsWith('[-]')) {
+      statusPrefix = '[-] ';
+      statusColor = 'yellow';
+      content = line.slice(4);
+    } else if (line.startsWith('[!]')) {
+      statusPrefix = '[!] ';
+      statusColor = 'yellow';
+      content = line.slice(4);
+    }
+
     return (
-      <Text key={scrollOffset + index} wrap="truncate-ellipsis">
+      <Box key={scrollOffset + index} flexDirection="row">
         {outputLine.isSubagent && <Text dimColor>{prefix}</Text>}
         {subagentLabel && <Text color="magenta" dimColor>{subagentLabel}</Text>}
-        {line.startsWith('[x]') ? <Text color="red">{line}</Text> :
-          line.startsWith('[+]') ? <Text color="green">{line}</Text> :
-            line.startsWith('[>]') ? <Text color="blue">{line}</Text> :
-              line.startsWith('[-]') ? <Text color="yellow">{line}</Text> :
-                line.startsWith('[!]') ? <Text color="yellow">{line}</Text> :
-                  line}
-      </Text>
+        {statusPrefix && <Text color={statusColor}>{statusPrefix}</Text>}
+        <Box flexDirection="column" flexGrow={1}>
+          <Markdown>{content}</Markdown>
+        </Box>
+      </Box>
     );
   };
 
