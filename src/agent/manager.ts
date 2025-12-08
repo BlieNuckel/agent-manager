@@ -4,7 +4,7 @@ import type { AgentType } from '../types';
 import { debug } from '../utils/logger';
 import { generateTitle } from '../utils/titleGenerator';
 import type { WorktreeContext } from './systemPromptTemplates';
-import { buildSystemPrompt } from './systemPromptTemplates';
+import { buildSystemPrompt, buildWorktreePromptPrefix } from './systemPromptTemplates';
 
 interface QueryEntry {
   query: Query;
@@ -14,6 +14,7 @@ interface QueryEntry {
   sessionId?: string;
   workDir: string;
   systemPromptAppend?: string;
+  activeSubagents: Map<string, { agentID: string; subagentType: string }>;
 }
 
 const AUTO_ALLOW_TOOLS = ['Read', 'Glob', 'Grep', 'WebSearch', 'WebFetch', 'Task', 'TodoRead', 'TodoWrite'];
@@ -25,9 +26,22 @@ export class AgentSDKManager extends EventEmitter {
   private static commandsCache: SlashCommand[] | null = null;
 
   private createCanUseTool(id: string) {
-    return async (toolName: string, toolInput: Record<string, unknown>, options: { signal: AbortSignal }) => {
+    return async (toolName: string, toolInput: Record<string, unknown>, options: { signal: AbortSignal; agentID?: string; toolUseID: string }) => {
       const currentState = this.agentStates.get(id);
-      debug('canUseTool called:', { toolName, toolInput, currentState });
+      const entry = this.queries.get(id);
+      debug('canUseTool called:', { toolName, toolInput, currentState, agentID: options.agentID, toolUseID: options.toolUseID });
+
+      if (options.agentID && toolName === 'Task' && entry) {
+        if (!entry.activeSubagents.has(options.toolUseID)) {
+          const subagentType = (toolInput as any).subagent_type || 'unknown';
+          entry.activeSubagents.set(options.toolUseID, {
+            agentID: options.agentID,
+            subagentType
+          });
+          this.emit('output', id, `[→] Starting subagent: ${subagentType}`);
+          debug('Subagent started:', { agentID: options.agentID, subagentType, toolUseID: options.toolUseID });
+        }
+      }
 
       if (AUTO_ALLOW_TOOLS.includes(toolName)) {
         debug('Auto-allowing tool:', toolName);
@@ -72,6 +86,14 @@ export class AgentSDKManager extends EventEmitter {
     this.agentStates.set(id, { agentType, autoAcceptPermissions, hasTitle: true });
 
     const systemPromptAppend = buildSystemPrompt(worktreeContext);
+
+    let finalPrompt = prompt;
+    if (worktreeContext?.enabled) {
+      const worktreePrefix = buildWorktreePromptPrefix(worktreeContext);
+      finalPrompt = worktreePrefix + prompt;
+      debug('Prepending worktree setup instructions to prompt');
+    }
+
     const queryOptions: any = {
       cwd: workDir,
       abortController,
@@ -90,7 +112,7 @@ export class AgentSDKManager extends EventEmitter {
     }
 
     const q = query({
-      prompt,
+      prompt: finalPrompt,
       options: queryOptions,
     });
 
@@ -101,6 +123,7 @@ export class AgentSDKManager extends EventEmitter {
       iterating: false,
       workDir,
       systemPromptAppend: systemPromptAppend || undefined,
+      activeSubagents: new Map(),
     });
 
     this.iterateQuery(id, q);
@@ -142,6 +165,45 @@ export class AgentSDKManager extends EventEmitter {
     }
   }
 
+  private checkForWorktreeSignals(id: string, text: string): void {
+    const lines = text.split('\n');
+    for (const line of lines) {
+      if (line.includes('[WORKTREE_CREATED]')) {
+        const branchName = line.split('[WORKTREE_CREATED]')[1]?.trim();
+        if (branchName) {
+          debug('Worktree created signal detected:', { id, branchName });
+          this.emit('worktreeCreated', id, branchName);
+        }
+      } else if (line.includes('[WORKTREE_MERGE_READY]')) {
+        const branchName = line.split('[WORKTREE_MERGE_READY]')[1]?.trim();
+        if (branchName) {
+          debug('Merge ready signal detected:', { id, branchName });
+          this.emit('mergeReady', id, branchName);
+        }
+      } else if (line.includes('[WORKTREE_MERGE_CONFLICTS]')) {
+        const branchName = line.split('[WORKTREE_MERGE_CONFLICTS]')[1]?.trim();
+        if (branchName) {
+          debug('Merge conflicts signal detected:', { id, branchName });
+          this.emit('mergeConflicts', id, branchName);
+        }
+      } else if (line.includes('[WORKTREE_MERGE_FAILED]')) {
+        const parts = line.split('[WORKTREE_MERGE_FAILED]')[1]?.trim().split(' ') || [];
+        const branchName = parts[0];
+        const error = parts.slice(1).join(' ');
+        if (branchName) {
+          debug('Merge failed signal detected:', { id, branchName, error });
+          this.emit('mergeFailed', id, branchName, error);
+        }
+      } else if (line.includes('[WORKTREE_MERGED]')) {
+        const branchName = line.split('[WORKTREE_MERGED]')[1]?.trim();
+        if (branchName) {
+          debug('Merge completed signal detected:', { id, branchName });
+          this.emit('mergeCompleted', id, branchName);
+        }
+      }
+    }
+  }
+
   private processMessage(id: string, message: SDKMessage): void {
     debug('Received message:', { type: message.type, subtype: (message as any).subtype });
 
@@ -157,8 +219,45 @@ export class AgentSDKManager extends EventEmitter {
         }
         break;
 
+      case 'user':
+        if (message.parent_tool_use_id && message.tool_use_result) {
+          const entry = this.queries.get(id);
+          if (entry && entry.activeSubagents.has(message.parent_tool_use_id)) {
+            const subagentInfo = entry.activeSubagents.get(message.parent_tool_use_id)!;
+            entry.activeSubagents.delete(message.parent_tool_use_id);
+            this.emit('output', id, `[←] Subagent completed: ${subagentInfo.subagentType}`);
+            debug('Subagent completed:', {
+              agentID: subagentInfo.agentID,
+              subagentType: subagentInfo.subagentType,
+              parent_tool_use_id: message.parent_tool_use_id
+            });
+          }
+        }
+
+        if (message.tool_use_result) {
+          let resultStr: string;
+          if (typeof message.tool_use_result === 'string') {
+            resultStr = message.tool_use_result;
+          } else if (typeof message.tool_use_result === 'object' && message.tool_use_result !== null) {
+            const result = message.tool_use_result as Record<string, unknown>;
+            resultStr = typeof result.stdout === 'string' ? result.stdout : '';
+          } else {
+            resultStr = '';
+          }
+
+          if (resultStr) {
+            this.checkForWorktreeSignals(id, resultStr);
+          }
+        }
+        break;
+
       case 'assistant':
         debug('Assistant message content types:', message.message.content.map((c: any) => c.type));
+
+        const isSubagent = message.parent_tool_use_id !== null;
+        if (isSubagent) {
+          debug('Message from subagent, parent_tool_use_id:', message.parent_tool_use_id);
+        }
 
         for (const content of message.message.content) {
           if (content.type === 'text') {
@@ -166,39 +265,15 @@ export class AgentSDKManager extends EventEmitter {
             for (const line of lines) {
               if (line.trim()) {
                 this.emit('output', id, line);
-
-                if (line.includes('[WORKTREE_MERGE_READY]')) {
-                  const branchName = line.split('[WORKTREE_MERGE_READY]')[1]?.trim();
-                  if (branchName) {
-                    debug('Merge ready signal detected:', { id, branchName });
-                    this.emit('mergeReady', id, branchName);
-                  }
-                } else if (line.includes('[WORKTREE_MERGE_CONFLICTS]')) {
-                  const branchName = line.split('[WORKTREE_MERGE_CONFLICTS]')[1]?.trim();
-                  if (branchName) {
-                    debug('Merge conflicts signal detected:', { id, branchName });
-                    this.emit('mergeConflicts', id, branchName);
-                  }
-                } else if (line.includes('[WORKTREE_MERGE_FAILED]')) {
-                  const parts = line.split('[WORKTREE_MERGE_FAILED]')[1]?.trim().split(' ') || [];
-                  const branchName = parts[0];
-                  const error = parts.slice(1).join(' ');
-                  if (branchName) {
-                    debug('Merge failed signal detected:', { id, branchName, error });
-                    this.emit('mergeFailed', id, branchName, error);
-                  }
-                } else if (line.includes('[WORKTREE_MERGED]')) {
-                  const branchName = line.split('[WORKTREE_MERGED]')[1]?.trim();
-                  if (branchName) {
-                    debug('Merge completed signal detected:', { id, branchName });
-                    this.emit('mergeCompleted', id, branchName);
-                  }
-                }
               }
             }
+            this.checkForWorktreeSignals(id, content.text);
           } else if (content.type === 'tool_use') {
-            debug('Tool use in assistant message:', { name: content.name, id: content.id });
-            this.emit('output', id, `[>] Using tool: ${content.name}`);
+            debug('Tool use in assistant message:', { name: content.name, id: content.id, isSubagent });
+
+            if (!isSubagent || (content.name !== 'Task' && PERMISSION_REQUIRED_TOOLS.includes(content.name))) {
+              this.emit('output', id, `[>] Using tool: ${content.name}`);
+            }
           }
         }
         break;

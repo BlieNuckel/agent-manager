@@ -38,6 +38,9 @@ WORKTREE_PATH="${context.gitRoot}/../${context.repoName}-\${BRANCH_NAME}"
 # Create the worktree branching from current branch
 git worktree add -b "\${BRANCH_NAME}" "\${WORKTREE_PATH}" "${context.currentBranch}"
 
+# IMPORTANT: Signal that worktree was created (so the UI can display it)
+echo "[WORKTREE_CREATED] \${BRANCH_NAME}"
+
 # Change to worktree directory for all subsequent work
 cd "\${WORKTREE_PATH}"
 \`\`\`
@@ -71,9 +74,10 @@ else
 fi
 \`\`\`
 
-### 4. Signal Completion
-At the end of your work, output one of these markers:
-- \`[WORKTREE_MERGE_READY] <branch-name>\` - Branch is ready to merge without conflicts
+### 4. Signal Events
+Output these markers at the appropriate times:
+- \`[WORKTREE_CREATED] <branch-name>\` - Output immediately after creating the worktree (Step 1)
+- \`[WORKTREE_MERGE_READY] <branch-name>\` - Branch is ready to merge without conflicts (end of work)
 - \`[WORKTREE_MERGE_CONFLICTS] <branch-name>\` - Branch has merge conflicts that need manual resolution
 - \`[WORKTREE_MERGE_FAILED] <branch-name> <error-message>\` - Could not test merge
 
@@ -89,6 +93,7 @@ At the end of your work, output one of these markers:
 \`\`\`bash
 # Step 1: Create worktree
 git worktree add -b "add-user-auth" "${context.gitRoot}/../${context.repoName}-add-user-auth" "${context.currentBranch}"
+echo "[WORKTREE_CREATED] add-user-auth"
 cd "${context.gitRoot}/../${context.repoName}-add-user-auth"
 
 # Step 2: Do your work
@@ -116,4 +121,42 @@ export function buildSystemPrompt(worktreeContext?: WorktreeContext): string {
   }
 
   return parts.join('\n\n');
+}
+
+export function buildWorktreePromptPrefix(context: WorktreeContext): string {
+  if (context.suggestedName) {
+    return `**MANDATORY FIRST STEP - CREATE GIT WORKTREE:**
+Before doing ANYTHING else, you MUST execute these exact commands to set up an isolated worktree:
+
+\`\`\`bash
+git worktree add -b "${context.suggestedName}" "${context.gitRoot}/../${context.repoName}-${context.suggestedName}" "${context.currentBranch}"
+echo "[WORKTREE_CREATED] ${context.suggestedName}"
+cd "${context.gitRoot}/../${context.repoName}-${context.suggestedName}"
+\`\`\`
+
+After creating the worktree and cd'ing into it, proceed with the actual task below.
+
+---
+
+**ACTUAL TASK:**
+`;
+  }
+
+  return `**MANDATORY FIRST STEP - CREATE GIT WORKTREE:**
+Before doing ANYTHING else, you MUST:
+1. Generate a branch name from the task (2-4 kebab-case words, e.g., "add-dark-mode", "fix-auth-bug")
+2. Execute the commands below (replace YOUR_BRANCH_NAME with your generated name)
+
+\`\`\`bash
+git worktree add -b "YOUR_BRANCH_NAME" "${context.gitRoot}/../${context.repoName}-YOUR_BRANCH_NAME" "${context.currentBranch}"
+echo "[WORKTREE_CREATED] YOUR_BRANCH_NAME"
+cd "${context.gitRoot}/../${context.repoName}-YOUR_BRANCH_NAME"
+\`\`\`
+
+After creating the worktree and cd'ing into it, proceed with the actual task below.
+
+---
+
+**ACTUAL TASK:**
+`;
 }

@@ -4,7 +4,7 @@ import type { Agent, AgentType, HistoryEntry, Mode, PermissionRequest, InputStep
 import { reducer } from '../state/reducer';
 import { loadHistory, saveHistory } from '../state/history';
 import { AgentSDKManager } from '../agent/manager';
-import { getGitRoot, getCurrentBranch, getRepoName, generateWorktreeName } from '../git/worktree';
+import { getGitRoot, getCurrentBranch, getRepoName } from '../git/worktree';
 import type { WorktreeContext } from '../agent/systemPromptTemplates';
 import { genId } from '../utils/helpers';
 import { debug } from '../utils/logger';
@@ -56,6 +56,10 @@ export const App = () => {
       const newHistory = state.history.map(h => h.id === id ? { ...h, title } : h);
       saveHistory(newHistory);
     };
+    const onWorktreeCreated = (id: string, branchName: string) => {
+      debug('Worktree created received in UI:', { id, branchName });
+      dispatch({ type: 'UPDATE_AGENT', id, updates: { worktreeName: branchName } });
+    };
     const onMergeReady = (id: string, branchName: string) => {
       debug('Merge ready received in UI:', { id, branchName });
       dispatch({
@@ -101,6 +105,7 @@ export const App = () => {
     agentManager.on('sessionId', onSessionId);
     agentManager.on('permissionRequest', onPermissionRequest);
     agentManager.on('titleUpdate', onTitleUpdate);
+    agentManager.on('worktreeCreated', onWorktreeCreated);
     agentManager.on('mergeReady', onMergeReady);
     agentManager.on('mergeConflicts', onMergeConflicts);
     agentManager.on('mergeFailed', onMergeFailed);
@@ -114,6 +119,7 @@ export const App = () => {
       agentManager.off('sessionId', onSessionId);
       agentManager.off('permissionRequest', onPermissionRequest);
       agentManager.off('titleUpdate', onTitleUpdate);
+      agentManager.off('worktreeCreated', onWorktreeCreated);
       agentManager.off('mergeReady', onMergeReady);
       agentManager.off('mergeConflicts', onMergeConflicts);
       agentManager.off('mergeFailed', onMergeFailed);
@@ -131,7 +137,7 @@ export const App = () => {
       if (gitRoot) {
         const currentBranch = getCurrentBranch();
         const repoName = getRepoName(gitRoot);
-        const suggestedName = worktree.name || generateWorktreeName(prompt);
+        const suggestedName = worktree.name || undefined;
 
         worktreeContext = {
           enabled: true,

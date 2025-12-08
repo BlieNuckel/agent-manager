@@ -21,14 +21,3 @@ export function getCurrentBranch(): string {
 export function getRepoName(gitRoot: string): string {
   return path.basename(gitRoot);
 }
-
-export function generateWorktreeName(taskDescription: string): string {
-  const words = taskDescription
-    .toLowerCase()
-    .replace(/[^a-z0-9\s-]/g, '')
-    .split(/\s+/)
-    .filter(word => word.length > 2)
-    .slice(0, 6);
-
-  return words.join('-') || 'new-worktree';
-}
