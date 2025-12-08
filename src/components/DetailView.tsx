@@ -67,7 +67,7 @@ export const DetailView = ({ agent, onBack, onPermissionResponse, onAlwaysAllow 
     const subagentLabel = outputLine.isSubagent && outputLine.subagentType ? `[${outputLine.subagentType}] ` : '';
 
     return (
-      <Text key={scrollOffset + index} wrap="truncate">
+      <Text key={scrollOffset + index} wrap="truncate-ellipsis">
         {outputLine.isSubagent && <Text dimColor>{prefix}</Text>}
         {subagentLabel && <Text color="magenta" dimColor>{subagentLabel}</Text>}
         {line.startsWith('[x]') ? <Text color="red">{line}</Text> :
