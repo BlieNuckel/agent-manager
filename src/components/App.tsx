@@ -25,7 +25,9 @@ export const App = () => {
   const [inputState, setInputState] = useState<{ step: InputStep; showSlashMenu: boolean }>({ step: 'prompt', showSlashMenu: false });
 
   useEffect(() => {
-    const onOutput = (id: string, line: string) => dispatch({ type: 'APPEND_OUTPUT', id, line });
+    const onOutput = (id: string, line: string, isSubagent: boolean = false, subagentId?: string, subagentType?: string) => {
+      dispatch({ type: 'APPEND_OUTPUT', id, line: { text: line, isSubagent, subagentId, subagentType } });
+    };
     const onIdle = (id: string) => {
       dispatch({ type: 'SET_PERMISSION', id, permission: undefined });
       dispatch({ type: 'UPDATE_AGENT', id, updates: { status: 'idle' } });
@@ -35,7 +37,7 @@ export const App = () => {
       dispatch({ type: 'UPDATE_AGENT', id, updates: { status: code === 0 ? 'done' : 'error' } });
     };
     const onError = (id: string, msg: string) => {
-      dispatch({ type: 'APPEND_OUTPUT', id, line: `[x] Error: ${msg}` });
+      dispatch({ type: 'APPEND_OUTPUT', id, line: { text: `[x] Error: ${msg}`, isSubagent: false } });
       dispatch({ type: 'UPDATE_AGENT', id, updates: { status: 'error' } });
     };
     const onSessionId = (id: string, sessionId: string) => {
@@ -156,7 +158,7 @@ export const App = () => {
       title: title || 'Untitled Agent',
       prompt,
       status: 'working',
-      output: worktree.enabled ? ['[i] Agent will create git worktree as first action'] : [],
+      output: worktree.enabled ? [{ text: '[i] Agent will create git worktree as first action', isSubagent: false }] : [],
       workDir,
       worktreeName: worktreeContext?.suggestedName,
       createdAt: new Date(),

@@ -1,4 +1,10 @@
-import type { Agent, HistoryEntry, PermissionRequest } from '../types';
+import type { Agent, HistoryEntry, PermissionRequest, OutputLine } from '../types';
+
+const toOutputLine = (text: string, isSubagent: boolean = false, subagentType?: string): OutputLine => ({
+  text,
+  isSubagent,
+  subagentType
+});
 
 export const createMockPermissionRequest = (): PermissionRequest => ({
   toolName: 'Write',
@@ -27,7 +33,7 @@ export const mockAgents: Agent[] = [
       '✅ Analysis complete. Planning JWT implementation...',
       '',
       'I need to write the new JWT utilities file.'
-    ],
+    ].map(line => toOutputLine(line)),
     createdAt: new Date(Date.now() - 300000),
     updatedAt: new Date(Date.now() - 5000),
     workDir: '/Users/demo/project',
@@ -50,7 +56,7 @@ export const mockAgents: Agent[] = [
       '✏️  Updating App.tsx to use theme provider...',
       '✅ Updated App.tsx',
       '🔄 Now adding toggle component...',
-    ],
+    ].map(line => toOutputLine(line)),
     createdAt: new Date(Date.now() - 600000),
     updatedAt: new Date(Date.now() - 2000),
     workDir: '/Users/demo/project',
@@ -77,7 +83,7 @@ export const mockAgents: Agent[] = [
       '✅ All TypeScript errors resolved!',
       '',
       '✨ Task completed - waiting for follow-up'
-    ],
+    ].map(line => toOutputLine(line)),
     createdAt: new Date(Date.now() - 1200000),
     updatedAt: new Date(Date.now() - 60000),
     workDir: '/Users/demo/project',
@@ -99,7 +105,7 @@ export const mockAgents: Agent[] = [
       '[x] Error: Missing dependency. Please run npm install yup',
       '',
       '❌ Task failed due to missing dependencies'
-    ],
+    ].map(line => toOutputLine(line)),
     createdAt: new Date(Date.now() - 900000),
     updatedAt: new Date(Date.now() - 120000),
     workDir: '/Users/demo/project',
@@ -117,7 +123,7 @@ export const mockAgents: Agent[] = [
       '⚠️  Query on line 45 has N+1 problem',
       '⚠️  Query on line 78 missing index',
       '✏️  Refactoring query with joins...',
-    ],
+    ].map(line => toOutputLine(line)),
     createdAt: new Date(Date.now() - 180000),
     updatedAt: new Date(Date.now() - 1000),
     workDir: '/Users/demo/backend',
@@ -170,7 +176,7 @@ export const createMockAgent = (overrides?: Partial<Agent>): Agent => ({
   title: 'Mock Agent',
   status: 'working',
   prompt: 'This is a mock agent for testing',
-  output: ['Mock output line 1', 'Mock output line 2'],
+  output: ['Mock output line 1', 'Mock output line 2'].map(line => toOutputLine(line)),
   createdAt: new Date(),
   updatedAt: new Date(),
   workDir: '/Users/demo/project',

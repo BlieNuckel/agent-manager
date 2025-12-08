@@ -61,6 +61,25 @@ export const DetailView = ({ agent, onBack, onPermissionResponse, onAlwaysAllow 
   const isPending = agent.title === 'Pending...';
   const promptNeedsScroll = promptLines.length > maxPromptHeight;
 
+  const renderLine = (outputLine: typeof agent.output[number], index: number) => {
+    const line = outputLine.text;
+    const prefix = outputLine.isSubagent ? '  → ' : '';
+    const subagentLabel = outputLine.isSubagent && outputLine.subagentType ? `[${outputLine.subagentType}] ` : '';
+
+    return (
+      <Text key={scrollOffset + index} wrap="truncate">
+        {outputLine.isSubagent && <Text dimColor>{prefix}</Text>}
+        {subagentLabel && <Text color="magenta" dimColor>{subagentLabel}</Text>}
+        {line.startsWith('[x]') ? <Text color="red">{line}</Text> :
+          line.startsWith('[+]') ? <Text color="green">{line}</Text> :
+            line.startsWith('[>]') ? <Text color="blue">{line}</Text> :
+              line.startsWith('[-]') ? <Text color="yellow">{line}</Text> :
+                line.startsWith('[!]') ? <Text color="yellow">{line}</Text> :
+                  line}
+      </Text>
+    );
+  };
+
   return (
     <Box flexDirection="column" height={termHeight}>
       <Box flexDirection="column" flexShrink={0}>
@@ -93,16 +112,7 @@ export const DetailView = ({ agent, onBack, onPermissionResponse, onAlwaysAllow 
         {displayedLines.length === 0 ? (
           <Text dimColor>Waiting for output...</Text>
         ) : (
-          displayedLines.map((line, i) => (
-            <Text key={scrollOffset + i} wrap="truncate">
-              {line.startsWith('[x]') ? <Text color="red">{line}</Text> :
-                line.startsWith('[+]') ? <Text color="green">{line}</Text> :
-                  line.startsWith('[>]') ? <Text color="blue">{line}</Text> :
-                    line.startsWith('[-]') ? <Text color="yellow">{line}</Text> :
-                      line.startsWith('[!]') ? <Text color="yellow">{line}</Text> :
-                        line}
-            </Text>
-          ))
+          displayedLines.map((line, i) => renderLine(line, i))
         )}
       </Box>
 

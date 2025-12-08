@@ -31,15 +31,19 @@ export class AgentSDKManager extends EventEmitter {
       const entry = this.queries.get(id);
       debug('canUseTool called:', { toolName, toolInput, currentState, agentID: options.agentID, toolUseID: options.toolUseID });
 
+      const isSubagentTool = options.agentID !== undefined;
+      let subagentType: string | undefined;
+
       if (options.agentID && toolName === 'Task' && entry) {
         if (!entry.activeSubagents.has(options.toolUseID)) {
-          const subagentType = (toolInput as any).subagent_type || 'unknown';
+          const detectedSubagentType = (toolInput as any).subagent_type || 'unknown';
+          subagentType = detectedSubagentType;
           entry.activeSubagents.set(options.toolUseID, {
             agentID: options.agentID,
-            subagentType
+            subagentType: detectedSubagentType
           });
-          this.emit('output', id, `[→] Starting subagent: ${subagentType}`);
-          debug('Subagent started:', { agentID: options.agentID, subagentType, toolUseID: options.toolUseID });
+          this.emit('output', id, `[→] Starting subagent: ${detectedSubagentType}`, false);
+          debug('Subagent started:', { agentID: options.agentID, subagentType: detectedSubagentType, toolUseID: options.toolUseID });
         }
       }
 
@@ -51,12 +55,12 @@ export class AgentSDKManager extends EventEmitter {
       if (PERMISSION_REQUIRED_TOOLS.includes(toolName)) {
         if (currentState?.agentType === 'auto-accept' || currentState?.autoAcceptPermissions) {
           debug('Auto-accepting permission for tool:', toolName);
-          this.emit('output', id, `✅ Auto-allowed: ${toolName}`);
+          this.emit('output', id, `✅ Auto-allowed: ${toolName}`, isSubagentTool, options.agentID, subagentType);
           return { behavior: 'allow' as const, updatedInput: toolInput as Record<string, unknown> };
         }
 
         debug('Requesting permission for tool:', toolName);
-        this.emit('output', id, `[!] Permission required for: ${toolName}`);
+        this.emit('output', id, `[!] Permission required for: ${toolName}`, isSubagentTool, options.agentID, subagentType);
 
         const result = await new Promise<boolean>((resolvePermission) => {
           this.emit('permissionRequest', id, {
@@ -67,7 +71,7 @@ export class AgentSDKManager extends EventEmitter {
         });
 
         debug('Permission result:', { toolName, allowed: result });
-        this.emit('output', id, result ? `[+] Allowed: ${toolName}` : `[-] Denied: ${toolName}`);
+        this.emit('output', id, result ? `[+] Allowed: ${toolName}` : `[-] Denied: ${toolName}`, isSubagentTool, options.agentID, subagentType);
 
         if (result) {
           return { behavior: 'allow' as const, updatedInput: toolInput as Record<string, unknown> };
@@ -207,11 +211,12 @@ export class AgentSDKManager extends EventEmitter {
   private processMessage(id: string, message: SDKMessage): void {
     debug('Received message:', { type: message.type, subtype: (message as any).subtype });
 
+    const entry = this.queries.get(id);
+
     switch (message.type) {
       case 'system':
         if (message.subtype === 'init' && message.session_id) {
           debug('Session initialized:', message.session_id);
-          const entry = this.queries.get(id);
           if (entry) {
             entry.sessionId = message.session_id;
           }
@@ -221,11 +226,10 @@ export class AgentSDKManager extends EventEmitter {
 
       case 'user':
         if (message.parent_tool_use_id && message.tool_use_result) {
-          const entry = this.queries.get(id);
           if (entry && entry.activeSubagents.has(message.parent_tool_use_id)) {
             const subagentInfo = entry.activeSubagents.get(message.parent_tool_use_id)!;
             entry.activeSubagents.delete(message.parent_tool_use_id);
-            this.emit('output', id, `[←] Subagent completed: ${subagentInfo.subagentType}`);
+            this.emit('output', id, `[←] Subagent completed: ${subagentInfo.subagentType}`, false);
             debug('Subagent completed:', {
               agentID: subagentInfo.agentID,
               subagentType: subagentInfo.subagentType,
@@ -255,8 +259,19 @@ export class AgentSDKManager extends EventEmitter {
         debug('Assistant message content types:', message.message.content.map((c: any) => c.type));
 
         const isSubagent = message.parent_tool_use_id !== null;
-        if (isSubagent) {
+        let subagentInfo: { subagentId?: string; subagentType?: string } = {};
+
+        if (isSubagent && entry) {
           debug('Message from subagent, parent_tool_use_id:', message.parent_tool_use_id);
+          const parentToolUseId = message.parent_tool_use_id;
+          subagentInfo.subagentId = parentToolUseId || undefined;
+
+          if (parentToolUseId) {
+            const subagent = entry.activeSubagents.get(parentToolUseId);
+            if (subagent) {
+              subagentInfo.subagentType = subagent.subagentType;
+            }
+          }
         }
 
         for (const content of message.message.content) {
@@ -264,7 +279,7 @@ export class AgentSDKManager extends EventEmitter {
             const lines = content.text.split('\n');
             for (const line of lines) {
               if (line.trim()) {
-                this.emit('output', id, line);
+                this.emit('output', id, line, isSubagent, subagentInfo.subagentId, subagentInfo.subagentType);
               }
             }
             this.checkForWorktreeSignals(id, content.text);
@@ -272,7 +287,7 @@ export class AgentSDKManager extends EventEmitter {
             debug('Tool use in assistant message:', { name: content.name, id: content.id, isSubagent });
 
             if (!isSubagent || (content.name !== 'Task' && PERMISSION_REQUIRED_TOOLS.includes(content.name))) {
-              this.emit('output', id, `[>] Using tool: ${content.name}`);
+              this.emit('output', id, `[>] Using tool: ${content.name}`, isSubagent, subagentInfo.subagentId, subagentInfo.subagentType);
             }
           }
         }
@@ -280,10 +295,26 @@ export class AgentSDKManager extends EventEmitter {
 
       case 'result':
         debug('Result message:', { subtype: message.subtype, error: (message as any).error });
+        const resultParentToolUseId = (message as any).parent_tool_use_id;
+        const resultIsSubagent = resultParentToolUseId !== null && resultParentToolUseId !== undefined;
+        let resultSubagentInfo: { subagentId?: string; subagentType?: string } = {};
+
+        if (resultIsSubagent && entry) {
+          resultSubagentInfo.subagentId = resultParentToolUseId;
+
+          if (resultParentToolUseId) {
+            const subagent = entry.activeSubagents.get(resultParentToolUseId);
+            if (subagent) {
+              resultSubagentInfo.subagentType = subagent.subagentType;
+              entry.activeSubagents.delete(resultParentToolUseId);
+            }
+          }
+        }
+
         if (message.subtype === 'success') {
-          this.emit('output', id, '[+] Task completed successfully');
+          this.emit('output', id, '[+] Task completed successfully', resultIsSubagent, resultSubagentInfo.subagentId, resultSubagentInfo.subagentType);
         } else {
-          this.emit('output', id, `[x] Error: ${(message as any).error || message.subtype}`);
+          this.emit('output', id, `[x] Error: ${(message as any).error || message.subtype}`, resultIsSubagent, resultSubagentInfo.subagentId, resultSubagentInfo.subagentType);
         }
         break;
 
@@ -362,9 +393,9 @@ export class AgentSDKManager extends EventEmitter {
       throw new Error(`Agent state ${id} not found`);
     }
 
-    this.emit('output', id, '');
-    this.emit('output', id, `[>] User: ${message}`);
-    this.emit('output', id, '');
+    this.emit('output', id, '', false);
+    this.emit('output', id, `[>] User: ${message}`, false);
+    this.emit('output', id, '', false);
 
     const newAbortController = new AbortController();
     const queryOptions: any = {
@@ -399,7 +430,7 @@ export class AgentSDKManager extends EventEmitter {
       this.iterateQuery(id, newQuery);
     } catch (error: any) {
       debug('Error sending follow-up message:', error);
-      this.emit('output', id, `[x] Failed to send message: ${error.message}`);
+      this.emit('output', id, `[x] Failed to send message: ${error.message}`, false);
       this.emit('error', id, error.message);
       throw error;
     }

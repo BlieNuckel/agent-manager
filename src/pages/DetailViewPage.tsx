@@ -158,16 +158,24 @@ export const DetailViewPage = ({
         {displayedLines.length === 0 ? (
           <Text dimColor>Waiting for output...</Text>
         ) : (
-          displayedLines.map((line, i) => (
-            <Text key={scrollOffset + i} wrap="truncate">
-              {line.startsWith('[x]') ? <Text color="red">{line}</Text> :
-                line.startsWith('[+]') ? <Text color="green">{line}</Text> :
-                  line.startsWith('[>]') ? <Text color="blue">{line}</Text> :
-                    line.startsWith('[-]') ? <Text color="yellow">{line}</Text> :
-                      line.startsWith('[!]') ? <Text color="yellow">{line}</Text> :
-                        line}
-            </Text>
-          ))
+          displayedLines.map((outputLine, i) => {
+            const line = outputLine.text;
+            const prefix = outputLine.isSubagent ? '  → ' : '';
+            const subagentLabel = outputLine.isSubagent && outputLine.subagentType ? `[${outputLine.subagentType}] ` : '';
+
+            return (
+              <Text key={scrollOffset + i} wrap="truncate">
+                {outputLine.isSubagent && <Text dimColor>{prefix}</Text>}
+                {subagentLabel && <Text color="magenta" dimColor>{subagentLabel}</Text>}
+                {line.startsWith('[x]') ? <Text color="red">{line}</Text> :
+                  line.startsWith('[+]') ? <Text color="green">{line}</Text> :
+                    line.startsWith('[>]') ? <Text color="blue">{line}</Text> :
+                      line.startsWith('[-]') ? <Text color="yellow">{line}</Text> :
+                        line.startsWith('[!]') ? <Text color="yellow">{line}</Text> :
+                          line}
+              </Text>
+            );
+          })
         )}
       </Box>
 

@@ -15,12 +15,19 @@ export interface MergeState {
   error?: string;
 }
 
+export interface OutputLine {
+  text: string;
+  isSubagent: boolean;
+  subagentId?: string;
+  subagentType?: string;
+}
+
 export interface Agent {
   id: string;
   title: string;
   status: Status;
   prompt: string;
-  output: string[];
+  output: OutputLine[];
   createdAt: Date;
   updatedAt: Date;
   workDir: string;
@@ -45,7 +52,7 @@ export type Action =
   | { type: 'UPDATE_AGENT'; id: string; updates: Partial<Agent> }
   | { type: 'UPDATE_AGENT_TITLE'; id: string; title: string }
   | { type: 'REMOVE_AGENT'; id: string }
-  | { type: 'APPEND_OUTPUT'; id: string; line: string }
+  | { type: 'APPEND_OUTPUT'; id: string; line: OutputLine }
   | { type: 'SET_PERMISSION'; id: string; permission: PermissionRequest | undefined }
   | { type: 'SET_MERGE_STATE'; id: string; mergeState: MergeState | undefined }
   | { type: 'REMOVE_HISTORY'; index: number }
