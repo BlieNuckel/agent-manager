@@ -254,7 +254,7 @@ export const getDetailViewHelp = (promptNeedsScroll: boolean, canChat: boolean, 
       <Text color="cyan">g/G</Text>{' '}Top/Bottom{'  '}
       {promptNeedsScroll && <><Text color="cyan">p/P</Text>{' '}Prompt{'  '}</>}
       {canChat && <><Text color="cyan">i</Text>{' '}Chat{'  '}</>}
-      <Text color="cyan">q/Esc</Text>{' '}Back
+      <Text color="cyan">q/Esc</Text>{' '}Close
     </>
   );
 };

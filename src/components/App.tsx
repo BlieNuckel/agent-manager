@@ -345,20 +345,35 @@ Please execute these commands and report the results.`;
       const promptLines = detailAgent.prompt.split('\n');
       const promptNeedsScroll = promptLines.length > 10;
 
+      const listContent = (
+        <ListViewPage
+          tab={tab}
+          agents={state.agents}
+          history={state.history}
+          inboxIdx={inboxIdx}
+          histIdx={histIdx}
+        />
+      );
+
+      const detailContent = (
+        <DetailViewPage
+          agent={detailAgent}
+          onPermissionResponse={handlePermissionResponse}
+          onAlwaysAllow={handleAlwaysAllow}
+          onQuestionResponse={handleQuestionResponse}
+          onMergeResponse={handleMergeResponse}
+          onSendMessage={handleSendMessage}
+          onBack={handleBackFromDetail}
+          chatMode={chatMode}
+          onToggleChatMode={handleToggleChatMode}
+        />
+      );
+
       return {
-        content: (
-          <DetailViewPage
-            agent={detailAgent}
-            onPermissionResponse={handlePermissionResponse}
-            onAlwaysAllow={handleAlwaysAllow}
-            onQuestionResponse={handleQuestionResponse}
-            onMergeResponse={handleMergeResponse}
-            onSendMessage={handleSendMessage}
-            onBack={handleBackFromDetail}
-            chatMode={chatMode}
-            onToggleChatMode={handleToggleChatMode}
-          />
-        ),
+        splitPanes: [
+          { content: listContent, widthPercent: 40 },
+          { content: detailContent, widthPercent: 60 }
+        ],
         help: (detailAgent.pendingPermission || detailAgent.pendingQuestion) ? null : getDetailViewHelp(promptNeedsScroll, detailAgent.status === 'working' || detailAgent.status === 'idle', chatMode, detailAgent.pendingMerge),
       };
     }
@@ -390,10 +405,10 @@ Please execute these commands and report the results.`;
     };
   };
 
-  const { content, help } = renderPage();
+  const { content, help, splitPanes } = renderPage();
 
   return (
-    <Layout activeCount={activeCount} waitingCount={waitingCount} helpContent={help}>
+    <Layout activeCount={activeCount} waitingCount={waitingCount} helpContent={help} splitPanes={splitPanes}>
       {content}
     </Layout>
   );

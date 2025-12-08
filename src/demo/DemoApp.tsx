@@ -171,16 +171,31 @@ export const DemoApp = () => {
       const promptLines = detailAgent.prompt.split('\n');
       const promptNeedsScroll = promptLines.length > 10;
 
+      const listContent = (
+        <ListViewPage
+          tab={tab}
+          agents={state.agents}
+          history={state.history}
+          inboxIdx={inboxIdx}
+          histIdx={histIdx}
+        />
+      );
+
+      const detailContent = (
+        <DetailViewPage
+          agent={detailAgent}
+          onPermissionResponse={handlePermissionResponse}
+          onAlwaysAllow={handleAlwaysAllow}
+          onQuestionResponse={() => {}}
+          onBack={() => setMode('normal')}
+        />
+      );
+
       return {
-        content: (
-          <DetailViewPage
-            agent={detailAgent}
-            onPermissionResponse={handlePermissionResponse}
-            onAlwaysAllow={handleAlwaysAllow}
-            onQuestionResponse={() => {}}
-            onBack={() => setMode('normal')}
-          />
-        ),
+        splitPanes: [
+          { content: listContent, widthPercent: 40 },
+          { content: detailContent, widthPercent: 60 }
+        ],
         help: detailAgent.pendingPermission ? null : getDetailViewHelp(promptNeedsScroll, detailAgent.status === 'done', false),
       };
     }
@@ -212,20 +227,15 @@ export const DemoApp = () => {
     };
   };
 
-  const { content, help } = renderPage();
-
-  const demoHelp = `
-  ┌────────────────────────────────────────────────────────────────┐
-  │ 🎭 DEMO MODE - Navigate pages with number keys:               │
-  │  1: List View (Inbox)  2: Detail View  3: History  4: Input   │
-  │  c: Toggle auto-cycling through all pages                      │
-  │  q: Quit                                                       │
-  └────────────────────────────────────────────────────────────────┘
-  ${help || ''}
-  `.trim();
+  const { content, help, splitPanes } = renderPage();
 
   return (
-    <Layout activeCount={activeCount} waitingCount={waitingCount} helpContent={demoMode === 'cycling' ? `🔄 Auto-cycling through pages... (Press 'c' to stop)` : demoHelp}>
+    <Layout
+      activeCount={activeCount}
+      waitingCount={waitingCount}
+      helpContent={demoMode === 'cycling' ? `🔄 Auto-cycling through pages... (Press 'c' to stop)` : help}
+      splitPanes={splitPanes}
+    >
       {content}
     </Layout>
   );
