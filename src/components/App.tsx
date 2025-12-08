@@ -322,7 +322,7 @@ Please execute these commands and report the results.`;
       if (input === 'd') {
         agentManager.kill(state.agents[idx].id);
         dispatch({ type: 'REMOVE_AGENT', id: state.agents[idx].id });
-        setInboxIdx(Math.max(0, inboxIdx - 1));
+        setInboxIdx(Math.min(inboxIdx, state.agents.length - 2));
       }
     }
 
@@ -331,7 +331,7 @@ Please execute these commands and report the results.`;
         dispatch({ type: 'REMOVE_HISTORY', index: idx });
         const newHistory = state.history.filter((_, i) => i !== idx);
         saveHistory(newHistory);
-        setHistIdx(Math.max(0, histIdx - 1));
+        setHistIdx(Math.min(histIdx, state.history.length - 2));
       }
     }
   });
@@ -367,7 +367,7 @@ Please execute these commands and report the results.`;
       return {
         content: (
           <NewAgentPage
-            onSubmit={(t, p, at, wt) => { createAgent(t, p, at, wt); setMode('normal'); setTab('inbox'); }}
+            onSubmit={(t, p, at, wt) => { createAgent(t, p, at, wt); setMode('normal'); setTab('inbox'); setInboxIdx(state.agents.length); }}
             onCancel={() => { setMode('normal'); }}
             onStateChange={setInputState}
           />
