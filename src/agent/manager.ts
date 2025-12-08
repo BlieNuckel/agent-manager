@@ -166,6 +166,34 @@ export class AgentSDKManager extends EventEmitter {
             for (const line of lines) {
               if (line.trim()) {
                 this.emit('output', id, line);
+
+                if (line.includes('[WORKTREE_MERGE_READY]')) {
+                  const branchName = line.split('[WORKTREE_MERGE_READY]')[1]?.trim();
+                  if (branchName) {
+                    debug('Merge ready signal detected:', { id, branchName });
+                    this.emit('mergeReady', id, branchName);
+                  }
+                } else if (line.includes('[WORKTREE_MERGE_CONFLICTS]')) {
+                  const branchName = line.split('[WORKTREE_MERGE_CONFLICTS]')[1]?.trim();
+                  if (branchName) {
+                    debug('Merge conflicts signal detected:', { id, branchName });
+                    this.emit('mergeConflicts', id, branchName);
+                  }
+                } else if (line.includes('[WORKTREE_MERGE_FAILED]')) {
+                  const parts = line.split('[WORKTREE_MERGE_FAILED]')[1]?.trim().split(' ') || [];
+                  const branchName = parts[0];
+                  const error = parts.slice(1).join(' ');
+                  if (branchName) {
+                    debug('Merge failed signal detected:', { id, branchName, error });
+                    this.emit('mergeFailed', id, branchName, error);
+                  }
+                } else if (line.includes('[WORKTREE_MERGED]')) {
+                  const branchName = line.split('[WORKTREE_MERGED]')[1]?.trim();
+                  if (branchName) {
+                    debug('Merge completed signal detected:', { id, branchName });
+                    this.emit('mergeCompleted', id, branchName);
+                  }
+                }
               }
             }
           } else if (content.type === 'tool_use') {

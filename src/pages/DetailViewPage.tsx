@@ -4,11 +4,13 @@ import TextInput from 'ink-text-input';
 import type { Agent } from '../types';
 import { StatusBadge } from '../components/StatusBadge';
 import { PermissionPrompt } from '../components/PermissionPrompt';
+import { MergePrompt } from '../components/MergePrompt';
 
 interface DetailViewPageProps {
   agent: Agent;
   onPermissionResponse: (allowed: boolean) => void;
   onAlwaysAllow: () => void;
+  onMergeResponse?: (approved: boolean) => void;
   onSendMessage?: (message: string) => void;
   onBack: () => void;
   chatMode?: boolean;
@@ -19,6 +21,7 @@ export const DetailViewPage = ({
   agent,
   onPermissionResponse,
   onAlwaysAllow,
+  onMergeResponse,
   onSendMessage,
   onBack,
   chatMode = false,
@@ -36,6 +39,7 @@ export const DetailViewPage = ({
   const availableForPage = termHeight - appHeaderHeight - appHelpBarHeight;
 
   const permissionHeight = agent.pendingPermission ? 10 : 0;
+  const mergePromptHeight = agent.pendingMerge ? 8 : 0;
   const chatInputHeight = chatMode ? 3 : 0;
   const agentTitleHeight = 3;
   const promptHeaderHeight = 1;
@@ -45,7 +49,7 @@ export const DetailViewPage = ({
 
   const promptLines = agent.prompt.split('\n');
 
-  const fixedHeight = agentTitleHeight + promptHeaderHeight + workDirHeight + outputHeaderHeight + outputBorderHeight + permissionHeight + chatInputHeight;
+  const fixedHeight = agentTitleHeight + promptHeaderHeight + workDirHeight + outputHeaderHeight + outputBorderHeight + permissionHeight + mergePromptHeight + chatInputHeight;
   const availableHeight = Math.max(10, availableForPage - fixedHeight);
 
   const maxPromptHeight = Math.min(promptLines.length, Math.floor(availableHeight * 0.3));
@@ -55,6 +59,21 @@ export const DetailViewPage = ({
 
   useInput((input, key) => {
     if (agent.pendingPermission) return;
+
+    if (agent.pendingMerge) {
+      if (agent.pendingMerge.status === 'ready' && onMergeResponse) {
+        if (input === 'y') {
+          onMergeResponse(true);
+        } else if (input === 'n') {
+          onMergeResponse(false);
+        }
+      } else if (agent.pendingMerge.status === 'conflicts' || agent.pendingMerge.status === 'failed') {
+        if (onMergeResponse) {
+          onMergeResponse(false);
+        }
+      }
+      return;
+    }
 
     if (chatMode && key.escape && onToggleChatMode) {
       setChatInput('');
@@ -160,6 +179,14 @@ export const DetailViewPage = ({
         />
       )}
 
+      {agent.pendingMerge && onMergeResponse && (
+        <MergePrompt
+          mergeState={agent.pendingMerge}
+          onApprove={() => onMergeResponse(true)}
+          onDeny={() => onMergeResponse(false)}
+        />
+      )}
+
       {chatMode && (
         <Box flexDirection="column" flexShrink={0} borderStyle="single" borderColor="cyan" paddingX={1}>
           <Text color="cyan" bold>Send message (Esc to cancel):</Text>
@@ -174,12 +201,29 @@ export const DetailViewPage = ({
   );
 };
 
-export const getDetailViewHelp = (promptNeedsScroll: boolean, canChat: boolean, chatMode: boolean) => {
+export const getDetailViewHelp = (promptNeedsScroll: boolean, canChat: boolean, chatMode: boolean, pendingMerge?: any) => {
   if (chatMode) {
     return (
       <>
         <Text color="cyan">Enter</Text>{' '}Send{'  '}
         <Text color="cyan">Esc</Text>{' '}Cancel
+      </>
+    );
+  }
+
+  if (pendingMerge?.status === 'ready') {
+    return (
+      <>
+        <Text color="green">y</Text>{' '}Approve{'  '}
+        <Text color="red">n</Text>{' '}Deny
+      </>
+    );
+  }
+
+  if (pendingMerge?.status === 'conflicts' || pendingMerge?.status === 'failed') {
+    return (
+      <>
+        <Text dimColor>Press any key to continue...</Text>
       </>
     );
   }

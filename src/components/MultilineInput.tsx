@@ -123,13 +123,15 @@ export const MultilineInput = ({
 
   const displayValue = value || (placeholder ? placeholder : '');
   const lines = displayValue.split('\n');
+  const showCursor = value.length === 0 || cursor === value.length;
 
   return (
     <Box flexDirection="column">
       {lines.map((line, i) => (
         <Text key={i} dimColor={!value && !!placeholder}>
+          {i === 0 && value.length === 0 && showCursor && <Text color="cyan">█</Text>}
           {line || ' '}
-          {i === lines.length - 1 && cursor === value.length && <Text color="cyan">█</Text>}
+          {i === lines.length - 1 && value.length > 0 && cursor === value.length && <Text color="cyan">█</Text>}
         </Text>
       ))}
     </Box>

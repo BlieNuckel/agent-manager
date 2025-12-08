@@ -56,6 +56,43 @@ export const App = () => {
       const newHistory = state.history.map(h => h.id === id ? { ...h, title } : h);
       saveHistory(newHistory);
     };
+    const onMergeReady = (id: string, branchName: string) => {
+      debug('Merge ready received in UI:', { id, branchName });
+      dispatch({
+        type: 'SET_MERGE_STATE',
+        id,
+        mergeState: { branchName, status: 'ready' }
+      });
+      if (mode !== 'detail' || detailAgentId !== id) {
+        process.stdout.write('\u0007');
+      }
+    };
+    const onMergeConflicts = (id: string, branchName: string) => {
+      debug('Merge conflicts received in UI:', { id, branchName });
+      dispatch({
+        type: 'SET_MERGE_STATE',
+        id,
+        mergeState: { branchName, status: 'conflicts' }
+      });
+      if (mode !== 'detail' || detailAgentId !== id) {
+        process.stdout.write('\u0007');
+      }
+    };
+    const onMergeFailed = (id: string, branchName: string, error: string) => {
+      debug('Merge failed received in UI:', { id, branchName, error });
+      dispatch({
+        type: 'SET_MERGE_STATE',
+        id,
+        mergeState: { branchName, status: 'failed', error }
+      });
+      if (mode !== 'detail' || detailAgentId !== id) {
+        process.stdout.write('\u0007');
+      }
+    };
+    const onMergeCompleted = (id: string, branchName: string) => {
+      debug('Merge completed received in UI:', { id, branchName });
+      dispatch({ type: 'SET_MERGE_STATE', id, mergeState: undefined });
+    };
 
     agentManager.on('output', onOutput);
     agentManager.on('idle', onIdle);
@@ -64,6 +101,10 @@ export const App = () => {
     agentManager.on('sessionId', onSessionId);
     agentManager.on('permissionRequest', onPermissionRequest);
     agentManager.on('titleUpdate', onTitleUpdate);
+    agentManager.on('mergeReady', onMergeReady);
+    agentManager.on('mergeConflicts', onMergeConflicts);
+    agentManager.on('mergeFailed', onMergeFailed);
+    agentManager.on('mergeCompleted', onMergeCompleted);
 
     return () => {
       agentManager.off('output', onOutput);
@@ -73,8 +114,12 @@ export const App = () => {
       agentManager.off('sessionId', onSessionId);
       agentManager.off('permissionRequest', onPermissionRequest);
       agentManager.off('titleUpdate', onTitleUpdate);
+      agentManager.off('mergeReady', onMergeReady);
+      agentManager.off('mergeConflicts', onMergeConflicts);
+      agentManager.off('mergeFailed', onMergeFailed);
+      agentManager.off('mergeCompleted', onMergeCompleted);
     };
-  }, [state.history]);
+  }, [state.history, mode, detailAgentId]);
 
   const createAgent = async (title: string, prompt: string, agentType: AgentType, worktree: { enabled: boolean; name: string }) => {
     const id = genId();
@@ -170,6 +215,50 @@ export const App = () => {
     setChatMode(prev => !prev);
   };
 
+  const handleMergeResponse = async (approved: boolean) => {
+    if (!detailAgentId) return;
+
+    const agent = state.agents.find(a => a.id === detailAgentId);
+    if (!agent?.pendingMerge) return;
+
+    if (approved && agent.pendingMerge.status === 'ready') {
+      const gitRoot = getGitRoot();
+      if (!gitRoot) {
+        debug('Cannot merge: not in a git repository');
+        dispatch({ type: 'SET_MERGE_STATE', id: detailAgentId, mergeState: undefined });
+        return;
+      }
+
+      const message = `The merge has been approved. Please proceed with merging the branch "${agent.pendingMerge.branchName}" and cleaning up the worktree. Use these commands:
+
+1. First, return to the git root directory:
+   cd ${gitRoot}
+
+2. Merge the branch (no fast-forward to preserve history):
+   git merge --no-ff "${agent.pendingMerge.branchName}" -m "Merge worktree: ${agent.pendingMerge.branchName}"
+
+3. Remove the worktree directory:
+   git worktree remove ${getRepoName(gitRoot)}-${agent.pendingMerge.branchName}
+
+4. Delete the feature branch:
+   git branch -d "${agent.pendingMerge.branchName}"
+
+5. After successful completion, signal with:
+   [WORKTREE_MERGED] ${agent.pendingMerge.branchName}
+
+Please execute these commands and report the results.`;
+
+      try {
+        await agentManager.sendFollowUpMessage(detailAgentId, message);
+        dispatch({ type: 'UPDATE_AGENT', id: detailAgentId, updates: { status: 'working' } });
+      } catch (error: any) {
+        debug('Error sending merge approval:', error);
+      }
+    }
+
+    dispatch({ type: 'SET_MERGE_STATE', id: detailAgentId, mergeState: undefined });
+  };
+
   useInput((input, key) => {
     if (mode === 'detail' || mode === 'input') return;
 
@@ -232,13 +321,14 @@ export const App = () => {
             agent={detailAgent}
             onPermissionResponse={handlePermissionResponse}
             onAlwaysAllow={handleAlwaysAllow}
+            onMergeResponse={handleMergeResponse}
             onSendMessage={handleSendMessage}
             onBack={handleBackFromDetail}
             chatMode={chatMode}
             onToggleChatMode={handleToggleChatMode}
           />
         ),
-        help: detailAgent.pendingPermission ? null : getDetailViewHelp(promptNeedsScroll, detailAgent.status === 'working' || detailAgent.status === 'idle', chatMode),
+        help: detailAgent.pendingPermission ? null : getDetailViewHelp(promptNeedsScroll, detailAgent.status === 'working' || detailAgent.status === 'idle', chatMode, detailAgent.pendingMerge),
       };
     }
 

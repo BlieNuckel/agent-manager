@@ -9,6 +9,12 @@ export interface PermissionRequest {
   resolve: (allowed: boolean) => void;
 }
 
+export interface MergeState {
+  branchName: string;
+  status: 'ready' | 'conflicts' | 'failed';
+  error?: string;
+}
+
 export interface Agent {
   id: string;
   title: string;
@@ -21,6 +27,7 @@ export interface Agent {
   worktreeName?: string;
   sessionId?: string;
   pendingPermission?: PermissionRequest;
+  pendingMerge?: MergeState;
   agentType: AgentType;
   autoAcceptPermissions: boolean;
 }
@@ -40,6 +47,7 @@ export type Action =
   | { type: 'REMOVE_AGENT'; id: string }
   | { type: 'APPEND_OUTPUT'; id: string; line: string }
   | { type: 'SET_PERMISSION'; id: string; permission: PermissionRequest | undefined }
+  | { type: 'SET_MERGE_STATE'; id: string; mergeState: MergeState | undefined }
   | { type: 'REMOVE_HISTORY'; index: number }
   | { type: 'UPDATE_HISTORY_TITLE'; id: string; title: string };
 

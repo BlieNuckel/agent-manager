@@ -28,7 +28,7 @@ export function generateWorktreeName(taskDescription: string): string {
     .replace(/[^a-z0-9\s-]/g, '')
     .split(/\s+/)
     .filter(word => word.length > 2)
-    .slice(0, 4);
+    .slice(0, 6);
 
   return words.join('-') || 'new-worktree';
 }
