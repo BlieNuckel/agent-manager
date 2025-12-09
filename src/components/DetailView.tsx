@@ -18,7 +18,7 @@ export const DetailView = ({ agent, onBack, onPermissionResponse, onAlwaysAllow 
   const termHeight = (app as any).stdout?.rows || 24;
   const permissionHeight = agent.pendingPermission ? 10 : 0;
   const headerHeight = 4;
-  const helpBarHeight = agent.pendingPermission ? 0 : 3;
+  const helpBarHeight = 3;
   const promptHeaderHeight = 1;
   const workDirHeight = 1;
   const outputHeaderHeight = 1;
@@ -33,9 +33,10 @@ export const DetailView = ({ agent, onBack, onPermissionResponse, onAlwaysAllow 
   const visibleLines = availableHeight - actualPromptHeight;
 
   useInput((input, key) => {
+    if (key.escape || input === 'q' || input === 'h') { onBack(); return; }
+
     if (agent.pendingPermission) return;
 
-    if (key.escape || input === 'q' || input === 'h') { onBack(); return; }
     if (key.upArrow || input === 'k') setScrollOffset(o => Math.max(0, o - 1));
     if (key.downArrow || input === 'j') setScrollOffset(o => Math.min(Math.max(0, agent.output.length - visibleLines), o + 1));
     if (input === 'g') setScrollOffset(0);
@@ -150,16 +151,14 @@ export const DetailView = ({ agent, onBack, onPermissionResponse, onAlwaysAllow 
         />
       )}
 
-      {!agent.pendingPermission && (
-        <Box flexShrink={0} borderStyle="single" borderColor="gray" paddingX={1}>
-          <Text dimColor>
-            <Text color="cyan">↑↓/jk</Text>{' '}Scroll{'  '}
-            <Text color="cyan">g/G</Text>{' '}Top/Bottom{'  '}
-            {promptNeedsScroll && <><Text color="cyan">p/P</Text>{' '}Prompt{'  '}</>}
-            <Text color="cyan">q/h/Esc</Text>{' '}Back
-          </Text>
-        </Box>
-      )}
+      <Box flexShrink={0} borderStyle="single" borderColor="gray" paddingX={1}>
+        <Text dimColor>
+          <Text color="cyan">↑↓/jk</Text>{' '}Scroll{'  '}
+          <Text color="cyan">g/G</Text>{' '}Top/Bottom{'  '}
+          {promptNeedsScroll && <><Text color="cyan">p/P</Text>{' '}Prompt{'  '}</>}
+          <Text color="cyan">q/h/Esc</Text>{' '}Back
+        </Text>
+      </Box>
     </Box>
   );
 };
