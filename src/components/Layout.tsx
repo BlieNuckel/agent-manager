@@ -17,9 +17,10 @@ interface LayoutProps {
   splitPanes?: PaneConfig[];
   quitPrompt?: ReactNode;
   deletePrompt?: ReactNode;
+  hoverWindows?: ReactNode;
 }
 
-export const Layout = ({ activeCount, waitingCount, helpContent, children, splitPanes, quitPrompt, deletePrompt }: LayoutProps) => {
+export const Layout = ({ activeCount, waitingCount, helpContent, children, splitPanes, quitPrompt, deletePrompt, hoverWindows }: LayoutProps) => {
   const { stdout } = useStdout();
   const height = stdout?.rows ?? 24;
 
@@ -52,6 +53,8 @@ export const Layout = ({ activeCount, waitingCount, helpContent, children, split
       <Box flexShrink={0}>
         <HelpBar>{helpContent}</HelpBar>
       </Box>
+
+      {hoverWindows}
     </Box>
   );
 };
