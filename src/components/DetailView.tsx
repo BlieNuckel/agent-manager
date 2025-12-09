@@ -100,9 +100,7 @@ export const DetailView = ({ agent, onBack, onPermissionResponse, onAlwaysAllow 
         {outputLine.isSubagent && <Text dimColor>{prefix}</Text>}
         {subagentLabel && <Text color="magenta" dimColor>{subagentLabel}</Text>}
         {statusPrefix && <Text color={statusColor}>{statusPrefix}</Text>}
-        <Box flexDirection="column" flexGrow={1}>
-          <Markdown>{content}</Markdown>
-        </Box>
+        <Markdown>{content}</Markdown>
       </Box>
     );
   };
