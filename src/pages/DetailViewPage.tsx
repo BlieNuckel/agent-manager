@@ -192,6 +192,7 @@ export const DetailViewPage = ({
           onResponse={onPermissionResponse}
           onAlwaysAllow={onAlwaysAllow}
           onAlwaysAllowInRepo={onAlwaysAllowInRepo}
+          queueCount={agent.permissionQueue.length}
         />
       )}
 

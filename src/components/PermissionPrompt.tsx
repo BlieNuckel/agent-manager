@@ -4,11 +4,12 @@ import type { PermissionRequest } from '../types';
 import { formatToolInput } from '../utils/helpers';
 import { AUTO_ACCEPT_EDIT_TOOLS } from '../agent/manager';
 
-export const PermissionPrompt = ({ permission, onResponse, onAlwaysAllow, onAlwaysAllowInRepo }: {
+export const PermissionPrompt = ({ permission, onResponse, onAlwaysAllow, onAlwaysAllowInRepo, queueCount = 0 }: {
   permission: PermissionRequest;
   onResponse: (allowed: boolean) => void;
   onAlwaysAllow: () => void;
   onAlwaysAllowInRepo?: () => void;
+  queueCount?: number;
 }) => {
   const isEditTool = AUTO_ACCEPT_EDIT_TOOLS.includes(permission.toolName);
   const hasSuggestions = permission.suggestions && permission.suggestions.length > 0;
@@ -63,7 +64,10 @@ export const PermissionPrompt = ({ permission, onResponse, onAlwaysAllow, onAlwa
 
   return (
     <Box flexDirection="column" flexShrink={0} borderStyle="round" borderColor="yellow" padding={1}>
-      <Text color="yellow" bold>[!] Permission Request</Text>
+      <Box>
+        <Text color="yellow" bold>[!] Permission Request</Text>
+        {queueCount > 0 && <Text dimColor> (+{queueCount} more pending)</Text>}
+      </Box>
       <Box marginTop={1}>
         <Text>Tool: </Text>
         <Text color="cyan" bold>{permission.toolName}</Text>

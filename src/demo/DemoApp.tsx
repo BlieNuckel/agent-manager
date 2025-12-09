@@ -78,7 +78,7 @@ export const DemoApp = () => {
       const agent = state.agents.find(a => a.id === detailAgentId);
       if (agent?.pendingPermission) {
         agent.pendingPermission.resolve({ allowed });
-        dispatch({ type: 'SET_PERMISSION', id: detailAgentId, permission: undefined });
+        dispatch({ type: 'DEQUEUE_PERMISSION', id: detailAgentId });
       }
     }
   };
@@ -89,7 +89,7 @@ export const DemoApp = () => {
       if (agent?.pendingPermission) {
         agent.pendingPermission.resolve({ allowed: true });
         dispatch({ type: 'UPDATE_AGENT', id: detailAgentId, updates: { permissionMode: 'acceptEdits' } });
-        dispatch({ type: 'SET_PERMISSION', id: detailAgentId, permission: undefined });
+        dispatch({ type: 'DEQUEUE_PERMISSION', id: detailAgentId });
       }
     }
   };
@@ -99,7 +99,7 @@ export const DemoApp = () => {
       const agent = state.agents.find(a => a.id === detailAgentId);
       if (agent?.pendingPermission) {
         agent.pendingPermission.resolve({ allowed: true, alwaysAllowInRepo: true });
-        dispatch({ type: 'SET_PERMISSION', id: detailAgentId, permission: undefined });
+        dispatch({ type: 'DEQUEUE_PERMISSION', id: detailAgentId });
       }
     }
   };

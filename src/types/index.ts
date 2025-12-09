@@ -54,6 +54,7 @@ export interface Agent {
   worktreeName?: string;
   sessionId?: string;
   pendingPermission?: PermissionRequest;
+  permissionQueue: PermissionRequest[];
   pendingQuestion?: QuestionRequest;
   pendingMerge?: MergeState;
   agentType: AgentType;
@@ -75,6 +76,8 @@ export type Action =
   | { type: 'REMOVE_AGENT'; id: string }
   | { type: 'APPEND_OUTPUT'; id: string; line: OutputLine }
   | { type: 'SET_PERMISSION'; id: string; permission: PermissionRequest | undefined }
+  | { type: 'QUEUE_PERMISSION'; id: string; permission: PermissionRequest }
+  | { type: 'DEQUEUE_PERMISSION'; id: string }
   | { type: 'SET_QUESTION'; id: string; question: QuestionRequest | undefined }
   | { type: 'SET_MERGE_STATE'; id: string; mergeState: MergeState | undefined }
   | { type: 'REMOVE_HISTORY'; index: number }

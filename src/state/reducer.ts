@@ -34,9 +34,34 @@ export function reducer(state: State, action: Action): State {
         ...state,
         agents: state.agents.map(a =>
           a.id === action.id
-            ? { ...a, pendingPermission: action.permission, status: action.permission ? 'waiting' : 'working' }
+            ? { ...a, pendingPermission: action.permission, status: action.permission ? 'waiting' : (a.permissionQueue.length > 0 ? 'waiting' : 'working') }
             : a
         ),
+      };
+    case 'QUEUE_PERMISSION':
+      return {
+        ...state,
+        agents: state.agents.map(a => {
+          if (a.id !== action.id) return a;
+          if (!a.pendingPermission) {
+            return { ...a, pendingPermission: action.permission, status: 'waiting' as const };
+          }
+          return { ...a, permissionQueue: [...a.permissionQueue, action.permission], status: 'waiting' as const };
+        }),
+      };
+    case 'DEQUEUE_PERMISSION':
+      return {
+        ...state,
+        agents: state.agents.map(a => {
+          if (a.id !== action.id) return a;
+          const [nextPermission, ...remainingQueue] = a.permissionQueue;
+          return {
+            ...a,
+            pendingPermission: nextPermission,
+            permissionQueue: remainingQueue,
+            status: nextPermission ? 'waiting' as const : 'working' as const
+          };
+        }),
       };
     case 'SET_QUESTION':
       return {

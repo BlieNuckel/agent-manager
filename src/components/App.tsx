@@ -76,7 +76,7 @@ export const App = () => {
     };
     const onPermissionRequest = (id: string, permission: PermissionRequest) => {
       debug('Permission request received in UI:', { id, toolName: permission.toolName });
-      dispatch({ type: 'SET_PERMISSION', id, permission });
+      dispatch({ type: 'QUEUE_PERMISSION', id, permission });
 
       if (mode !== 'detail' || detailAgentId !== id) {
         process.stdout.write('\u0007');
@@ -208,6 +208,7 @@ export const App = () => {
       updatedAt: new Date(),
       agentType,
       permissionMode,
+      permissionQueue: [],
     };
     dispatch({ type: 'ADD_AGENT', agent: placeholderAgent });
 
@@ -223,11 +224,11 @@ export const App = () => {
     debug('handlePermissionResponse called:', { detailAgentId, allowed });
     if (detailAgentId) {
       const agent = state.agents.find(a => a.id === detailAgentId);
-      debug('Found agent:', { id: agent?.id, hasPendingPermission: !!agent?.pendingPermission });
+      debug('Found agent:', { id: agent?.id, hasPendingPermission: !!agent?.pendingPermission, queueLength: agent?.permissionQueue?.length });
       if (agent?.pendingPermission) {
         debug('Resolving permission with:', { allowed });
         agent.pendingPermission.resolve({ allowed });
-        dispatch({ type: 'SET_PERMISSION', id: detailAgentId, permission: undefined });
+        dispatch({ type: 'DEQUEUE_PERMISSION', id: detailAgentId });
       }
     }
   };
@@ -241,7 +242,7 @@ export const App = () => {
         agent.pendingPermission.resolve({ allowed: true });
         agentManager.setPermissionMode(detailAgentId, 'acceptEdits');
         dispatch({ type: 'UPDATE_AGENT', id: detailAgentId, updates: { permissionMode: 'acceptEdits' } });
-        dispatch({ type: 'SET_PERMISSION', id: detailAgentId, permission: undefined });
+        dispatch({ type: 'DEQUEUE_PERMISSION', id: detailAgentId });
       }
     }
   };
@@ -253,7 +254,7 @@ export const App = () => {
       if (agent?.pendingPermission) {
         debug('Always allowing in repo for agent:', detailAgentId);
         agent.pendingPermission.resolve({ allowed: true, alwaysAllowInRepo: true });
-        dispatch({ type: 'SET_PERMISSION', id: detailAgentId, permission: undefined });
+        dispatch({ type: 'DEQUEUE_PERMISSION', id: detailAgentId });
       }
     }
   };

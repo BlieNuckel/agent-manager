@@ -152,6 +152,7 @@ export const DetailView = ({ agent, onBack, onPermissionResponse, onAlwaysAllow 
           permission={agent.pendingPermission}
           onResponse={onPermissionResponse}
           onAlwaysAllow={onAlwaysAllow}
+          queueCount={agent.permissionQueue.length}
         />
       )}
 
