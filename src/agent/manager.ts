@@ -2,6 +2,8 @@ import { EventEmitter } from 'events';
 import path from 'path';
 import { query, type Query, type SDKMessage, type SlashCommand, createSdkMcpServer, tool } from '@anthropic-ai/claude-agent-sdk';
 import { z } from 'zod';
+import { homedir } from 'os';
+import { resolve, normalize } from 'path';
 import type { AgentType, Question, PermissionMode } from '../types';
 import { debug } from '../utils/logger';
 import { generateTitle } from '../utils/titleGenerator';
@@ -10,6 +12,40 @@ import { buildSystemPrompt, buildWorktreePromptPrefix } from './systemPromptTemp
 
 const PERMISSION_REQUIRED_TOOLS = ['Write', 'Edit', 'MultiEdit', 'Bash', 'NotebookEdit', 'KillBash'];
 export const AUTO_ACCEPT_EDIT_TOOLS = ['Write', 'Edit', 'MultiEdit', 'NotebookEdit'];
+
+const ARTIFACTS_DIR = resolve(homedir(), '.agent-manager', 'artifacts');
+
+function isArtifactPath(filePath: string): boolean {
+  if (!filePath) return false;
+
+  let normalizedPath = filePath;
+  if (filePath.startsWith('~')) {
+    normalizedPath = filePath.replace('~', homedir());
+  }
+
+  const absolutePath = resolve(normalize(normalizedPath));
+  return absolutePath.startsWith(ARTIFACTS_DIR);
+}
+
+function isToolOperatingOnArtifacts(toolName: string, toolInput: Record<string, unknown>): boolean {
+  const filePathKeys = ['file_path', 'notebook_path', 'path'];
+
+  for (const key of filePathKeys) {
+    const value = toolInput[key];
+    if (typeof value === 'string' && isArtifactPath(value)) {
+      return true;
+    }
+  }
+
+  if (toolName === 'Bash') {
+    const command = toolInput.command;
+    if (typeof command === 'string' && command.includes('.agent-manager/artifacts')) {
+      return true;
+    }
+  }
+
+  return false;
+}
 
 interface QueryEntry {
   query: Query;
@@ -59,6 +95,12 @@ export class AgentSDKManager extends EventEmitter {
           this.emit('output', id, `[→] Starting subagent: ${detectedSubagentType}`, false);
           debug('Subagent started:', { agentID: options.agentID, subagentType: detectedSubagentType, toolUseID: options.toolUseID });
         }
+      }
+
+      if (isToolOperatingOnArtifacts(toolName, toolInput)) {
+        debug('Auto-allowing artifact directory operation:', { toolName, toolInput });
+        this.emit('output', id, `[+] Auto-allowed artifact access: ${toolName}`, isSubagentTool, options.agentID, subagentType);
+        return { behavior: 'allow' as const, updatedInput: toolInput };
       }
 
       if (agentState?.permissionMode === 'acceptEdits' && AUTO_ACCEPT_EDIT_TOOLS.includes(toolName)) {
