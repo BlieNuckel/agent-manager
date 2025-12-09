@@ -58,6 +58,10 @@ export const DetailView = ({ agent, onBack, onPermissionResponse, onAlwaysAllow 
     }
   }, [agent.pendingPermission]);
 
+  useEffect(() => {
+    setScrollOffset(prev => Math.min(prev, Math.max(0, agent.output.length - visibleLines)));
+  }, [visibleLines, agent.output.length]);
+
   const displayedLines = agent.output.slice(scrollOffset, scrollOffset + visibleLines);
   const displayedPromptLines = promptLines.slice(promptScrollOffset, promptScrollOffset + maxPromptHeight);
   const isPending = agent.title === 'Pending...';
@@ -130,15 +134,17 @@ export const DetailView = ({ agent, onBack, onPermissionResponse, onAlwaysAllow 
         </Box>
       </Box>
 
-      <Box flexDirection="column" height={visibleLines + 2} flexShrink={0} borderStyle="round" borderColor="gray" padding={1}>
+      <Box flexDirection="column" height={visibleLines + 2} flexShrink={0} borderStyle="round" borderColor="gray" padding={1} overflow="hidden">
         <Box flexShrink={0}>
           <Text dimColor>Output ({agent.output.length} lines, scroll: {scrollOffset + 1}-{Math.min(scrollOffset + visibleLines, agent.output.length)} of {agent.output.length})</Text>
         </Box>
-        {displayedLines.length === 0 ? (
-          <Text dimColor>Waiting for output...</Text>
-        ) : (
-          displayedLines.map((line, i) => renderLine(line, i))
-        )}
+        <Box flexDirection="column" overflow="hidden">
+          {displayedLines.length === 0 ? (
+            <Text dimColor>Waiting for output...</Text>
+          ) : (
+            displayedLines.map((line, i) => renderLine(line, i))
+          )}
+        </Box>
       </Box>
 
       {agent.pendingPermission && (
