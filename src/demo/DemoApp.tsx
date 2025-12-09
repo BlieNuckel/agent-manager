@@ -8,10 +8,11 @@ import { ListViewPage, getListViewHelp, NewAgentPage, getNewAgentHelp, DetailVie
 
 export const DemoApp = () => {
   const { exit } = useApp();
-  const [state, dispatch] = useReducer(reducer, { agents: mockAgents, history: mockHistory });
-  const [tab, setTab] = useState<'inbox' | 'history'>('inbox');
+  const [state, dispatch] = useReducer(reducer, { agents: mockAgents, history: mockHistory, artifacts: [] });
+  const [tab, setTab] = useState<'inbox' | 'history' | 'artifacts'>('inbox');
   const [inboxIdx, setInboxIdx] = useState(0);
   const [histIdx, setHistIdx] = useState(0);
+  const [artifactsIdx, setArtifactsIdx] = useState(0);
   const [mode, setMode] = useState<Mode>('normal');
   const [detailAgentId, setDetailAgentId] = useState<string | null>(null);
   const [inputState, setInputState] = useState<{ step: InputStep; showSlashMenu: boolean }>({ step: 'title', showSlashMenu: false });
@@ -176,8 +177,10 @@ export const DemoApp = () => {
           tab={tab}
           agents={state.agents}
           history={state.history}
+          artifacts={state.artifacts}
           inboxIdx={inboxIdx}
           histIdx={histIdx}
+          artifactsIdx={artifactsIdx}
         />
       );
 
@@ -219,8 +222,10 @@ export const DemoApp = () => {
           tab={tab}
           agents={state.agents}
           history={state.history}
+          artifacts={state.artifacts}
           inboxIdx={inboxIdx}
           histIdx={histIdx}
+          artifactsIdx={artifactsIdx}
         />
       ),
       help: getListViewHelp(tab),

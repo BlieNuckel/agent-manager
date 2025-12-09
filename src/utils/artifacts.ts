@@ -43,3 +43,11 @@ export async function listArtifacts(): Promise<ArtifactInfo[]> {
 export function formatArtifactReference(artifactName: string): string {
   return `<artifact:${artifactName}>`;
 }
+
+export async function deleteArtifact(artifactPath: string): Promise<void> {
+  try {
+    await fs.promises.unlink(artifactPath);
+  } catch (err) {
+    throw new Error(`Failed to delete artifact: ${err}`);
+  }
+}

@@ -8,7 +8,7 @@ import { getGitRoot, getCurrentBranch, getRepoName } from '../git/worktree';
 import type { WorktreeContext } from '../agent/systemPromptTemplates';
 import { genId } from '../utils/helpers';
 import { debug } from '../utils/logger';
-import { listArtifacts } from '../utils/artifacts';
+import { listArtifacts, deleteArtifact } from '../utils/artifacts';
 import { Layout } from './Layout';
 import { ListViewPage, getListViewHelp, NewAgentPage, getNewAgentHelp, DetailViewPage, getDetailViewHelp, ArtifactDetailPage, getArtifactDetailHelp } from '../pages';
 import { QuitConfirmationPrompt } from './QuitConfirmationPrompt';
@@ -482,6 +482,20 @@ Please execute these commands and report the results.`;
         const entry = state.history[idx] as HistoryEntry;
         setEditingHistoryEntry(entry);
         setMode('input');
+      }
+    }
+
+    if (tab === 'artifacts' && state.artifacts[idx]) {
+      if (input === 'd') {
+        const artifactToDelete = state.artifacts[idx];
+        deleteArtifact(artifactToDelete.path).then(() => {
+          listArtifacts().then(artifacts => {
+            dispatch({ type: 'SET_ARTIFACTS', artifacts });
+            setArtifactsIdx(Math.min(artifactsIdx, artifacts.length - 1));
+          });
+        }).catch(err => {
+          debug('Failed to delete artifact:', err);
+        });
       }
     }
   });
