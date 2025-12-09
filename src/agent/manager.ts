@@ -1,7 +1,7 @@
 import { EventEmitter } from 'events';
 import { query, type Query, type SDKMessage, type SlashCommand, createSdkMcpServer, tool } from '@anthropic-ai/claude-agent-sdk';
 import { z } from 'zod';
-import type { AgentType, Question } from '../types';
+import type { AgentType, Question, PermissionMode } from '../types';
 import { debug } from '../utils/logger';
 import { generateTitle } from '../utils/titleGenerator';
 import type { WorktreeContext } from './systemPromptTemplates';
@@ -18,20 +18,27 @@ interface QueryEntry {
   activeSubagents: Map<string, { agentID: string; subagentType: string }>;
 }
 
-const AUTO_ALLOW_TOOLS = ['Read', 'Glob', 'Grep', 'WebSearch', 'WebFetch', 'Task', 'TodoRead', 'TodoWrite'];
-const PERMISSION_REQUIRED_TOOLS = ['Write', 'Edit', 'MultiEdit', 'Bash', 'NotebookEdit', 'KillBash'];
-
 export class AgentSDKManager extends EventEmitter {
   private queries: Map<string, QueryEntry> = new Map();
-  private agentStates: Map<string, { agentType: AgentType; autoAcceptPermissions: boolean; hasTitle: boolean }> = new Map();
+  private agentStates: Map<string, { agentType: AgentType; autoAcceptPermissions: boolean; hasTitle: boolean; permissionMode: PermissionMode }> = new Map();
   private thinkingStates: Map<string, boolean> = new Map();
   private static commandsCache: SlashCommand[] | null = null;
 
+  private getPermissionModeForAgentType(agentType: AgentType): PermissionMode {
+    switch (agentType) {
+      case 'auto-accept':
+        return 'acceptEdits';
+      case 'normal':
+      case 'planning':
+      default:
+        return 'default';
+    }
+  }
+
   private createCanUseTool(id: string) {
     return async (toolName: string, toolInput: Record<string, unknown>, options: { signal: AbortSignal; agentID?: string; toolUseID: string }) => {
-      const currentState = this.agentStates.get(id);
       const entry = this.queries.get(id);
-      debug('canUseTool called:', { toolName, toolInput, currentState, agentID: options.agentID, toolUseID: options.toolUseID });
+      debug('canUseTool called:', { toolName, toolInput, agentID: options.agentID, toolUseID: options.toolUseID });
 
       const isSubagentTool = options.agentID !== undefined;
       let subagentType: string | undefined;
@@ -49,41 +56,25 @@ export class AgentSDKManager extends EventEmitter {
         }
       }
 
-      if (AUTO_ALLOW_TOOLS.includes(toolName)) {
-        debug('Auto-allowing tool:', toolName);
-        return { behavior: 'allow' as const, updatedInput: toolInput as Record<string, unknown> };
-      }
+      debug('Requesting permission for tool:', toolName);
+      this.emit('output', id, `[!] Permission required for: ${toolName}`, isSubagentTool, options.agentID, subagentType);
 
-      if (PERMISSION_REQUIRED_TOOLS.includes(toolName)) {
-        if (currentState?.agentType === 'auto-accept' || currentState?.autoAcceptPermissions) {
-          debug('Auto-accepting permission for tool:', toolName);
-          this.emit('output', id, `✅ Auto-allowed: ${toolName}`, isSubagentTool, options.agentID, subagentType);
-          return { behavior: 'allow' as const, updatedInput: toolInput as Record<string, unknown> };
-        }
-
-        debug('Requesting permission for tool:', toolName);
-        this.emit('output', id, `[!] Permission required for: ${toolName}`, isSubagentTool, options.agentID, subagentType);
-
-        const result = await new Promise<boolean>((resolvePermission) => {
-          this.emit('permissionRequest', id, {
-            toolName,
-            toolInput,
-            resolve: resolvePermission
-          });
+      const result = await new Promise<boolean>((resolvePermission) => {
+        this.emit('permissionRequest', id, {
+          toolName,
+          toolInput,
+          resolve: resolvePermission
         });
+      });
 
-        debug('Permission result:', { toolName, allowed: result });
-        this.emit('output', id, result ? `[+] Allowed: ${toolName}` : `[-] Denied: ${toolName}`, isSubagentTool, options.agentID, subagentType);
+      debug('Permission result:', { toolName, allowed: result });
+      this.emit('output', id, result ? `[+] Allowed: ${toolName}` : `[-] Denied: ${toolName}`, isSubagentTool, options.agentID, subagentType);
 
-        if (result) {
-          return { behavior: 'allow' as const, updatedInput: toolInput as Record<string, unknown> };
-        } else {
-          return { behavior: 'deny' as const, message: 'User denied permission' };
-        }
+      if (result) {
+        return { behavior: 'allow' as const, updatedInput: toolInput as Record<string, unknown> };
+      } else {
+        return { behavior: 'deny' as const, message: 'User denied permission' };
       }
-
-      debug('Allowing other tool by default:', toolName);
-      return { behavior: 'allow' as const, updatedInput: toolInput };
     };
   }
 
@@ -141,7 +132,8 @@ export class AgentSDKManager extends EventEmitter {
 
   async spawn(id: string, prompt: string, workDir: string, agentType: AgentType, autoAcceptPermissions: boolean, worktreeContext?: WorktreeContext, title?: string): Promise<void> {
     const abortController = new AbortController();
-    this.agentStates.set(id, { agentType, autoAcceptPermissions, hasTitle: true });
+    const permissionMode = this.getPermissionModeForAgentType(agentType);
+    this.agentStates.set(id, { agentType, autoAcceptPermissions, hasTitle: true, permissionMode });
 
     const systemPromptAppend = buildSystemPrompt(worktreeContext);
 
@@ -155,7 +147,7 @@ export class AgentSDKManager extends EventEmitter {
     const queryOptions: any = {
       cwd: workDir,
       abortController,
-      permissionMode: 'default',
+      permissionMode,
       canUseTool: this.createCanUseTool(id),
       settingSources: ['project'],
       maxThinkingTokens: 16384,
@@ -481,7 +473,7 @@ export class AgentSDKManager extends EventEmitter {
     const queryOptions: any = {
       cwd: entry.workDir,
       abortController: newAbortController,
-      permissionMode: 'default',
+      permissionMode: state.permissionMode,
       resume: entry.sessionId,
       canUseTool: this.createCanUseTool(id),
       settingSources: ['project'],

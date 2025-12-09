@@ -42,6 +42,7 @@ export const mockAgents: Agent[] = [
     pendingPermission: createMockPermissionRequest(),
     agentType: 'normal',
     autoAcceptPermissions: false,
+    permissionMode: 'default',
   },
   {
     id: 'agent-2',
@@ -63,6 +64,7 @@ export const mockAgents: Agent[] = [
     sessionId: 'session-456',
     agentType: 'auto-accept',
     autoAcceptPermissions: true,
+    permissionMode: 'acceptEdits',
   },
   {
     id: 'agent-3',
@@ -90,6 +92,7 @@ export const mockAgents: Agent[] = [
     sessionId: 'session-789',
     agentType: 'normal',
     autoAcceptPermissions: false,
+    permissionMode: 'default',
   },
   {
     id: 'agent-4',
@@ -111,6 +114,7 @@ export const mockAgents: Agent[] = [
     workDir: '/Users/demo/project',
     agentType: 'normal',
     autoAcceptPermissions: false,
+    permissionMode: 'default',
   },
   {
     id: 'agent-5',
@@ -145,6 +149,7 @@ export const mockAgents: Agent[] = [
     worktreeName: 'optimize-queries',
     agentType: 'planning',
     autoAcceptPermissions: false,
+    permissionMode: 'default',
   },
 ];
 
@@ -197,6 +202,7 @@ export const createMockAgent = (overrides?: Partial<Agent>): Agent => ({
   workDir: '/Users/demo/project',
   agentType: 'normal',
   autoAcceptPermissions: false,
+  permissionMode: 'default',
   ...overrides,
 });
 
