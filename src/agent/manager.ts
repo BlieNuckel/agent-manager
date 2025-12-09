@@ -362,7 +362,7 @@ export class AgentSDKManager extends EventEmitter {
             debug('Tool use in assistant message:', { name: content.name, id: content.id, isSubagent });
 
             if (!isSubagent || (content.name !== 'Task' && PERMISSION_REQUIRED_TOOLS.includes(content.name))) {
-              this.emit('output', id, `[>] Using tool: ${content.name}`, isSubagent, subagentInfo.subagentId, subagentInfo.subagentType);
+              this.emit('output', id, `[>] ${content.name}`, isSubagent, subagentInfo.subagentId, subagentInfo.subagentType);
             }
           }
         }
