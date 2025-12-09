@@ -171,16 +171,18 @@ export const DetailViewPage = ({
             const subagentLabel = outputLine.isSubagent && outputLine.subagentType ? `[${outputLine.subagentType}] ` : '';
 
             return (
-              <Text key={scrollOffset + i} wrap="wrap">
-                {outputLine.isSubagent && <Text dimColor>{prefix}</Text>}
-                {subagentLabel && <Text color="magenta" dimColor>{subagentLabel}</Text>}
-                {line.startsWith('[x]') ? <Text color="red">{line}</Text> :
-                  line.startsWith('[+]') ? <Text color="green">{line}</Text> :
-                    line.startsWith('[>]') ? <Text color="blue">{line}</Text> :
-                      line.startsWith('[-]') ? <Text color="yellow">{line}</Text> :
-                        line.startsWith('[!]') ? <Text color="yellow">{line}</Text> :
-                          line}
-              </Text>
+              <Box key={scrollOffset + i} height={1} flexShrink={0}>
+                <Text wrap="truncate-end">
+                  {outputLine.isSubagent && <Text dimColor>{prefix}</Text>}
+                  {subagentLabel && <Text color="magenta" dimColor>{subagentLabel}</Text>}
+                  {line.startsWith('[x]') ? <Text color="red">{line}</Text> :
+                    line.startsWith('[+]') ? <Text color="green">{line}</Text> :
+                      line.startsWith('[>]') ? <Text color="blue">{line}</Text> :
+                        line.startsWith('[-]') ? <Text color="yellow">{line}</Text> :
+                          line.startsWith('[!]') ? <Text color="yellow">{line}</Text> :
+                            line}
+                </Text>
+              </Box>
             );
           })
         )}
