@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Box, Text, useInput, useStdout } from 'ink';
+import Markdown from 'ink-markdown';
 import fs from 'fs';
 import type { ArtifactInfo } from '../types';
 
@@ -68,7 +69,9 @@ export const ArtifactDetailPage = ({ artifact, onBack }: ArtifactDetailPageProps
 
       <Box flexDirection="column" borderStyle="round" borderColor="gray" padding={1} flexGrow={1} minHeight={0}>
         {visibleContent.map((line, idx) => (
-          <Text key={scrollOffset + idx}>{line || ' '}</Text>
+          <Box key={scrollOffset + idx}>
+            <Markdown>{line || ' '}</Markdown>
+          </Box>
         ))}
       </Box>
 
