@@ -65,6 +65,8 @@ export function reducer(state: State, action: Action): State {
           h.id === action.id ? { ...h, title: action.title } : h
         ),
       };
+    case 'SET_ARTIFACTS':
+      return { ...state, artifacts: action.artifacts };
     default:
       return state;
   }

@@ -8,8 +8,9 @@ import { getGitRoot, getCurrentBranch, getRepoName } from '../git/worktree';
 import type { WorktreeContext } from '../agent/systemPromptTemplates';
 import { genId } from '../utils/helpers';
 import { debug } from '../utils/logger';
+import { listArtifacts } from '../utils/artifacts';
 import { Layout } from './Layout';
-import { ListViewPage, getListViewHelp, NewAgentPage, getNewAgentHelp, DetailViewPage, getDetailViewHelp } from '../pages';
+import { ListViewPage, getListViewHelp, NewAgentPage, getNewAgentHelp, DetailViewPage, getDetailViewHelp, ArtifactDetailPage, getArtifactDetailHelp } from '../pages';
 import { QuitConfirmationPrompt } from './QuitConfirmationPrompt';
 import { DeleteConfirmationPrompt } from './DeleteConfirmationPrompt';
 
@@ -17,18 +18,31 @@ const agentManager = new AgentSDKManager();
 
 export const App = () => {
   const { exit } = useApp();
-  const [state, dispatch] = useReducer(reducer, { agents: [], history: loadHistory() });
-  const [tab, setTab] = useState<'inbox' | 'history'>('inbox');
+  const [state, dispatch] = useReducer(reducer, { agents: [], history: loadHistory(), artifacts: [] });
+  const [tab, setTab] = useState<'inbox' | 'history' | 'artifacts'>('inbox');
   const [inboxIdx, setInboxIdx] = useState(0);
   const [histIdx, setHistIdx] = useState(0);
+  const [artifactsIdx, setArtifactsIdx] = useState(0);
   const [mode, setMode] = useState<Mode>('normal');
   const [detailAgentId, setDetailAgentId] = useState<string | null>(null);
+  const [detailArtifactPath, setDetailArtifactPath] = useState<string | null>(null);
   const [chatMode, setChatMode] = useState(false);
   const [inputState, setInputState] = useState<{ step: InputStep; showSlashMenu: boolean }>({ step: 'prompt', showSlashMenu: false });
   const [editingHistoryEntry, setEditingHistoryEntry] = useState<HistoryEntry | null>(null);
   const [showQuitConfirmation, setShowQuitConfirmation] = useState(false);
   const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false);
   const [agentToDelete, setAgentToDelete] = useState<string | null>(null);
+
+  useEffect(() => {
+    const loadArtifactsList = async () => {
+      const artifacts = await listArtifacts();
+      dispatch({ type: 'SET_ARTIFACTS', artifacts });
+    };
+    loadArtifactsList();
+
+    const interval = setInterval(loadArtifactsList, 5000);
+    return () => clearInterval(interval);
+  }, []);
 
   useEffect(() => {
     const onOutput = (id: string, line: string, isSubagent: boolean = false, subagentId?: string, subagentType?: string) => {
@@ -234,6 +248,7 @@ export const App = () => {
   const handleBackFromDetail = () => {
     setMode('normal');
     setChatMode(false);
+    setDetailArtifactPath(null);
   };
 
   const handleSendMessage = async (message: string) => {
@@ -362,13 +377,16 @@ Please execute these commands and report the results.`;
 
     if (mode === 'detail' || mode === 'input') return;
 
-    if (key.tab) { setTab(t => t === 'inbox' ? 'history' : 'inbox'); return; }
+    if (key.tab) {
+      setTab(t => t === 'inbox' ? 'history' : t === 'history' ? 'artifacts' : 'inbox');
+      return;
+    }
     if (input === 'q') { handleQuitRequest(); return; }
     if (input === 'n') { setMode('input'); return; }
 
-    const list = tab === 'inbox' ? state.agents : state.history;
-    const idx = tab === 'inbox' ? inboxIdx : histIdx;
-    const setIdx = tab === 'inbox' ? setInboxIdx : setHistIdx;
+    const list = tab === 'inbox' ? state.agents : tab === 'history' ? state.history : state.artifacts;
+    const idx = tab === 'inbox' ? inboxIdx : tab === 'history' ? histIdx : artifactsIdx;
+    const setIdx = tab === 'inbox' ? setInboxIdx : tab === 'history' ? setHistIdx : setArtifactsIdx;
 
     if ((key.upArrow || input === 'k') && idx > 0) setIdx(idx - 1);
     if ((key.downArrow || input === 'j') && idx < list.length - 1) setIdx(idx + 1);
@@ -377,10 +395,13 @@ Please execute these commands and report the results.`;
       if (tab === 'inbox') {
         setDetailAgentId(state.agents[idx].id);
         setMode('detail');
-      } else {
+      } else if (tab === 'history') {
         const entry = state.history[idx] as HistoryEntry;
         createAgent(entry.title, entry.prompt, 'normal', { enabled: false, name: '' });
         setTab('inbox');
+      } else if (tab === 'artifacts') {
+        setDetailArtifactPath(state.artifacts[idx].path);
+        setMode('detail');
       }
     }
 
@@ -414,6 +435,38 @@ Please execute these commands and report the results.`;
   const waitingCount = state.agents.filter(a => a.status === 'waiting').length;
 
   const renderPage = () => {
+    if (mode === 'detail' && detailArtifactPath) {
+      const artifact = state.artifacts.find(a => a.path === detailArtifactPath);
+      if (artifact) {
+        const listContent = (
+          <ListViewPage
+            tab={tab}
+            agents={state.agents}
+            history={state.history}
+            artifacts={state.artifacts}
+            inboxIdx={inboxIdx}
+            histIdx={histIdx}
+            artifactsIdx={artifactsIdx}
+          />
+        );
+
+        const detailContent = (
+          <ArtifactDetailPage
+            artifact={artifact}
+            onBack={handleBackFromDetail}
+          />
+        );
+
+        return {
+          splitPanes: [
+            { content: listContent, widthPercent: 40 },
+            { content: detailContent, widthPercent: 60 }
+          ],
+          help: getArtifactDetailHelp(),
+        };
+      }
+    }
+
     if (mode === 'detail' && detailAgent) {
       const promptLines = detailAgent.prompt.split('\n');
       const promptNeedsScroll = promptLines.length > 10;
@@ -423,8 +476,10 @@ Please execute these commands and report the results.`;
           tab={tab}
           agents={state.agents}
           history={state.history}
+          artifacts={state.artifacts}
           inboxIdx={inboxIdx}
           histIdx={histIdx}
+          artifactsIdx={artifactsIdx}
         />
       );
 
@@ -471,8 +526,10 @@ Please execute these commands and report the results.`;
           tab={tab}
           agents={state.agents}
           history={state.history}
+          artifacts={state.artifacts}
           inboxIdx={inboxIdx}
           histIdx={histIdx}
+          artifactsIdx={artifactsIdx}
         />
       ),
       help: getListViewHelp(tab),
