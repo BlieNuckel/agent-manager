@@ -62,6 +62,19 @@ export const DetailViewPage = ({
   const visibleLines = Math.max(1, availableHeight - promptActualHeight);
 
   useInput((input, key) => {
+    if (chatMode && key.escape && onToggleChatMode) {
+      setChatInput('');
+      onToggleChatMode();
+      return;
+    }
+
+    if (key.escape || input === 'q') {
+      onBack();
+      return;
+    }
+
+    if (chatMode) return;
+
     if (agent.pendingPermission) return;
     if (agent.pendingQuestion) return;
 
@@ -77,19 +90,6 @@ export const DetailViewPage = ({
           onMergeResponse(false);
         }
       }
-      return;
-    }
-
-    if (chatMode && key.escape && onToggleChatMode) {
-      setChatInput('');
-      onToggleChatMode();
-      return;
-    }
-
-    if (chatMode) return;
-
-    if (key.escape || input === 'q') {
-      onBack();
       return;
     }
 
