@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useReducer } from 'react';
 import { useInput, useApp } from 'ink';
-import type { Agent, AgentType, HistoryEntry, Mode, PermissionRequest, QuestionRequest, InputStep } from '../types';
+import type { Agent, AgentType, HistoryEntry, Mode, PermissionRequest, QuestionRequest, InputStep, PermissionMode } from '../types';
 import { reducer } from '../state/reducer';
 import { loadHistory, saveHistory } from '../state/history';
 import { AgentSDKManager } from '../agent/manager';
@@ -194,6 +194,8 @@ export const App = () => {
       }
     }
 
+    const permissionMode: PermissionMode = agentType === 'auto-accept' ? 'acceptEdits' : 'default';
+
     const placeholderAgent: Agent = {
       id,
       title: title || 'Untitled Agent',
@@ -206,6 +208,7 @@ export const App = () => {
       updatedAt: new Date(),
       agentType,
       autoAcceptPermissions: false,
+      permissionMode,
     };
     dispatch({ type: 'ADD_AGENT', agent: placeholderAgent });
 

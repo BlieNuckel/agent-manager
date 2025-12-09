@@ -39,6 +39,8 @@ export interface OutputLine {
   subagentType?: string;
 }
 
+export type PermissionMode = 'default' | 'acceptEdits' | 'bypassPermissions';
+
 export interface Agent {
   id: string;
   title: string;
@@ -55,6 +57,7 @@ export interface Agent {
   pendingMerge?: MergeState;
   agentType: AgentType;
   autoAcceptPermissions: boolean;
+  permissionMode: PermissionMode;
 }
 
 export interface HistoryEntry {
