@@ -14,7 +14,7 @@ export const PermissionPrompt = ({ permission, onResponse, onAlwaysAllow, onAlwa
 }) => {
   const isEditTool = AUTO_ACCEPT_EDIT_TOOLS.includes(permission.toolName);
   const hasSuggestions = permission.suggestions && permission.suggestions.length > 0;
-  const repoExplanation = getPermissionExplanation(permission.suggestions, permission.toolName);
+  const repoExplanation = getPermissionExplanation(permission.suggestions, permission.toolName, permission.toolInput);
   const alwaysExplanation = getAlwaysAllowExplanation(permission.toolName);
 
   const options = useMemo(() => {
