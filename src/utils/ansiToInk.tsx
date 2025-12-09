@@ -89,17 +89,18 @@ export function parseAnsiToSegments(text: string): TextSegment[] {
   return segments.filter(seg => seg.text.length > 0);
 }
 
-export function AnsiText({ children }: { children: string }): JSX.Element {
+export function AnsiText({ children, wrap = 'wrap' }: { children: string; wrap?: 'wrap' | 'truncate' | 'truncate-end' | 'truncate-middle' | 'truncate-start' }): JSX.Element {
   const segments = parseAnsiToSegments(children);
 
   if (segments.length === 0) {
-    return <Text>{children}</Text>;
+    return <Text wrap={wrap}>{children}</Text>;
   }
 
   if (segments.length === 1) {
     const seg = segments[0];
     return (
       <Text
+        wrap={wrap}
         color={seg.color}
         bold={seg.bold}
         italic={seg.italic}
@@ -113,7 +114,7 @@ export function AnsiText({ children }: { children: string }): JSX.Element {
   }
 
   return (
-    <Text>
+    <Text wrap={wrap}>
       {segments.map((seg, i) => (
         <Text
           key={i}

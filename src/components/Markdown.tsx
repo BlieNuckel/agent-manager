@@ -6,6 +6,7 @@ import chalk from 'chalk';
 
 interface MarkdownProps {
   children: string;
+  wrap?: 'wrap' | 'truncate' | 'truncate-end' | 'truncate-middle' | 'truncate-start';
 }
 
 chalk.level = 3;
@@ -23,13 +24,13 @@ const renderer = new TerminalRenderer({
 
 marked.setOptions({ renderer });
 
-export const Markdown = ({ children }: MarkdownProps) => {
+export const Markdown = ({ children, wrap = 'wrap' }: MarkdownProps) => {
   const text = useMemo(() => {
     const rendered = marked.parse(children);
     return typeof rendered === 'string' ? rendered.trim() : '';
   }, [children]);
 
-  return <AnsiText>{text}</AnsiText>;
+  return <AnsiText wrap={wrap}>{text}</AnsiText>;
 };
 
 export default Markdown;

@@ -16,21 +16,20 @@ export const DetailView = ({ agent, onBack, onPermissionResponse, onAlwaysAllow 
   const [promptScrollOffset, setPromptScrollOffset] = useState(0);
 
   const termHeight = (app as any).stdout?.rows || 24;
-  const permissionHeight = agent.pendingPermission ? 10 : 0;
+  const permissionHeight = agent.pendingPermission ? 16 : 0;
   const headerHeight = 4;
   const helpBarHeight = 3;
   const promptHeaderHeight = 1;
   const workDirHeight = 1;
-  const outputHeaderHeight = 1;
   const outputBorderHeight = 2;
 
   const promptLines = agent.prompt.split('\n');
-  const fixedHeight = headerHeight + promptHeaderHeight + workDirHeight + outputHeaderHeight + outputBorderHeight + helpBarHeight + permissionHeight;
-  const availableHeight = Math.max(10, termHeight - fixedHeight);
+  const fixedHeight = headerHeight + promptHeaderHeight + workDirHeight + outputBorderHeight + helpBarHeight + permissionHeight;
+  const availableHeight = Math.max(5, termHeight - fixedHeight);
   const maxPromptHeight = Math.min(promptLines.length, Math.floor(availableHeight * 0.3));
   const actualPromptHeight = Math.min(promptLines.length, maxPromptHeight);
 
-  const visibleLines = availableHeight - actualPromptHeight;
+  const visibleLines = Math.max(3, availableHeight - actualPromptHeight);
 
   useInput((input, key) => {
     if (key.escape || input === 'q' || input === 'h') { onBack(); return; }
@@ -72,7 +71,6 @@ export const DetailView = ({ agent, onBack, onPermissionResponse, onAlwaysAllow 
     const prefix = outputLine.isSubagent ? '  → ' : '';
     const subagentLabel = outputLine.isSubagent && outputLine.subagentType ? `[${outputLine.subagentType}] ` : '';
 
-    // Check for special prefixes
     let statusPrefix = '';
     let statusColor = '';
     let content = line;
@@ -100,11 +98,11 @@ export const DetailView = ({ agent, onBack, onPermissionResponse, onAlwaysAllow 
     }
 
     return (
-      <Box key={scrollOffset + index} flexDirection="row">
-        {outputLine.isSubagent && <Text dimColor>{prefix}</Text>}
-        {subagentLabel && <Text color="magenta" dimColor>{subagentLabel}</Text>}
-        {statusPrefix && <Text color={statusColor}>{statusPrefix}</Text>}
-        <Markdown>{content}</Markdown>
+      <Box key={scrollOffset + index} flexDirection="row" flexShrink={0} height={1} overflowY="hidden">
+        {outputLine.isSubagent && <Text dimColor wrap="truncate-end">{prefix}</Text>}
+        {subagentLabel && <Text color="magenta" dimColor wrap="truncate-end">{subagentLabel}</Text>}
+        {statusPrefix && <Text color={statusColor} wrap="truncate-end">{statusPrefix}</Text>}
+        <Markdown wrap="truncate-end">{content}</Markdown>
       </Box>
     );
   };
@@ -134,11 +132,11 @@ export const DetailView = ({ agent, onBack, onPermissionResponse, onAlwaysAllow 
         </Box>
       </Box>
 
-      <Box flexDirection="column" height={visibleLines + 2} flexShrink={0} borderStyle="round" borderColor="gray" padding={1} overflow="hidden">
-        <Box flexShrink={0}>
+      <Box flexDirection="column" height={visibleLines + 2} flexShrink={0} flexGrow={0} borderStyle="round" borderColor="gray" paddingX={1} overflowY="hidden">
+        <Box flexShrink={0} flexGrow={0}>
           <Text dimColor>Output ({agent.output.length} lines, scroll: {scrollOffset + 1}-{Math.min(scrollOffset + visibleLines, agent.output.length)} of {agent.output.length})</Text>
         </Box>
-        <Box flexDirection="column" overflow="hidden">
+        <Box flexDirection="column" height={visibleLines} flexShrink={0} flexGrow={0} overflowY="hidden">
           {displayedLines.length === 0 ? (
             <Text dimColor>Waiting for output...</Text>
           ) : (
