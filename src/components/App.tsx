@@ -429,7 +429,11 @@ Please execute these commands and report the results.`;
     if (mode === 'detail' || mode === 'input' || mode === 'command' || mode === 'command-result') return;
 
     if (key.tab) {
-      setTab(t => t === 'inbox' ? 'history' : t === 'history' ? 'artifacts' : 'inbox');
+      if (key.shift) {
+        setTab(t => t === 'inbox' ? 'history' : t === 'history' ? 'artifacts' : 'inbox');
+      } else {
+        setTab(t => t === 'inbox' ? 'artifacts' : t === 'artifacts' ? 'history' : 'inbox');
+      }
       return;
     }
     if (input === 'q') { handleQuitRequest(); return; }
