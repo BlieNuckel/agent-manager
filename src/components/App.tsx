@@ -36,6 +36,7 @@ export const App = () => {
   const [chatMode, setChatMode] = useState(false);
   const [inputState, setInputState] = useState<{ step: InputStep; showSlashMenu: boolean }>({ step: 'prompt', showSlashMenu: false });
   const [editingHistoryEntry, setEditingHistoryEntry] = useState<HistoryEntry | null>(null);
+  const [preSelectedArtifactPath, setPreSelectedArtifactPath] = useState<string | null>(null);
   const [showQuitConfirmation, setShowQuitConfirmation] = useState(false);
   const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false);
   const [agentToDelete, setAgentToDelete] = useState<string | null>(null);
@@ -497,6 +498,11 @@ Please execute these commands and report the results.`;
           debug('Failed to delete artifact:', err);
         });
       }
+      if (input === 's') {
+        const selectedArtifact = state.artifacts[idx];
+        setPreSelectedArtifactPath(selectedArtifact.path);
+        setMode('input');
+      }
     }
   });
 
@@ -607,10 +613,11 @@ Please execute these commands and report the results.`;
       return {
         content: (
           <NewAgentPage
-            onSubmit={(t, p, at, wt) => { createAgent(t, p, at, wt); setMode('normal'); setTab('inbox'); setInboxIdx(state.agents.length); setEditingHistoryEntry(null); }}
-            onCancel={() => { setMode('normal'); setEditingHistoryEntry(null); }}
+            onSubmit={(t, p, at, wt) => { createAgent(t, p, at, wt); setMode('normal'); setTab('inbox'); setInboxIdx(state.agents.length); setEditingHistoryEntry(null); setPreSelectedArtifactPath(null); }}
+            onCancel={() => { setMode('normal'); setEditingHistoryEntry(null); setPreSelectedArtifactPath(null); }}
             onStateChange={setInputState}
             initialHistoryEntry={editingHistoryEntry}
+            initialArtifactPath={preSelectedArtifactPath}
           />
         ),
         help: getNewAgentHelp(inputState.step, inputState.showSlashMenu),

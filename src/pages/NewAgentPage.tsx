@@ -14,15 +14,16 @@ interface NewAgentPageProps {
   onCancel: () => void;
   onStateChange?: (state: { step: InputStep; showSlashMenu: boolean }) => void;
   initialHistoryEntry?: HistoryEntry | null;
+  initialArtifactPath?: string | null;
 }
 
-export const NewAgentPage = ({ onSubmit, onCancel, onStateChange, initialHistoryEntry }: NewAgentPageProps) => {
+export const NewAgentPage = ({ onSubmit, onCancel, onStateChange, initialHistoryEntry, initialArtifactPath }: NewAgentPageProps) => {
   const [title, setTitle] = useState(initialHistoryEntry?.title || '');
   const [prompt, setPrompt] = useState(initialHistoryEntry?.prompt || '');
   const [agentType, setAgentType] = useState<AgentType>('normal');
   const [useWorktree, setUseWorktree] = useState(false);
   const [worktreeName, setWorktreeName] = useState('');
-  const [step, setStep] = useState<InputStep>(initialHistoryEntry ? 'prompt' : 'title');
+  const [step, setStep] = useState<InputStep>(initialHistoryEntry ? 'prompt' : initialArtifactPath ? 'prompt' : 'title');
   const [gitRoot] = useState(() => getGitRoot());
   const [slashCommands, setSlashCommands] = useState<SlashCommand[]>([]);
   const [showSlashMenu, setShowSlashMenu] = useState(false);
@@ -35,6 +36,15 @@ export const NewAgentPage = ({ onSubmit, onCancel, onStateChange, initialHistory
     AgentSDKManager.getAvailableCommands().then(setSlashCommands);
     listArtifacts().then(setArtifacts);
   }, []);
+
+  useEffect(() => {
+    if (initialArtifactPath && artifacts.length > 0) {
+      const index = artifacts.findIndex(a => a.path === initialArtifactPath);
+      if (index >= 0) {
+        setSelectedArtifactIndex(index);
+      }
+    }
+  }, [initialArtifactPath, artifacts]);
 
   useEffect(() => {
     onStateChange?.({ step, showSlashMenu });
@@ -221,8 +231,9 @@ export const NewAgentPage = ({ onSubmit, onCancel, onStateChange, initialHistory
     <>
       <Box flexDirection="column" borderStyle="round" borderColor="cyan" padding={1}>
         <Box flexDirection="row" justifyContent="space-between">
-          <Text bold color="cyan">{initialHistoryEntry ? 'Edit & Create Agent' : 'New Agent'}</Text>
+          <Text bold color="cyan">{initialHistoryEntry ? 'Edit & Create Agent' : initialArtifactPath ? 'Create Agent from Artifact' : 'New Agent'}</Text>
           {initialHistoryEntry && <Text dimColor>(from history)</Text>}
+          {initialArtifactPath && <Text dimColor>(from artifact)</Text>}
         </Box>
 
         <Box marginTop={1} flexDirection="column">
