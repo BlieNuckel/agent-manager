@@ -44,7 +44,7 @@ export const PromptInput = ({ onSubmit, onCancel, onStateChange }: {
   const agentTypeOptions = [
     { value: 'normal', label: 'Normal', description: 'ask for permissions' },
     { value: 'planning', label: 'Planning', description: 'plan before executing' },
-    { value: 'auto-accept', label: 'Auto-accept', description: 'no permission prompts' },
+    { value: 'auto-accept', label: 'Auto-accept edits', description: 'no permission prompts' },
   ] as const;
 
   const getFilteredAgentTypes = () => {
@@ -345,7 +345,7 @@ export const PromptInput = ({ onSubmit, onCancel, onStateChange }: {
               />
             ) : (
               <Text dimColor={step === 'title' || step === 'prompt'}>
-                {agentType === 'normal' ? 'Normal' : agentType === 'planning' ? 'Planning' : 'Auto-accept'}
+                {agentType === 'normal' ? 'Normal' : agentType === 'planning' ? 'Planning' : 'Auto-accept edits'}
               </Text>
             )}
           </Box>
