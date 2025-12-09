@@ -55,6 +55,22 @@ export const ArtifactDetailPage = ({ artifact, onBack }: ArtifactDetailPageProps
     if (key.pageDown && scrollOffset < maxScroll) {
       setScrollOffset(Math.min(maxScroll, scrollOffset + visibleLines));
     }
+
+    // Vim-style navigation
+    if (input === 'g') {
+      setScrollOffset(0);
+    }
+    if (input === 'G') {
+      setScrollOffset(maxScroll);
+    }
+    if (key.ctrl && input === 'd' && scrollOffset < maxScroll) {
+      const halfPage = Math.floor(visibleLines / 2);
+      setScrollOffset(Math.min(maxScroll, scrollOffset + halfPage));
+    }
+    if (key.ctrl && input === 'u' && scrollOffset > 0) {
+      const halfPage = Math.floor(visibleLines / 2);
+      setScrollOffset(Math.max(0, scrollOffset - halfPage));
+    }
   });
 
   const visibleContent = contentLines.slice(scrollOffset, scrollOffset + visibleLines);
@@ -92,7 +108,8 @@ export const getArtifactDetailHelp = () => {
   return (
     <>
       <Text color="cyan">↑↓jk</Text> Scroll{' '}
-      <Text color="cyan">PgUp/PgDn</Text> Page{' '}
+      <Text color="cyan">^D/^U</Text> Half-page{' '}
+      <Text color="cyan">g/G</Text> Top/Bottom{' '}
       <Text color="cyan">Esc/q</Text> Back
     </>
   );
