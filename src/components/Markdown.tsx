@@ -8,6 +8,8 @@ interface MarkdownProps {
   children: string;
 }
 
+chalk.level = 3;
+
 const renderer = new TerminalRenderer({
   code: chalk.yellow,
   codespan: chalk.yellow,
