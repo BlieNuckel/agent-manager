@@ -21,8 +21,8 @@ export const ListViewPage = ({ tab, agents, history, artifacts, inboxIdx, histId
     <Box flexDirection="column" flexGrow={1} minHeight={0}>
       <Box>
         <Tab label="Inbox" active={tab === 'inbox'} count={agents.length} />
-        <Tab label="History" active={tab === 'history'} />
         <Tab label="Artifacts" active={tab === 'artifacts'} count={artifacts.length} />
+        <Tab label="History" active={tab === 'history'} />
       </Box>
 
       <Box flexDirection="column" flexGrow={1} minHeight={0}>
@@ -59,7 +59,7 @@ export const ListViewPage = ({ tab, agents, history, artifacts, inboxIdx, histId
 export const getListViewHelp = (tab: 'inbox' | 'history' | 'artifacts') => {
   return (
     <>
-      <Text color="cyan">Tab</Text>{' '}Switch{'  '}
+      <Text color="cyan">Tab/Shift+Tab</Text>{' '}Switch{'  '}
       <Text color="cyan">↑↓jk</Text>{' '}Nav{'  '}
       <Text color="cyan">Enter</Text>{' '}{tab === 'inbox' ? 'Open' : tab === 'history' ? 'Resume' : 'View'}{'  '}
       {tab === 'history' && <><Text color="cyan">e</Text>{' '}Edit{'  '}</>}
