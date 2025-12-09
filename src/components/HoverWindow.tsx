@@ -15,7 +15,7 @@ export interface HoverWindowProps {
   dimBackground?: boolean;
 }
 
-export const HoverWindow: React.FC<HoverWindowProps> = ({
+export const HoverWindow = ({
   children,
   width = 60,
   height,
@@ -27,7 +27,7 @@ export const HoverWindow: React.FC<HoverWindowProps> = ({
   backgroundColor,
   padding = 1,
   dimBackground = false,
-}) => {
+}: HoverWindowProps) => {
   const { stdout } = useStdout();
   const terminalWidth = stdout?.columns ?? 80;
   const terminalHeight = stdout?.rows ?? 24;
@@ -53,10 +53,11 @@ export const HoverWindow: React.FC<HoverWindowProps> = ({
     top = Math.max(0, Math.floor((terminalHeight - (computedHeight ?? 10)) / 2));
     left = Math.max(0, Math.floor((terminalWidth - computedWidth) / 2));
   } else {
-    top = position.top;
-    left = position.left;
-    bottom = position.bottom;
-    right = position.right;
+    const posObj = position as { top?: number; left?: number; bottom?: number; right?: number };
+    top = posObj.top;
+    left = posObj.left;
+    bottom = posObj.bottom;
+    right = posObj.right;
   }
 
   return (
