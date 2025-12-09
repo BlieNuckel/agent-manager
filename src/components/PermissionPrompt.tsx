@@ -3,6 +3,7 @@ import { Box, Text, useInput } from 'ink';
 import type { PermissionRequest } from '../types';
 import { formatToolInput } from '../utils/helpers';
 import { AUTO_ACCEPT_EDIT_TOOLS } from '../agent/manager';
+import { getPermissionExplanation, getAlwaysAllowExplanation } from '../utils/permissions';
 
 export const PermissionPrompt = ({ permission, onResponse, onAlwaysAllow, onAlwaysAllowInRepo, queueCount = 0 }: {
   permission: PermissionRequest;
@@ -13,6 +14,8 @@ export const PermissionPrompt = ({ permission, onResponse, onAlwaysAllow, onAlwa
 }) => {
   const isEditTool = AUTO_ACCEPT_EDIT_TOOLS.includes(permission.toolName);
   const hasSuggestions = permission.suggestions && permission.suggestions.length > 0;
+  const repoExplanation = getPermissionExplanation(permission.suggestions, permission.toolName);
+  const alwaysExplanation = getAlwaysAllowExplanation(permission.toolName);
 
   const options = useMemo(() => {
     const opts: Array<'yes' | 'no' | 'always' | 'repo'> = ['yes', 'no'];
@@ -45,13 +48,13 @@ export const PermissionPrompt = ({ permission, onResponse, onAlwaysAllow, onAlwa
     const isSelected = selected === index;
     switch (option) {
       case 'yes':
-        return { label: '[Y]es', color: 'green' as const };
+        return { label: '[Y]es', color: 'green' as const, description: 'Allow this once' };
       case 'no':
-        return { label: '[N]o', color: 'red' as const };
+        return { label: '[N]o', color: 'red' as const, description: 'Deny this once' };
       case 'always':
-        return { label: '[A]lways (auto-accept edits)', color: 'yellow' as const };
+        return { label: '[A]lways', color: 'yellow' as const, description: 'Auto-accept edits this session' };
       case 'repo':
-        return { label: '[R]epo', color: 'blue' as const };
+        return { label: '[R]epo', color: 'blue' as const, description: 'Save to settings file' };
     }
   };
 
@@ -89,9 +92,22 @@ export const PermissionPrompt = ({ permission, onResponse, onAlwaysAllow, onAlwa
       <Box marginTop={1}>
         <Text dimColor>←/→ to select • {getShortcutHint()} or Enter to confirm</Text>
       </Box>
-      {hasSuggestions && onAlwaysAllowInRepo && (
-        <Box>
-          <Text dimColor italic>[R]epo saves to .claude/settings.local.json</Text>
+
+      {isEditTool && (
+        <Box marginTop={1} flexDirection="column" borderStyle="single" borderColor="gray" paddingX={1}>
+          <Text color="yellow" bold>[A]lways:</Text>
+          <Text dimColor>{alwaysExplanation}</Text>
+        </Box>
+      )}
+
+      {hasSuggestions && onAlwaysAllowInRepo && repoExplanation && (
+        <Box marginTop={1} flexDirection="column" borderStyle="single" borderColor="gray" paddingX={1}>
+          <Text color="blue" bold>[R]epo: Save to {repoExplanation.saveLocation}</Text>
+          <Box>
+            <Text dimColor>• Rule: </Text>
+            <Text color="cyan">{repoExplanation.whatWillBeSaved}</Text>
+          </Box>
+          <Text dimColor>• {repoExplanation.futureBeha}</Text>
         </Box>
       )}
     </Box>

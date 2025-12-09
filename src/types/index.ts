@@ -3,10 +3,17 @@ export type Mode = 'normal' | 'input' | 'detail' | 'detail-chat' | 'command' | '
 export type InputStep = 'title' | 'prompt' | 'agentType' | 'artifact' | 'worktree' | 'worktreeName';
 export type AgentType = 'normal' | 'planning' | 'auto-accept';
 
+export interface PermissionSuggestion {
+  type: 'addRules';
+  rules: Array<{ toolName: string; toolInput?: Record<string, unknown> }>;
+  behavior: 'allow' | 'deny';
+  destination: 'localSettings' | 'globalSettings';
+}
+
 export interface PermissionRequest {
   toolName: string;
   toolInput: unknown;
-  suggestions?: unknown[];
+  suggestions?: PermissionSuggestion[];
   resolve: (result: { allowed: boolean; alwaysAllowInRepo?: boolean }) => void;
 }
 
