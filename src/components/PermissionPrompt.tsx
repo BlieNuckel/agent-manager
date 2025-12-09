@@ -14,15 +14,16 @@ export const PermissionPrompt = ({ permission, onResponse, onAlwaysAllow, onAlwa
 }) => {
   const isEditTool = AUTO_ACCEPT_EDIT_TOOLS.includes(permission.toolName);
   const hasSuggestions = permission.suggestions && permission.suggestions.length > 0;
+  const isUserSettings = hasSuggestions && permission.suggestions![0].destination === 'globalSettings';
   const repoExplanation = getPermissionExplanation(permission.suggestions, permission.toolName, permission.toolInput);
   const alwaysExplanation = getAlwaysAllowExplanation(permission.toolName);
 
   const options = useMemo(() => {
-    const opts: Array<'yes' | 'no' | 'always' | 'repo'> = ['yes', 'no'];
+    const opts: Array<'yes' | 'no' | 'always' | 'repo' | 'user'> = ['yes', 'no'];
     if (isEditTool) opts.push('always');
-    if (hasSuggestions && onAlwaysAllowInRepo) opts.push('repo');
+    if (hasSuggestions && onAlwaysAllowInRepo) opts.push(isUserSettings ? 'user' : 'repo');
     return opts;
-  }, [isEditTool, hasSuggestions, onAlwaysAllowInRepo]);
+  }, [isEditTool, hasSuggestions, onAlwaysAllowInRepo, isUserSettings]);
 
   const [selected, setSelected] = useState(0);
   const maxOption = options.length - 1;
@@ -33,18 +34,19 @@ export const PermissionPrompt = ({ permission, onResponse, onAlwaysAllow, onAlwa
     if (input === 'y' || input === 'Y') { onResponse(true); return; }
     if (input === 'n' || input === 'N') { onResponse(false); return; }
     if (isEditTool && (input === 'a' || input === 'A')) { onAlwaysAllow(); return; }
-    if (hasSuggestions && onAlwaysAllowInRepo && (input === 'r' || input === 'R')) { onAlwaysAllowInRepo(); return; }
+    if (hasSuggestions && onAlwaysAllowInRepo && !isUserSettings && (input === 'r' || input === 'R')) { onAlwaysAllowInRepo(); return; }
+    if (hasSuggestions && onAlwaysAllowInRepo && isUserSettings && (input === 'u' || input === 'U')) { onAlwaysAllowInRepo(); return; }
     if (key.return) {
       const currentOption = options[selected];
       if (currentOption === 'yes') onResponse(true);
       else if (currentOption === 'no') onResponse(false);
       else if (currentOption === 'always') onAlwaysAllow();
-      else if (currentOption === 'repo') onAlwaysAllowInRepo?.();
+      else if (currentOption === 'repo' || currentOption === 'user') onAlwaysAllowInRepo?.();
       return;
     }
   });
 
-  const getButtonConfig = (option: 'yes' | 'no' | 'always' | 'repo', index: number) => {
+  const getButtonConfig = (option: 'yes' | 'no' | 'always' | 'repo' | 'user', index: number) => {
     const isSelected = selected === index;
     switch (option) {
       case 'yes':
@@ -54,14 +56,16 @@ export const PermissionPrompt = ({ permission, onResponse, onAlwaysAllow, onAlwa
       case 'always':
         return { label: '[A]lways', color: 'yellow' as const, description: 'Auto-accept edits this session' };
       case 'repo':
-        return { label: '[R]epo', color: 'blue' as const, description: 'Save to settings file' };
+        return { label: '[R]epo', color: 'blue' as const, description: 'Save to repo settings' };
+      case 'user':
+        return { label: '[U]ser', color: 'blue' as const, description: 'Save to user settings' };
     }
   };
 
   const getShortcutHint = () => {
     let hint = 'y/n';
     if (isEditTool) hint += '/a';
-    if (hasSuggestions && onAlwaysAllowInRepo) hint += '/r';
+    if (hasSuggestions && onAlwaysAllowInRepo) hint += isUserSettings ? '/u' : '/r';
     return hint;
   };
 
@@ -102,7 +106,7 @@ export const PermissionPrompt = ({ permission, onResponse, onAlwaysAllow, onAlwa
 
       {hasSuggestions && onAlwaysAllowInRepo && repoExplanation && (
         <Box marginTop={1} flexDirection="column" borderStyle="single" borderColor="gray" paddingX={1}>
-          <Text color="blue" bold>[R]epo: Save to {repoExplanation.saveLocation}</Text>
+          <Text color="blue" bold>{isUserSettings ? '[U]ser' : '[R]epo'}: Save to {repoExplanation.saveLocation}</Text>
           <Box>
             <Text dimColor>• Rule: </Text>
             <Text color="cyan">{repoExplanation.whatWillBeSaved}</Text>
