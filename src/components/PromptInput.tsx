@@ -6,6 +6,7 @@ import type { SlashCommand } from '@anthropic-ai/claude-agent-sdk';
 import { getGitRoot } from '../git/worktree';
 import { AgentSDKManager } from '../agent/manager';
 import { SlashCommandMenu } from './SlashCommandMenu';
+import { ArtifactMenu } from './ArtifactMenu';
 import { MultilineInput } from './MultilineInput';
 import { listArtifacts, formatArtifactReference, type ArtifactInfo } from '../utils/artifacts';
 
@@ -363,41 +364,16 @@ export const PromptInput = ({ onSubmit, onCancel, onStateChange }: {
           )}
         </Box>
 
-        <Box marginTop={1} flexDirection="column">
-          <Box>
-            <Text color={step === 'artifact' ? 'cyan' : step === 'title' || step === 'prompt' || step === 'agentType' ? 'gray' : 'green'}>
-              {step === 'title' || step === 'prompt' || step === 'agentType' ? '○' : step === 'artifact' ? '▸' : '✓'} Include Artifact:{' '}
+        <Box marginTop={1}>
+          <Text color={step === 'artifact' ? 'cyan' : step === 'title' || step === 'prompt' || step === 'agentType' ? 'gray' : 'green'}>
+            {step === 'title' || step === 'prompt' || step === 'agentType' ? '○' : step === 'artifact' ? '▸' : '✓'} Include Artifact:{' '}
+          </Text>
+          {step === 'artifact' ? (
+            <Text dimColor>selecting...</Text>
+          ) : (
+            <Text dimColor={step === 'title' || step === 'prompt' || step === 'agentType'}>
+              {selectedArtifactIndex >= 0 ? artifacts[selectedArtifactIndex].name : 'None'}
             </Text>
-            {step === 'artifact' ? (
-              <TextInput
-                value={artifactFilter}
-                onChange={() => {}}
-                placeholder="Filter or leave empty for None..."
-                showCursor={true}
-              />
-            ) : (
-              <Text dimColor={step === 'title' || step === 'prompt' || step === 'agentType'}>
-                {selectedArtifactIndex >= 0 ? artifacts[selectedArtifactIndex].name : 'None'}
-              </Text>
-            )}
-          </Box>
-          {step === 'artifact' && (
-            <Box flexDirection="column" marginLeft={2}>
-              {artifacts.length === 0 ? (
-                <Text dimColor>No artifacts found in ~/.agent-manager/artifacts/</Text>
-              ) : (
-                <>
-                  {getFilteredArtifacts().slice(0, 5).map((artifact, i) => (
-                    <Text key={artifact.name} color={i === artifactSelectedIndex ? 'cyan' : 'white'} bold={i === artifactSelectedIndex}>
-                      {i === artifactSelectedIndex ? '▸' : ' '} {artifact.name}
-                    </Text>
-                  ))}
-                  {getFilteredArtifacts().length === 0 && (
-                    <Text dimColor>No matches found</Text>
-                  )}
-                </>
-              )}
-            </Box>
           )}
         </Box>
 
@@ -441,6 +417,14 @@ export const PromptInput = ({ onSubmit, onCancel, onStateChange }: {
           commands={slashCommands}
           searchQuery={slashSearchQuery}
           selectedIndex={slashSelectedIndex}
+        />
+      )}
+
+      {step === 'artifact' && (
+        <ArtifactMenu
+          artifacts={artifacts}
+          searchQuery={artifactFilter}
+          selectedIndex={artifactSelectedIndex}
         />
       )}
     </>
