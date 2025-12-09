@@ -13,8 +13,15 @@ import { Layout } from './Layout';
 import { ListViewPage, getListViewHelp, NewAgentPage, getNewAgentHelp, DetailViewPage, getDetailViewHelp, ArtifactDetailPage, getArtifactDetailHelp } from '../pages';
 import { QuitConfirmationPrompt } from './QuitConfirmationPrompt';
 import { DeleteConfirmationPrompt } from './DeleteConfirmationPrompt';
+import { CommandPalette } from './CommandPalette';
+import { CommandResult } from './CommandResult';
+import { CommandLoader } from '../commands/loader';
+import { CommandExecutor } from '../commands/executor';
+import type { Command, CommandResult as CommandResultType } from '../commands/types';
 
 const agentManager = new AgentSDKManager();
+const commandLoader = new CommandLoader();
+const commandExecutor = new CommandExecutor();
 
 export const App = () => {
   const { exit } = useApp();
@@ -32,6 +39,9 @@ export const App = () => {
   const [showQuitConfirmation, setShowQuitConfirmation] = useState(false);
   const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false);
   const [agentToDelete, setAgentToDelete] = useState<string | null>(null);
+  const [commands, setCommands] = useState<Command[]>([]);
+  const [commandsLoading, setCommandsLoading] = useState(false);
+  const [commandResult, setCommandResult] = useState<{ result: CommandResultType; commandName: string } | null>(null);
 
   useEffect(() => {
     const loadArtifactsList = async () => {
@@ -356,6 +366,47 @@ Please execute these commands and report the results.`;
     dispatch({ type: 'SET_MERGE_STATE', id: detailAgentId, mergeState: undefined });
   };
 
+  const handleOpenCommandPalette = async () => {
+    setCommandsLoading(true);
+    setMode('command');
+    try {
+      const loadedCommands = await commandLoader.loadCommands();
+      setCommands(loadedCommands);
+    } catch (error: any) {
+      debug('Error loading commands:', error);
+      setCommands([]);
+    } finally {
+      setCommandsLoading(false);
+    }
+  };
+
+  const handleExecuteCommand = async (command: Command) => {
+    debug('Executing command:', command.id);
+    setMode('normal');
+
+    try {
+      const result = await commandExecutor.execute(command);
+      setCommandResult({ result, commandName: command.name });
+      setMode('command-result');
+    } catch (error: any) {
+      debug('Error executing command:', error);
+      setCommandResult({
+        result: { success: false, message: 'Command execution failed', error: error.message },
+        commandName: command.name
+      });
+      setMode('command-result');
+    }
+  };
+
+  const handleCommandCancel = () => {
+    setMode('normal');
+  };
+
+  const handleResultDismiss = () => {
+    setCommandResult(null);
+    setMode('normal');
+  };
+
   useInput((input, key) => {
     if (showQuitConfirmation) {
       if (input === 'y') {
@@ -375,7 +426,7 @@ Please execute these commands and report the results.`;
       return;
     }
 
-    if (mode === 'detail' || mode === 'input') return;
+    if (mode === 'detail' || mode === 'input' || mode === 'command' || mode === 'command-result') return;
 
     if (key.tab) {
       setTab(t => t === 'inbox' ? 'history' : t === 'history' ? 'artifacts' : 'inbox');
@@ -383,6 +434,7 @@ Please execute these commands and report the results.`;
     }
     if (input === 'q') { handleQuitRequest(); return; }
     if (input === 'n') { setMode('input'); return; }
+    if (input === ':') { handleOpenCommandPalette(); return; }
 
     const list = tab === 'inbox' ? state.agents : tab === 'history' ? state.history : state.artifacts;
     const idx = tab === 'inbox' ? inboxIdx : tab === 'history' ? histIdx : artifactsIdx;
@@ -435,6 +487,33 @@ Please execute these commands and report the results.`;
   const waitingCount = state.agents.filter(a => a.status === 'waiting').length;
 
   const renderPage = () => {
+    if (mode === 'command') {
+      return {
+        content: (
+          <CommandPalette
+            commands={commands}
+            onExecute={handleExecuteCommand}
+            onCancel={handleCommandCancel}
+            loading={commandsLoading}
+          />
+        ),
+        help: null,
+      };
+    }
+
+    if (mode === 'command-result' && commandResult) {
+      return {
+        content: (
+          <CommandResult
+            result={commandResult.result}
+            commandName={commandResult.commandName}
+            onDismiss={handleResultDismiss}
+          />
+        ),
+        help: null,
+      };
+    }
+
     if (mode === 'detail' && detailArtifactPath) {
       const artifact = state.artifacts.find(a => a.path === detailArtifactPath);
       if (artifact) {
