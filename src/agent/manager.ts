@@ -8,7 +8,7 @@ import type { WorktreeContext } from './systemPromptTemplates';
 import { buildSystemPrompt, buildWorktreePromptPrefix } from './systemPromptTemplates';
 
 const PERMISSION_REQUIRED_TOOLS = ['Write', 'Edit', 'MultiEdit', 'Bash', 'NotebookEdit', 'KillBash'];
-const AUTO_ACCEPT_EDIT_TOOLS = ['Write', 'Edit', 'MultiEdit', 'NotebookEdit'];
+export const AUTO_ACCEPT_EDIT_TOOLS = ['Write', 'Edit', 'MultiEdit', 'NotebookEdit'];
 
 interface QueryEntry {
   query: Query;

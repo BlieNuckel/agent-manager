@@ -6,17 +6,32 @@ const toOutputLine = (text: string, isSubagent: boolean = false, subagentType?: 
   subagentType
 });
 
-export const createMockPermissionRequest = (): PermissionRequest => ({
-  toolName: 'Write',
-  toolInput: {
-    file_path: '/Users/demo/project/src/components/Example.tsx',
-    content: 'export const Example = () => { return <div>Hello</div>; };'
-  },
-  suggestions: [{ type: 'addRules', rules: [{ toolName: 'Write' }], behavior: 'allow', destination: 'localSettings' }],
-  resolve: (result: { allowed: boolean; alwaysAllowInRepo?: boolean }) => {
-    console.log(`Permission ${result.allowed ? 'granted' : 'denied'} for Write tool${result.alwaysAllowInRepo ? ' (saved to repo)' : ''}`);
+export const createMockPermissionRequest = (toolName: 'Write' | 'Bash' = 'Write'): PermissionRequest => {
+  if (toolName === 'Write') {
+    return {
+      toolName: 'Write',
+      toolInput: {
+        file_path: '/Users/demo/project/src/components/Example.tsx',
+        content: 'export const Example = () => { return <div>Hello</div>; };'
+      },
+      suggestions: [{ type: 'addRules', rules: [{ toolName: 'Write' }], behavior: 'allow', destination: 'localSettings' }],
+      resolve: (result: { allowed: boolean; alwaysAllowInRepo?: boolean }) => {
+        console.log(`Permission ${result.allowed ? 'granted' : 'denied'} for Write tool${result.alwaysAllowInRepo ? ' (saved to repo)' : ''}`);
+      }
+    };
+  } else {
+    return {
+      toolName: 'Bash',
+      toolInput: {
+        command: 'npm install && npm run build'
+      },
+      suggestions: [{ type: 'addRules', rules: [{ toolName: 'Bash' }], behavior: 'allow', destination: 'localSettings' }],
+      resolve: (result: { allowed: boolean; alwaysAllowInRepo?: boolean }) => {
+        console.log(`Permission ${result.allowed ? 'granted' : 'denied'} for Bash tool${result.alwaysAllowInRepo ? ' (saved to repo)' : ''}`);
+      }
+    };
   }
-});
+};
 
 export const mockAgents: Agent[] = [
   {
@@ -47,7 +62,7 @@ export const mockAgents: Agent[] = [
   {
     id: 'agent-2',
     title: 'Add dark mode support',
-    status: 'working',
+    status: 'waiting',
     prompt: 'Add dark mode toggle to the application',
     output: [
       '🔍 Searching for theme configuration...',
@@ -56,12 +71,13 @@ export const mockAgents: Agent[] = [
       '✅ Created ThemeContext.tsx',
       '✏️  Updating App.tsx to use theme provider...',
       '✅ Updated App.tsx',
-      '🔄 Now adding toggle component...',
+      '🔄 Now running build to verify changes...',
     ].map(line => toOutputLine(line)),
     createdAt: new Date(Date.now() - 600000),
     updatedAt: new Date(Date.now() - 2000),
     workDir: '/Users/demo/project',
     sessionId: 'session-456',
+    pendingPermission: createMockPermissionRequest('Bash'),
     agentType: 'auto-accept',
     permissionMode: 'acceptEdits',
   },
