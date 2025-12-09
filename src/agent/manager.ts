@@ -7,6 +7,9 @@ import { generateTitle } from '../utils/titleGenerator';
 import type { WorktreeContext } from './systemPromptTemplates';
 import { buildSystemPrompt, buildWorktreePromptPrefix } from './systemPromptTemplates';
 
+const PERMISSION_REQUIRED_TOOLS = ['Write', 'Edit', 'MultiEdit', 'Bash', 'NotebookEdit', 'KillBash'];
+const AUTO_ACCEPT_EDIT_TOOLS = ['Write', 'Edit', 'MultiEdit', 'NotebookEdit'];
+
 interface QueryEntry {
   query: Query;
   abort: AbortController;
@@ -20,7 +23,7 @@ interface QueryEntry {
 
 export class AgentSDKManager extends EventEmitter {
   private queries: Map<string, QueryEntry> = new Map();
-  private agentStates: Map<string, { agentType: AgentType; autoAcceptPermissions: boolean; hasTitle: boolean; permissionMode: PermissionMode }> = new Map();
+  private agentStates: Map<string, { agentType: AgentType; hasTitle: boolean; permissionMode: PermissionMode }> = new Map();
   private thinkingStates: Map<string, boolean> = new Map();
   private static commandsCache: SlashCommand[] | null = null;
 
@@ -36,8 +39,9 @@ export class AgentSDKManager extends EventEmitter {
   }
 
   private createCanUseTool(id: string) {
-    return async (toolName: string, toolInput: Record<string, unknown>, options: { signal: AbortSignal; agentID?: string; toolUseID: string }) => {
+    return async (toolName: string, toolInput: Record<string, unknown>, options: { signal: AbortSignal; agentID?: string; toolUseID: string; suggestions?: unknown[] }) => {
       const entry = this.queries.get(id);
+      const agentState = this.agentStates.get(id);
       debug('canUseTool called:', { toolName, toolInput, agentID: options.agentID, toolUseID: options.toolUseID });
 
       const isSubagentTool = options.agentID !== undefined;
@@ -56,22 +60,36 @@ export class AgentSDKManager extends EventEmitter {
         }
       }
 
+      if (agentState?.permissionMode === 'acceptEdits' && AUTO_ACCEPT_EDIT_TOOLS.includes(toolName)) {
+        debug('Auto-accepting edit permission for tool:', toolName);
+        this.emit('output', id, `[+] Auto-allowed: ${toolName}`, isSubagentTool, options.agentID, subagentType);
+        return { behavior: 'allow' as const, updatedInput: toolInput };
+      }
+
       debug('Requesting permission for tool:', toolName);
       this.emit('output', id, `[!] Permission required for: ${toolName}`, isSubagentTool, options.agentID, subagentType);
 
-      const result = await new Promise<boolean>((resolvePermission) => {
+      const result = await new Promise<{ allowed: boolean; alwaysAllowInRepo?: boolean }>((resolvePermission) => {
         this.emit('permissionRequest', id, {
           toolName,
           toolInput,
+          suggestions: options.suggestions,
           resolve: resolvePermission
         });
       });
 
-      debug('Permission result:', { toolName, allowed: result });
-      this.emit('output', id, result ? `[+] Allowed: ${toolName}` : `[-] Denied: ${toolName}`, isSubagentTool, options.agentID, subagentType);
+      debug('Permission result:', { toolName, allowed: result.allowed, alwaysAllowInRepo: result.alwaysAllowInRepo });
+      this.emit('output', id, result.allowed ? `[+] Allowed: ${toolName}` : `[-] Denied: ${toolName}`, isSubagentTool, options.agentID, subagentType);
 
-      if (result) {
-        return { behavior: 'allow' as const, updatedInput: toolInput as Record<string, unknown> };
+      if (result.allowed) {
+        const response: { behavior: 'allow'; updatedInput: Record<string, unknown>; updatedPermissions?: unknown[] } = {
+          behavior: 'allow' as const,
+          updatedInput: toolInput
+        };
+        if (result.alwaysAllowInRepo && options.suggestions) {
+          response.updatedPermissions = options.suggestions;
+        }
+        return response;
       } else {
         return { behavior: 'deny' as const, message: 'User denied permission' };
       }
@@ -130,10 +148,10 @@ export class AgentSDKManager extends EventEmitter {
     });
   }
 
-  async spawn(id: string, prompt: string, workDir: string, agentType: AgentType, autoAcceptPermissions: boolean, worktreeContext?: WorktreeContext, title?: string): Promise<void> {
+  async spawn(id: string, prompt: string, workDir: string, agentType: AgentType, worktreeContext?: WorktreeContext, title?: string): Promise<void> {
     const abortController = new AbortController();
     const permissionMode = this.getPermissionModeForAgentType(agentType);
-    this.agentStates.set(id, { agentType, autoAcceptPermissions, hasTitle: true, permissionMode });
+    this.agentStates.set(id, { agentType, hasTitle: true, permissionMode });
 
     const systemPromptAppend = buildSystemPrompt(worktreeContext);
 
@@ -429,10 +447,10 @@ export class AgentSDKManager extends EventEmitter {
     this.cleanup(id);
   }
 
-  setAutoAccept(id: string, autoAccept: boolean): void {
+  setPermissionMode(id: string, permissionMode: PermissionMode): void {
     const state = this.agentStates.get(id);
     if (state) {
-      state.autoAcceptPermissions = autoAccept;
+      state.permissionMode = permissionMode;
       this.agentStates.set(id, state);
     }
   }

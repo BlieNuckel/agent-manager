@@ -77,7 +77,7 @@ export const DemoApp = () => {
     if (detailAgentId) {
       const agent = state.agents.find(a => a.id === detailAgentId);
       if (agent?.pendingPermission) {
-        agent.pendingPermission.resolve(allowed);
+        agent.pendingPermission.resolve({ allowed });
         dispatch({ type: 'SET_PERMISSION', id: detailAgentId, permission: undefined });
       }
     }
@@ -87,8 +87,18 @@ export const DemoApp = () => {
     if (detailAgentId) {
       const agent = state.agents.find(a => a.id === detailAgentId);
       if (agent?.pendingPermission) {
-        agent.pendingPermission.resolve(true);
-        dispatch({ type: 'UPDATE_AGENT', id: detailAgentId, updates: { autoAcceptPermissions: true } });
+        agent.pendingPermission.resolve({ allowed: true });
+        dispatch({ type: 'UPDATE_AGENT', id: detailAgentId, updates: { permissionMode: 'acceptEdits' } });
+        dispatch({ type: 'SET_PERMISSION', id: detailAgentId, permission: undefined });
+      }
+    }
+  };
+
+  const handleAlwaysAllowInRepo = () => {
+    if (detailAgentId) {
+      const agent = state.agents.find(a => a.id === detailAgentId);
+      if (agent?.pendingPermission) {
+        agent.pendingPermission.resolve({ allowed: true, alwaysAllowInRepo: true });
         dispatch({ type: 'SET_PERMISSION', id: detailAgentId, permission: undefined });
       }
     }
@@ -189,6 +199,7 @@ export const DemoApp = () => {
           agent={detailAgent}
           onPermissionResponse={handlePermissionResponse}
           onAlwaysAllow={handleAlwaysAllow}
+          onAlwaysAllowInRepo={handleAlwaysAllowInRepo}
           onQuestionResponse={() => {}}
           onBack={() => setMode('normal')}
         />

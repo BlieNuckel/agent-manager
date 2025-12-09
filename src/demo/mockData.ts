@@ -12,8 +12,9 @@ export const createMockPermissionRequest = (): PermissionRequest => ({
     file_path: '/Users/demo/project/src/components/Example.tsx',
     content: 'export const Example = () => { return <div>Hello</div>; };'
   },
-  resolve: (allowed: boolean) => {
-    console.log(`Permission ${allowed ? 'granted' : 'denied'} for Write tool`);
+  suggestions: [{ type: 'addRules', rules: [{ toolName: 'Write' }], behavior: 'allow', destination: 'localSettings' }],
+  resolve: (result: { allowed: boolean; alwaysAllowInRepo?: boolean }) => {
+    console.log(`Permission ${result.allowed ? 'granted' : 'denied'} for Write tool${result.alwaysAllowInRepo ? ' (saved to repo)' : ''}`);
   }
 });
 
@@ -41,7 +42,6 @@ export const mockAgents: Agent[] = [
     sessionId: 'session-123',
     pendingPermission: createMockPermissionRequest(),
     agentType: 'normal',
-    autoAcceptPermissions: false,
     permissionMode: 'default',
   },
   {
@@ -63,7 +63,6 @@ export const mockAgents: Agent[] = [
     workDir: '/Users/demo/project',
     sessionId: 'session-456',
     agentType: 'auto-accept',
-    autoAcceptPermissions: true,
     permissionMode: 'acceptEdits',
   },
   {
@@ -91,7 +90,6 @@ export const mockAgents: Agent[] = [
     workDir: '/Users/demo/project',
     sessionId: 'session-789',
     agentType: 'normal',
-    autoAcceptPermissions: false,
     permissionMode: 'default',
   },
   {
@@ -113,7 +111,6 @@ export const mockAgents: Agent[] = [
     updatedAt: new Date(Date.now() - 120000),
     workDir: '/Users/demo/project',
     agentType: 'normal',
-    autoAcceptPermissions: false,
     permissionMode: 'default',
   },
   {
@@ -148,7 +145,6 @@ export const mockAgents: Agent[] = [
     workDir: '/Users/demo/backend',
     worktreeName: 'optimize-queries',
     agentType: 'planning',
-    autoAcceptPermissions: false,
     permissionMode: 'default',
   },
 ];
@@ -201,7 +197,6 @@ export const createMockAgent = (overrides?: Partial<Agent>): Agent => ({
   updatedAt: new Date(),
   workDir: '/Users/demo/project',
   agentType: 'normal',
-  autoAcceptPermissions: false,
   permissionMode: 'default',
   ...overrides,
 });

@@ -207,13 +207,12 @@ export const App = () => {
       createdAt: new Date(),
       updatedAt: new Date(),
       agentType,
-      autoAcceptPermissions: false,
       permissionMode,
     };
     dispatch({ type: 'ADD_AGENT', agent: placeholderAgent });
 
     debug('Spawning agent:', { id, workDir, agentType, hasWorktreeContext: !!worktreeContext });
-    agentManager.spawn(id, prompt, workDir, agentType, false, worktreeContext, title);
+    agentManager.spawn(id, prompt, workDir, agentType, worktreeContext, title);
 
     const entry: HistoryEntry = { id, title: title || 'Untitled Agent', prompt, date: new Date(), workDir };
     const newHistory = [entry, ...state.history.filter(h => h.prompt !== prompt)].slice(0, 5);
@@ -226,8 +225,8 @@ export const App = () => {
       const agent = state.agents.find(a => a.id === detailAgentId);
       debug('Found agent:', { id: agent?.id, hasPendingPermission: !!agent?.pendingPermission });
       if (agent?.pendingPermission) {
-        debug('Resolving permission with:', allowed);
-        agent.pendingPermission.resolve(allowed);
+        debug('Resolving permission with:', { allowed });
+        agent.pendingPermission.resolve({ allowed });
         dispatch({ type: 'SET_PERMISSION', id: detailAgentId, permission: undefined });
       }
     }
@@ -238,10 +237,22 @@ export const App = () => {
     if (detailAgentId) {
       const agent = state.agents.find(a => a.id === detailAgentId);
       if (agent?.pendingPermission) {
-        debug('Setting auto-accept for agent:', detailAgentId);
-        agent.pendingPermission.resolve(true);
-        agentManager.setAutoAccept(detailAgentId, true);
-        dispatch({ type: 'UPDATE_AGENT', id: detailAgentId, updates: { autoAcceptPermissions: true } });
+        debug('Setting acceptEdits mode for agent:', detailAgentId);
+        agent.pendingPermission.resolve({ allowed: true });
+        agentManager.setPermissionMode(detailAgentId, 'acceptEdits');
+        dispatch({ type: 'UPDATE_AGENT', id: detailAgentId, updates: { permissionMode: 'acceptEdits' } });
+        dispatch({ type: 'SET_PERMISSION', id: detailAgentId, permission: undefined });
+      }
+    }
+  };
+
+  const handleAlwaysAllowInRepo = () => {
+    debug('handleAlwaysAllowInRepo called:', { detailAgentId });
+    if (detailAgentId) {
+      const agent = state.agents.find(a => a.id === detailAgentId);
+      if (agent?.pendingPermission) {
+        debug('Always allowing in repo for agent:', detailAgentId);
+        agent.pendingPermission.resolve({ allowed: true, alwaysAllowInRepo: true });
         dispatch({ type: 'SET_PERMISSION', id: detailAgentId, permission: undefined });
       }
     }
@@ -594,6 +605,7 @@ Please execute these commands and report the results.`;
           agent={detailAgent}
           onPermissionResponse={handlePermissionResponse}
           onAlwaysAllow={handleAlwaysAllow}
+          onAlwaysAllowInRepo={handleAlwaysAllowInRepo}
           onQuestionResponse={handleQuestionResponse}
           onMergeResponse={handleMergeResponse}
           onSendMessage={handleSendMessage}

@@ -11,6 +11,7 @@ interface DetailViewPageProps {
   agent: Agent;
   onPermissionResponse: (allowed: boolean) => void;
   onAlwaysAllow: () => void;
+  onAlwaysAllowInRepo?: () => void;
   onQuestionResponse: (answers: Record<string, string | string[]>) => void;
   onMergeResponse?: (approved: boolean) => void;
   onSendMessage?: (message: string) => void;
@@ -23,6 +24,7 @@ export const DetailViewPage = ({
   agent,
   onPermissionResponse,
   onAlwaysAllow,
+  onAlwaysAllowInRepo,
   onQuestionResponse,
   onMergeResponse,
   onSendMessage,
@@ -189,6 +191,7 @@ export const DetailViewPage = ({
           permission={agent.pendingPermission}
           onResponse={onPermissionResponse}
           onAlwaysAllow={onAlwaysAllow}
+          onAlwaysAllowInRepo={onAlwaysAllowInRepo}
         />
       )}
 

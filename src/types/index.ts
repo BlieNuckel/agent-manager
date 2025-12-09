@@ -6,7 +6,8 @@ export type AgentType = 'normal' | 'planning' | 'auto-accept';
 export interface PermissionRequest {
   toolName: string;
   toolInput: unknown;
-  resolve: (allowed: boolean) => void;
+  suggestions?: unknown[];
+  resolve: (result: { allowed: boolean; alwaysAllowInRepo?: boolean }) => void;
 }
 
 export interface QuestionOption {
@@ -39,7 +40,7 @@ export interface OutputLine {
   subagentType?: string;
 }
 
-export type PermissionMode = 'default' | 'acceptEdits' | 'bypassPermissions';
+export type PermissionMode = 'default' | 'acceptEdits';
 
 export interface Agent {
   id: string;
@@ -56,7 +57,6 @@ export interface Agent {
   pendingQuestion?: QuestionRequest;
   pendingMerge?: MergeState;
   agentType: AgentType;
-  autoAcceptPermissions: boolean;
   permissionMode: PermissionMode;
 }
 
