@@ -75,9 +75,17 @@ export type Action =
   | { type: 'SET_QUESTION'; id: string; question: QuestionRequest | undefined }
   | { type: 'SET_MERGE_STATE'; id: string; mergeState: MergeState | undefined }
   | { type: 'REMOVE_HISTORY'; index: number }
-  | { type: 'UPDATE_HISTORY_TITLE'; id: string; title: string };
+  | { type: 'UPDATE_HISTORY_TITLE'; id: string; title: string }
+  | { type: 'SET_ARTIFACTS'; artifacts: ArtifactInfo[] };
+
+export interface ArtifactInfo {
+  name: string;
+  path: string;
+  modifiedAt: Date;
+}
 
 export interface State {
   agents: Agent[];
   history: HistoryEntry[];
+  artifacts: ArtifactInfo[];
 }
