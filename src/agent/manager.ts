@@ -1,4 +1,5 @@
 import { EventEmitter } from 'events';
+import path from 'path';
 import { query, type Query, type SDKMessage, type SlashCommand, createSdkMcpServer, tool } from '@anthropic-ai/claude-agent-sdk';
 import { z } from 'zod';
 import type { AgentType, Question, PermissionMode } from '../types';
@@ -173,6 +174,12 @@ export class AgentSDKManager extends EventEmitter {
         'question-handler': this.createQuestionMcpServer(id)
       }
     };
+
+    if (worktreeContext?.enabled && worktreeContext.gitRoot) {
+      const worktreeParentDir = path.dirname(worktreeContext.gitRoot);
+      queryOptions.additionalDirectories = [worktreeParentDir];
+      debug('Adding worktree parent directory to trusted paths:', worktreeParentDir);
+    }
 
     if (systemPromptAppend) {
       queryOptions.systemPrompt = {
