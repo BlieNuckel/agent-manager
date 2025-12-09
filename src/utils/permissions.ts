@@ -1,6 +1,6 @@
 import type { PermissionSuggestion } from '../types';
 
-export function formatPermissionRule(suggestion: PermissionSuggestion): string {
+export function formatPermissionRule(suggestion: PermissionSuggestion, fallbackToolInput?: unknown): string {
   if (!suggestion.rules || suggestion.rules.length === 0) {
     return '';
   }
@@ -9,9 +9,10 @@ export function formatPermissionRule(suggestion: PermissionSuggestion): string {
 
   if (toolNames.length === 1) {
     const rule = suggestion.rules[0];
-    if (rule.toolInput) {
-      const inputStr = formatToolInputForRule(rule.toolInput);
-      return `${rule.toolName}(${inputStr})`;
+    const toolInput = rule.toolInput || fallbackToolInput;
+    if (toolInput && typeof toolInput === 'object') {
+      const inputStr = formatToolInputForRule(toolInput as Record<string, unknown>);
+      return `${rule.toolName}("${inputStr}")`;
     }
     return rule.toolName;
   }
@@ -33,7 +34,7 @@ function formatToolInputForRule(input: Record<string, unknown>): string {
   return '*';
 }
 
-export function getPermissionExplanation(suggestions: PermissionSuggestion[] | undefined, toolName: string): {
+export function getPermissionExplanation(suggestions: PermissionSuggestion[] | undefined, toolName: string, toolInput?: unknown): {
   saveLocation: string;
   whatWillBeSaved: string;
   futureBeha: string;
@@ -47,7 +48,7 @@ export function getPermissionExplanation(suggestions: PermissionSuggestion[] | u
     ? '.claude/settings.local.json'
     : '~/.claude/settings.json';
 
-  const ruleStr = formatPermissionRule(suggestion);
+  const ruleStr = formatPermissionRule(suggestion, toolInput);
   const whatWillBeSaved = ruleStr;
 
   const futureBeha = suggestion.behavior === 'allow'
