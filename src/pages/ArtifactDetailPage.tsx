@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Box, Text, useInput, useStdout } from 'ink';
-import Markdown from 'ink-markdown';
+import { Markdown } from '../components/Markdown';
 import fs from 'fs';
 import type { ArtifactInfo } from '../types';
 

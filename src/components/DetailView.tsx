@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Box, Text, useInput, useApp } from 'ink';
-import Markdown from 'ink-markdown';
+import { Markdown } from './Markdown';
 import type { Agent } from '../types';
 import { StatusBadge } from './StatusBadge';
 import { PermissionPrompt } from './PermissionPrompt';
