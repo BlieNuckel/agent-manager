@@ -161,11 +161,11 @@ export const DetailViewPage = ({
         </Box>
       </Box>
 
-      <Box flexDirection="column" height={outputBoxHeight} flexShrink={0} flexGrow={0} borderStyle="round" borderColor="gray" paddingX={1} overflow="hidden">
+      <Box flexDirection="column" flexShrink={1} flexGrow={1} minHeight={0} borderStyle="round" borderColor="gray" paddingX={1} overflow="hidden">
         <Box flexShrink={0} height={1}>
           <Text dimColor wrap="truncate-end">Output ({agent.output.length} lines, scroll: {scrollOffset + 1}-{Math.min(scrollOffset + visibleLines, agent.output.length)} of {agent.output.length})</Text>
         </Box>
-        <Box flexDirection="column" height={visibleLines} flexShrink={0} flexGrow={0} overflow="hidden">
+        <Box flexDirection="column" flexShrink={1} flexGrow={1} minHeight={0} overflow="hidden">
           {displayedLines.length === 0 ? (
             <Text dimColor>Waiting for output...</Text>
           ) : (
