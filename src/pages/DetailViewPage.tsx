@@ -77,9 +77,6 @@ export const DetailViewPage = ({
 
     if (chatMode) return;
 
-    if (agent.pendingPermission) return;
-    if (agent.pendingQuestion) return;
-
     if (agent.pendingMerge) {
       if (agent.pendingMerge.status === 'ready' && onMergeResponse) {
         if (input === 'y') {
@@ -96,7 +93,7 @@ export const DetailViewPage = ({
     }
 
     const canChat = agent.status === 'working' || agent.status === 'idle';
-    if (input === 'i' && onToggleChatMode && canChat) {
+    if (input === 'i' && onToggleChatMode && canChat && !agent.pendingPermission && !agent.pendingQuestion) {
       onToggleChatMode();
       return;
     }
@@ -120,16 +117,21 @@ export const DetailViewPage = ({
   };
 
   useEffect(() => {
-    if (!agent.pendingPermission && !agent.pendingQuestion) {
-      const maxScroll = Math.max(0, agent.output.length - visibleLines);
-      const atBottom = scrollOffset >= maxScroll - 2;
-      if (atBottom || agent.status === 'working') {
-        setScrollOffset(maxScroll);
-      } else if (scrollOffset > maxScroll) {
-        setScrollOffset(maxScroll);
-      }
+    const maxScroll = Math.max(0, agent.output.length - visibleLines);
+    const atBottom = scrollOffset >= maxScroll - 2;
+    if (atBottom || agent.status === 'working') {
+      setScrollOffset(maxScroll);
+    } else if (scrollOffset > maxScroll) {
+      setScrollOffset(maxScroll);
     }
-  }, [agent.output.length, agent.pendingPermission, agent.pendingQuestion, visibleLines, scrollOffset, agent.status]);
+  }, [agent.output.length, visibleLines, scrollOffset, agent.status]);
+
+  useEffect(() => {
+    if (agent.pendingPermission || agent.pendingQuestion) {
+      const maxScroll = Math.max(0, agent.output.length - visibleLines);
+      setScrollOffset(maxScroll);
+    }
+  }, [agent.pendingPermission, agent.pendingQuestion, agent.output.length, visibleLines]);
 
   const displayedLines = agent.output.slice(scrollOffset, scrollOffset + visibleLines);
   const displayedPromptLines = promptLines.slice(promptScrollOffset, promptScrollOffset + maxPromptHeight);
@@ -232,7 +234,7 @@ export const DetailViewPage = ({
   );
 };
 
-export const getDetailViewHelp = (promptNeedsScroll: boolean, canChat: boolean, chatMode: boolean, pendingMerge?: any) => {
+export const getDetailViewHelp = (promptNeedsScroll: boolean, canChat: boolean, chatMode: boolean, pendingMerge?: any, pendingPermission?: boolean, pendingQuestion?: boolean) => {
   if (chatMode) {
     return (
       <>
@@ -255,6 +257,17 @@ export const getDetailViewHelp = (promptNeedsScroll: boolean, canChat: boolean, 
     return (
       <>
         <Text dimColor>Press any key to continue...</Text>
+      </>
+    );
+  }
+
+  if (pendingPermission || pendingQuestion) {
+    return (
+      <>
+        <Text color="cyan">↑↓/jk</Text>{' '}Scroll{'  '}
+        <Text color="cyan">g/G</Text>{' '}Top/Bottom{'  '}
+        {promptNeedsScroll && <><Text color="cyan">p/P</Text>{' '}Prompt{'  '}</>}
+        <Text color="cyan">q/Esc</Text>{' '}Close
       </>
     );
   }
