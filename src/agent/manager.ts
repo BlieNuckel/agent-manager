@@ -75,6 +75,48 @@ export class AgentSDKManager extends EventEmitter {
     }
   }
 
+  private formatToolInput(toolName: string, input: Record<string, unknown>): string {
+    const maxLength = 60;
+
+    const truncate = (str: string) => {
+      if (str.length > maxLength) {
+        return str.substring(0, maxLength) + '...';
+      }
+      return str;
+    };
+
+    switch (toolName) {
+      case 'Bash':
+        return truncate(String(input.command || ''));
+      case 'Read':
+        return truncate(String(input.file_path || ''));
+      case 'Write':
+      case 'Edit':
+      case 'MultiEdit':
+        return truncate(String(input.file_path || ''));
+      case 'Glob':
+        return truncate(String(input.pattern || ''));
+      case 'Grep':
+        return truncate(String(input.pattern || ''));
+      case 'WebFetch':
+        return truncate(String(input.url || ''));
+      case 'WebSearch':
+        return truncate(String(input.query || ''));
+      case 'Task':
+        return truncate(String(input.description || input.prompt || ''));
+      default: {
+        const firstKey = Object.keys(input)[0];
+        if (firstKey) {
+          const value = input[firstKey];
+          if (typeof value === 'string') {
+            return truncate(value);
+          }
+        }
+        return '';
+      }
+    }
+  }
+
   private createCanUseTool(id: string) {
     return async (toolName: string, toolInput: Record<string, unknown>, options: { signal: AbortSignal; agentID?: string; toolUseID: string; suggestions?: unknown[] }) => {
       const entry = this.queries.get(id);
@@ -442,7 +484,8 @@ export class AgentSDKManager extends EventEmitter {
             debug('Tool use in assistant message:', { name: content.name, id: content.id, isSubagent });
 
             if (!isSubagent || (content.name !== 'Task' && PERMISSION_REQUIRED_TOOLS.includes(content.name))) {
-              this.emit('output', id, `[>] ${content.name}`, isSubagent, subagentInfo.subagentId, subagentInfo.subagentType);
+              const inputSummary = this.formatToolInput(content.name, content.input as Record<string, unknown>);
+              this.emit('output', id, `[>] ${content.name}(${inputSummary})`, isSubagent, subagentInfo.subagentId, subagentInfo.subagentType);
             }
           }
         }
