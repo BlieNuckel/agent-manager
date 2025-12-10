@@ -4,11 +4,75 @@ export interface WorktreeContext {
   gitRoot: string;
   currentBranch: string;
   repoName: string;
+  worktreePath?: string;
+  branchName?: string;
 }
 
 export function buildWorktreeInstructions(context: WorktreeContext): string {
   if (!context.enabled) {
     return '';
+  }
+
+  if (context.worktreePath && context.branchName) {
+    return `
+# Git Worktree Instructions (Worktree Already Created)
+
+A git worktree has been created for you. You are working in an isolated environment.
+
+## Worktree Context
+- Branch Name: ${context.branchName}
+- Worktree Path: ${context.worktreePath}
+- Base Branch: ${context.currentBranch}
+- Git Root: ${context.gitRoot}
+
+## Your Working Directory
+You are currently working in: ${context.worktreePath}
+All file operations are already scoped to this worktree.
+
+## Your Responsibilities
+
+### 1. Work in This Directory
+- All file operations (Read, Write, Edit, etc.) happen in the worktree
+- Make commits as you normally would
+- The worktree is isolated from the main repository
+
+### 2. Prepare for Merge (Final Step)
+When your work is complete and you've tested everything:
+
+\`\`\`bash
+# Ensure all changes are committed
+git add .
+git commit -m "Your descriptive commit message"
+
+# Switch back to main repository
+cd "${context.gitRoot}"
+
+# Test if merge will have conflicts (dry-run)
+git merge --no-commit --no-ff "${context.branchName}"
+
+# Check the status
+if git status --porcelain | grep -q '^UU\\|^AA\\|^DD'; then
+  echo "[WORKTREE_MERGE_CONFLICTS] Branch ${context.branchName} has conflicts"
+  git merge --abort
+else
+  echo "[WORKTREE_MERGE_READY] Branch ${context.branchName} is ready to merge"
+  git merge --abort
+fi
+\`\`\`
+
+### 3. Signal Events
+Output these markers at the appropriate times:
+- \`[WORKTREE_MERGE_READY] ${context.branchName}\` - Branch is ready to merge without conflicts
+- \`[WORKTREE_MERGE_CONFLICTS] ${context.branchName}\` - Branch has merge conflicts that need manual resolution
+- \`[WORKTREE_MERGE_FAILED] ${context.branchName} <error-message>\` - Could not test merge
+
+## Important Notes
+- DO NOT create a new worktree - one has already been created for you
+- ALWAYS work within the worktree directory: ${context.worktreePath}
+- ALWAYS test merge viability before completing
+- DO NOT attempt to merge yourself - signal readiness and let the user decide
+- DO NOT delete the worktree or branch - cleanup will be handled after merge confirmation
+`.trim();
   }
 
   return `
@@ -188,6 +252,18 @@ export function buildSystemPrompt(worktreeContext?: WorktreeContext): string {
 }
 
 export function buildWorktreePromptPrefix(context: WorktreeContext): string {
+  if (context.worktreePath && context.branchName) {
+    return `**WORKTREE ALREADY CREATED:**
+A git worktree has been set up for you. You are working in branch \`${context.branchName}\` at \`${context.worktreePath}\`.
+
+All your file operations will automatically work in this worktree directory. Proceed with your task.
+
+---
+
+**ACTUAL TASK:**
+`;
+  }
+
   if (context.suggestedName) {
     return `**MANDATORY FIRST STEP - CREATE GIT WORKTREE:**
 Before doing ANYTHING else, you MUST execute these exact commands to set up an isolated worktree:

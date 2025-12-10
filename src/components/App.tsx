@@ -4,7 +4,8 @@ import type { Agent, AgentType, HistoryEntry, Mode, PermissionRequest, QuestionR
 import { reducer } from '../state/reducer';
 import { loadHistory, saveHistory } from '../state/history';
 import { AgentSDKManager } from '../agent/manager';
-import { getGitRoot, getCurrentBranch, getRepoName } from '../git/worktree';
+import { getGitRoot, getCurrentBranch, getRepoName, createWorktreeProgrammatic, generateBranchName } from '../git/worktree';
+import { createWorktreeWithTimeout, type WorktreeSetupResult } from '../agent/worktreeSetupAgent';
 import type { WorktreeContext } from '../agent/systemPromptTemplates';
 import { genId } from '../utils/helpers';
 import { debug } from '../utils/logger';
@@ -184,54 +185,164 @@ export const App = () => {
     const id = genId();
     const workDir = process.cwd();
     let worktreeContext: WorktreeContext | undefined;
+    let effectiveWorkDir = workDir;
+
+    const permissionMode: PermissionMode = agentType === 'auto-accept' ? 'acceptEdits' : 'default';
 
     if (worktree.enabled) {
       const gitRoot = getGitRoot();
       if (gitRoot) {
         const currentBranch = getCurrentBranch();
         const repoName = getRepoName(gitRoot);
-        const suggestedName = worktree.name || undefined;
+
+        const placeholderAgent: Agent = {
+          id,
+          title: title || 'Untitled Agent',
+          prompt,
+          status: 'working',
+          output: [{ text: '[i] Setting up git worktree (using Haiku agent)...', isSubagent: false }],
+          workDir,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          agentType,
+          permissionMode,
+          permissionQueue: [],
+          images,
+        };
+        dispatch({ type: 'ADD_AGENT', agent: placeholderAgent });
+
+        let result: WorktreeSetupResult = await createWorktreeWithTimeout({
+          gitRoot,
+          repoName,
+          baseBranch: currentBranch,
+          taskDescription: prompt,
+          suggestedBranchName: worktree.name || undefined,
+        }, 30000);
+
+        if (!result.success && result.error?.includes('timed out')) {
+          dispatch({
+            type: 'APPEND_OUTPUT',
+            id,
+            line: { text: '[i] Haiku agent timed out, trying programmatic fallback...', isSubagent: false }
+          });
+
+          const fallbackBranchName = worktree.name || generateBranchName(prompt);
+          const fallbackResult = createWorktreeProgrammatic(gitRoot, fallbackBranchName, currentBranch, repoName);
+
+          if (fallbackResult.success) {
+            result = fallbackResult;
+          }
+        }
+
+        if (!result.success) {
+          dispatch({
+            type: 'APPEND_OUTPUT',
+            id,
+            line: { text: `[x] Failed to create worktree: ${result.error}`, isSubagent: false }
+          });
+          dispatch({ type: 'UPDATE_AGENT', id, updates: { status: 'error' } });
+
+          const entry: HistoryEntry = {
+            id,
+            title: title || 'Untitled Agent',
+            prompt,
+            date: new Date(),
+            workDir,
+            images: images?.map(img => ({
+              id: img.id,
+              mediaType: img.mediaType,
+              size: img.size || 0
+            }))
+          };
+          const newHistory = [entry, ...state.history.filter(h => h.prompt !== prompt)].slice(0, 5);
+          saveHistory(newHistory);
+          return;
+        }
+
+        dispatch({
+          type: 'APPEND_OUTPUT',
+          id,
+          line: { text: `[+] Worktree created: ${result.branchName}`, isSubagent: false }
+        });
+        dispatch({
+          type: 'APPEND_OUTPUT',
+          id,
+          line: { text: `[+] Path: ${result.worktreePath}`, isSubagent: false }
+        });
 
         worktreeContext = {
           enabled: true,
-          suggestedName,
+          suggestedName: result.branchName,
           gitRoot,
           currentBranch,
-          repoName
+          repoName,
+          worktreePath: result.worktreePath,
+          branchName: result.branchName,
         };
 
-        debug('Worktree context created:', worktreeContext);
+        effectiveWorkDir = result.worktreePath!;
+
+        dispatch({
+          type: 'UPDATE_AGENT',
+          id,
+          updates: {
+            workDir: effectiveWorkDir,
+            worktreePath: result.worktreePath,
+            worktreeName: result.branchName
+          }
+        });
+
+        debug('Worktree context created via Haiku agent:', worktreeContext);
+
+        debug('Spawning agent in worktree:', { id, effectiveWorkDir, agentType, imageCount: images?.length || 0 });
+        agentManager.spawn(id, prompt, effectiveWorkDir, agentType, worktreeContext, title, images);
+      } else {
+        const placeholderAgent: Agent = {
+          id,
+          title: title || 'Untitled Agent',
+          prompt,
+          status: 'working',
+          output: [{ text: '[!] Not in a git repository, skipping worktree creation', isSubagent: false }],
+          workDir,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          agentType,
+          permissionMode,
+          permissionQueue: [],
+          images,
+        };
+        dispatch({ type: 'ADD_AGENT', agent: placeholderAgent });
+
+        debug('Spawning agent (no git root):', { id, workDir, agentType, imageCount: images?.length || 0 });
+        agentManager.spawn(id, prompt, workDir, agentType, undefined, title, images);
       }
+    } else {
+      const placeholderAgent: Agent = {
+        id,
+        title: title || 'Untitled Agent',
+        prompt,
+        status: 'working',
+        output: [],
+        workDir,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        agentType,
+        permissionMode,
+        permissionQueue: [],
+        images,
+      };
+      dispatch({ type: 'ADD_AGENT', agent: placeholderAgent });
+
+      debug('Spawning agent:', { id, workDir, agentType, imageCount: images?.length || 0 });
+      agentManager.spawn(id, prompt, workDir, agentType, undefined, title, images);
     }
-
-    const permissionMode: PermissionMode = agentType === 'auto-accept' ? 'acceptEdits' : 'default';
-
-    const placeholderAgent: Agent = {
-      id,
-      title: title || 'Untitled Agent',
-      prompt,
-      status: 'working',
-      output: worktree.enabled ? [{ text: '[i] Agent will create git worktree as first action', isSubagent: false }] : [],
-      workDir,
-      worktreeName: worktreeContext?.suggestedName,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-      agentType,
-      permissionMode,
-      permissionQueue: [],
-      images,
-    };
-    dispatch({ type: 'ADD_AGENT', agent: placeholderAgent });
-
-    debug('Spawning agent:', { id, workDir, agentType, hasWorktreeContext: !!worktreeContext, imageCount: images?.length || 0 });
-    agentManager.spawn(id, prompt, workDir, agentType, worktreeContext, title, images);
 
     const entry: HistoryEntry = {
       id,
       title: title || 'Untitled Agent',
       prompt,
       date: new Date(),
-      workDir,
+      workDir: effectiveWorkDir,
       images: images?.map(img => ({
         id: img.id,
         mediaType: img.mediaType,
