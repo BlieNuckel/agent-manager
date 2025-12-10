@@ -4,17 +4,30 @@ import { spawnSync } from 'child_process';
 import { writeFileSync, readFileSync, unlinkSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
+import Clipboard from '@crosscopy/clipboard';
+import { writeFile, mkdir } from 'fs/promises';
+import { TEMP_IMAGES_DIR } from '../utils/imageStorage.js';
+
+function detectImageType(base64: string): string {
+  if (base64.startsWith('/9j/')) return 'image/jpeg';
+  if (base64.startsWith('iVBORw0KGgo')) return 'image/png';
+  if (base64.startsWith('R0lGOD')) return 'image/gif';
+  if (base64.startsWith('UklGR')) return 'image/webp';
+  return 'image/png';
+}
 
 export const MultilineInput = ({
   value,
   onChange,
   onSubmit,
-  placeholder
+  placeholder,
+  onImagePasted
 }: {
   value: string;
   onChange: (value: string) => void;
   onSubmit: (value: string) => void;
   placeholder?: string;
+  onImagePasted?: (id: string, path: string, base64: string, mediaType: string) => void;
 }) => {
   const [cursor, setCursor] = useState(value.length);
 
@@ -22,7 +35,50 @@ export const MultilineInput = ({
     setCursor(value.length);
   }, [value]);
 
+  const handleImagePaste = async () => {
+    try {
+      if (await Clipboard.hasImage()) {
+        const imageId = `image-${Date.now()}`;
+        const base64Data = await Clipboard.getImageBase64();
+
+        const mediaType = detectImageType(base64Data);
+        const extension = mediaType.split('/')[1];
+
+        await mkdir(TEMP_IMAGES_DIR, { recursive: true });
+        const tempPath = join(TEMP_IMAGES_DIR, `${imageId}.${extension}`);
+        const buffer = Buffer.from(base64Data, 'base64');
+        await writeFile(tempPath, buffer);
+
+        const indicator = `>image:${imageId}.${extension}>`;
+        const before = value.slice(0, cursor);
+        const after = value.slice(cursor);
+        const newValue = before + indicator + after;
+
+        onChange(newValue);
+        setCursor(cursor + indicator.length);
+
+        onImagePasted?.(imageId, tempPath, base64Data, mediaType);
+
+      } else {
+        const text = await Clipboard.getText();
+        if (text) {
+          const before = value.slice(0, cursor);
+          const after = value.slice(cursor);
+          onChange(before + text + after);
+          setCursor(cursor + text.length);
+        }
+      }
+    } catch (error) {
+      console.error('Paste error:', error);
+    }
+  };
+
   useInput((input, key) => {
+    if (key.ctrl && input === 'v') {
+      handleImagePaste();
+      return;
+    }
+
     if (key.ctrl && input === 'g') {
       openInVim();
       return;

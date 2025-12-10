@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Box, Text, useInput } from 'ink';
 import TextInput from 'ink-text-input';
-import type { AgentType, InputStep, HistoryEntry } from '../types';
+import type { AgentType, InputStep, HistoryEntry, ImageAttachment } from '../types';
 import type { SlashCommand } from '@anthropic-ai/claude-agent-sdk';
 import { getGitRoot } from '../git/worktree';
 import { AgentSDKManager } from '../agent/manager';
@@ -10,7 +10,7 @@ import { MultilineInput } from '../components/MultilineInput';
 import { listArtifacts, formatArtifactReference, type ArtifactInfo } from '../utils/artifacts';
 
 interface NewAgentPageProps {
-  onSubmit: (title: string, p: string, agentType: AgentType, worktree: { enabled: boolean; name: string }) => void;
+  onSubmit: (title: string, p: string, agentType: AgentType, worktree: { enabled: boolean; name: string }, images?: ImageAttachment[]) => void;
   onCancel: () => void;
   onStateChange?: (state: { step: InputStep; showSlashMenu: boolean }) => void;
   initialHistoryEntry?: HistoryEntry | null;
@@ -31,6 +31,33 @@ export const NewAgentPage = ({ onSubmit, onCancel, onStateChange, initialHistory
   const [slashSelectedIndex, setSlashSelectedIndex] = useState(0);
   const [artifacts, setArtifacts] = useState<ArtifactInfo[]>([]);
   const [selectedArtifactIndex, setSelectedArtifactIndex] = useState(-1);
+  const [images, setImages] = useState<Map<string, ImageAttachment>>(new Map());
+
+  const handleImagePasted = (id: string, path: string, base64: string, mediaType: string) => {
+    const attachment: ImageAttachment = {
+      id,
+      path,
+      base64,
+      mediaType: mediaType as ImageAttachment['mediaType'],
+      timestamp: Date.now(),
+      size: Buffer.from(base64, 'base64').length
+    };
+
+    setImages(prev => new Map(prev).set(id, attachment));
+  };
+
+  const extractImagesFromPrompt = (promptText: string): ImageAttachment[] => {
+    const imagePattern = />image:([^>]+)>/g;
+    const matches = [...promptText.matchAll(imagePattern)];
+
+    return matches
+      .map(m => {
+        const filename = m[1];
+        const imageId = filename.split('.')[0];
+        return images.get(imageId);
+      })
+      .filter((img): img is ImageAttachment => img !== undefined);
+  };
 
   useEffect(() => {
     AgentSDKManager.getAvailableCommands().then(setSlashCommands);
@@ -177,7 +204,8 @@ export const NewAgentPage = ({ onSubmit, onCancel, onStateChange, initialHistory
   const handleWorktreeNameSubmit = (value: string) => {
     const name = value.trim();
     const finalPrompt = getFinalPrompt();
-    onSubmit(title, finalPrompt, agentType, { enabled: true, name });
+    const imageAttachments = extractImagesFromPrompt(prompt);
+    onSubmit(title, finalPrompt, agentType, { enabled: true, name }, imageAttachments);
   };
 
   const handlePromptChange = (value: string) => {
@@ -205,7 +233,8 @@ export const NewAgentPage = ({ onSubmit, onCancel, onStateChange, initialHistory
       setStep('worktree');
     } else {
       const finalPrompt = getFinalPrompt();
-      onSubmit(title, finalPrompt, agentType, { enabled: false, name: '' });
+      const imageAttachments = extractImagesFromPrompt(prompt);
+      onSubmit(title, finalPrompt, agentType, { enabled: false, name: '' }, imageAttachments);
     }
   };
 
@@ -214,17 +243,23 @@ export const NewAgentPage = ({ onSubmit, onCancel, onStateChange, initialHistory
       setStep('worktreeName');
     } else {
       const finalPrompt = getFinalPrompt();
-      onSubmit(title, finalPrompt, agentType, { enabled: false, name: '' });
+      const imageAttachments = extractImagesFromPrompt(prompt);
+      onSubmit(title, finalPrompt, agentType, { enabled: false, name: '' }, imageAttachments);
     }
   };
 
   const getFinalPrompt = () => {
+    let finalPrompt = prompt;
+
     if (selectedArtifactIndex >= 0 && selectedArtifactIndex < artifacts.length) {
       const artifact = artifacts[selectedArtifactIndex];
       const artifactRef = formatArtifactReference(artifact.name);
-      return `${artifactRef}\n\n${prompt}`;
+      finalPrompt = `${artifactRef}\n\n${finalPrompt}`;
     }
-    return prompt;
+
+    finalPrompt = finalPrompt.replace(/>image:[^>]+>/g, '').trim();
+
+    return finalPrompt;
   };
 
   return (
@@ -261,13 +296,21 @@ export const NewAgentPage = ({ onSubmit, onCancel, onStateChange, initialHistory
             {step === 'title' ? '○' : step === 'prompt' ? '>' : '+'} Prompt:{' '}
           </Text>
           {step === 'prompt' ? (
-            <Box marginLeft={2}>
-              <MultilineInput
-                value={prompt}
-                onChange={handlePromptChange}
-                onSubmit={handlePromptSubmit}
-                placeholder="Enter your prompt..."
-              />
+            <Box flexDirection="column">
+              <Box marginLeft={2}>
+                <MultilineInput
+                  value={prompt}
+                  onChange={handlePromptChange}
+                  onSubmit={handlePromptSubmit}
+                  onImagePasted={handleImagePasted}
+                  placeholder="Enter your prompt..."
+                />
+              </Box>
+              {images.size > 0 && (
+                <Box marginLeft={2} marginTop={1}>
+                  <Text dimColor>📎 {images.size} image{images.size > 1 ? 's' : ''} attached</Text>
+                </Box>
+              )}
             </Box>
           ) : (
             <Box marginLeft={2}>

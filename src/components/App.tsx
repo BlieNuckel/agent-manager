@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useReducer } from 'react';
 import { useInput, useApp } from 'ink';
-import type { Agent, AgentType, HistoryEntry, Mode, PermissionRequest, QuestionRequest, InputStep, PermissionMode } from '../types';
+import type { Agent, AgentType, HistoryEntry, Mode, PermissionRequest, QuestionRequest, InputStep, PermissionMode, ImageAttachment } from '../types';
 import { reducer } from '../state/reducer';
 import { loadHistory, saveHistory } from '../state/history';
 import { AgentSDKManager } from '../agent/manager';
@@ -9,6 +9,8 @@ import type { WorktreeContext } from '../agent/systemPromptTemplates';
 import { genId } from '../utils/helpers';
 import { debug } from '../utils/logger';
 import { listArtifacts, deleteArtifact } from '../utils/artifacts';
+import { ensureTempImageDir } from '../utils/imageStorage';
+import { cleanupOldTempImages } from '../utils/imageCleanup';
 import { Layout } from './Layout';
 import { ListViewPage, getListViewHelp, NewAgentPage, getNewAgentHelp, DetailViewPage, getDetailViewHelp, ArtifactDetailPage, getArtifactDetailHelp } from '../pages';
 import { QuitConfirmationPrompt } from './QuitConfirmationPrompt';
@@ -53,6 +55,14 @@ export const App = () => {
 
     const interval = setInterval(loadArtifactsList, 5000);
     return () => clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    const initializeImageStorage = async () => {
+      await ensureTempImageDir();
+      await cleanupOldTempImages();
+    };
+    initializeImageStorage();
   }, []);
 
   useEffect(() => {
@@ -170,7 +180,7 @@ export const App = () => {
     };
   }, [state.history, mode, detailAgentId]);
 
-  const createAgent = async (title: string, prompt: string, agentType: AgentType, worktree: { enabled: boolean; name: string }) => {
+  const createAgent = async (title: string, prompt: string, agentType: AgentType, worktree: { enabled: boolean; name: string }, images?: ImageAttachment[]) => {
     const id = genId();
     const workDir = process.cwd();
     let worktreeContext: WorktreeContext | undefined;
@@ -209,13 +219,25 @@ export const App = () => {
       agentType,
       permissionMode,
       permissionQueue: [],
+      images,
     };
     dispatch({ type: 'ADD_AGENT', agent: placeholderAgent });
 
-    debug('Spawning agent:', { id, workDir, agentType, hasWorktreeContext: !!worktreeContext });
-    agentManager.spawn(id, prompt, workDir, agentType, worktreeContext, title);
+    debug('Spawning agent:', { id, workDir, agentType, hasWorktreeContext: !!worktreeContext, imageCount: images?.length || 0 });
+    agentManager.spawn(id, prompt, workDir, agentType, worktreeContext, title, images);
 
-    const entry: HistoryEntry = { id, title: title || 'Untitled Agent', prompt, date: new Date(), workDir };
+    const entry: HistoryEntry = {
+      id,
+      title: title || 'Untitled Agent',
+      prompt,
+      date: new Date(),
+      workDir,
+      images: images?.map(img => ({
+        id: img.id,
+        mediaType: img.mediaType,
+        size: img.size || 0
+      }))
+    };
     const newHistory = [entry, ...state.history.filter(h => h.prompt !== prompt)].slice(0, 5);
     saveHistory(newHistory);
   };
@@ -277,11 +299,11 @@ export const App = () => {
     setDetailArtifactPath(null);
   };
 
-  const handleSendMessage = async (message: string) => {
+  const handleSendMessage = async (message: string, images?: ImageAttachment[]) => {
     if (!detailAgentId) return;
 
     try {
-      await agentManager.sendFollowUpMessage(detailAgentId, message);
+      await agentManager.sendFollowUpMessage(detailAgentId, message, images);
       dispatch({ type: 'UPDATE_AGENT', id: detailAgentId, updates: { status: 'working' } });
     } catch (error: any) {
       debug('Error sending message:', error);
