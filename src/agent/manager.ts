@@ -4,7 +4,7 @@ import { query, type Query, type SDKMessage, type SlashCommand, createSdkMcpServ
 import { z } from 'zod';
 import { homedir } from 'os';
 import { resolve, normalize } from 'path';
-import type { AgentType, Question, PermissionMode } from '../types';
+import type { AgentType, Question, PermissionMode, ImageAttachment } from '../types';
 import { debug } from '../utils/logger';
 import { generateTitle } from '../utils/titleGenerator';
 import type { WorktreeContext } from './systemPromptTemplates';
@@ -191,7 +191,7 @@ export class AgentSDKManager extends EventEmitter {
     });
   }
 
-  async spawn(id: string, prompt: string, workDir: string, agentType: AgentType, worktreeContext?: WorktreeContext, title?: string): Promise<void> {
+  async spawn(id: string, prompt: string, workDir: string, agentType: AgentType, worktreeContext?: WorktreeContext, title?: string, images?: ImageAttachment[]): Promise<void> {
     const abortController = new AbortController();
     const permissionMode = this.getPermissionModeForAgentType(agentType);
     this.agentStates.set(id, { agentType, hasTitle: true, permissionMode });
@@ -203,6 +203,27 @@ export class AgentSDKManager extends EventEmitter {
       const worktreePrefix = buildWorktreePromptPrefix(worktreeContext);
       finalPrompt = worktreePrefix + prompt;
       debug('Prepending worktree setup instructions to prompt');
+    }
+
+    let promptContent: string | any[];
+    if (images && images.length > 0) {
+      promptContent = [
+        { type: 'text', text: finalPrompt }
+      ];
+
+      for (const img of images) {
+        promptContent.push({
+          type: 'image',
+          source: {
+            type: 'base64',
+            media_type: img.mediaType,
+            data: img.base64
+          }
+        });
+      }
+      debug('Including', images.length, 'image(s) in prompt');
+    } else {
+      promptContent = finalPrompt;
     }
 
     const queryOptions: any = {
@@ -233,7 +254,7 @@ export class AgentSDKManager extends EventEmitter {
     }
 
     const q = query({
-      prompt: finalPrompt,
+      prompt: promptContent,
       options: queryOptions,
     });
 
@@ -508,7 +529,7 @@ export class AgentSDKManager extends EventEmitter {
     this.emit('permissionResolved', id, allowed);
   }
 
-  async sendFollowUpMessage(id: string, message: string): Promise<void> {
+  async sendFollowUpMessage(id: string, message: string, images?: ImageAttachment[]): Promise<void> {
     const entry = this.queries.get(id);
 
     if (!entry) {
@@ -534,7 +555,33 @@ export class AgentSDKManager extends EventEmitter {
 
     this.emit('output', id, '', false);
     this.emit('output', id, `[>] User: ${message}`, false);
+
+    if (images && images.length > 0) {
+      for (const img of images) {
+        this.emit('output', id, `     >image:${img.id}.${img.mediaType.split('/')[1]}>`, false);
+      }
+    }
+
     this.emit('output', id, '', false);
+
+    let messageContent: string | any[];
+    if (images && images.length > 0) {
+      messageContent = [{ type: 'text', text: message }];
+
+      for (const img of images) {
+        messageContent.push({
+          type: 'image',
+          source: {
+            type: 'base64',
+            media_type: img.mediaType,
+            data: img.base64
+          }
+        });
+      }
+      debug('Including', images.length, 'image(s) in follow-up message');
+    } else {
+      messageContent = message;
+    }
 
     const newAbortController = new AbortController();
     const queryOptions: any = {
@@ -562,7 +609,7 @@ export class AgentSDKManager extends EventEmitter {
       debug('Spawning resumed query for follow-up, session:', entry.sessionId);
 
       const newQuery = query({
-        prompt: message,
+        prompt: messageContent,
         options: queryOptions,
       });
 

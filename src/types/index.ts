@@ -49,6 +49,15 @@ export interface OutputLine {
 
 export type PermissionMode = 'default' | 'acceptEdits';
 
+export interface ImageAttachment {
+  id: string;
+  path: string;
+  base64: string;
+  mediaType: 'image/jpeg' | 'image/png' | 'image/gif' | 'image/webp';
+  timestamp: number;
+  size?: number;
+}
+
 export interface Agent {
   id: string;
   title: string;
@@ -66,6 +75,7 @@ export interface Agent {
   pendingMerge?: MergeState;
   agentType: AgentType;
   permissionMode: PermissionMode;
+  images?: ImageAttachment[];
 }
 
 export interface HistoryEntry {
@@ -74,6 +84,11 @@ export interface HistoryEntry {
   prompt: string;
   date: Date;
   workDir: string;
+  images?: Array<{
+    id: string;
+    mediaType: string;
+    size: number;
+  }>;
 }
 
 export type Action =

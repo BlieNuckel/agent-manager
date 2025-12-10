@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { Box, Text, useInput, useStdout } from 'ink';
 import TextInput from 'ink-text-input';
-import type { Agent } from '../types';
+import type { Agent, ImageAttachment } from '../types';
 import { StatusBadge } from '../components/StatusBadge';
 import { PermissionPrompt } from '../components/PermissionPrompt';
 import { QuestionPrompt } from '../components/QuestionPrompt';
 import { MergePrompt } from '../components/MergePrompt';
+import { MultilineInput } from '../components/MultilineInput';
 
 interface DetailViewPageProps {
   agent: Agent;
@@ -14,7 +15,7 @@ interface DetailViewPageProps {
   onAlwaysAllowInRepo?: () => void;
   onQuestionResponse: (answers: Record<string, string | string[]>) => void;
   onMergeResponse?: (approved: boolean) => void;
-  onSendMessage?: (message: string) => void;
+  onSendMessage?: (message: string, images?: ImageAttachment[]) => void;
   onBack: () => void;
   chatMode?: boolean;
   onToggleChatMode?: () => void;
@@ -36,6 +37,33 @@ export const DetailViewPage = ({
   const [scrollOffset, setScrollOffset] = useState(0);
   const [promptScrollOffset, setPromptScrollOffset] = useState(0);
   const [chatInput, setChatInput] = useState('');
+  const [chatImages, setChatImages] = useState<Map<string, ImageAttachment>>(new Map());
+
+  const handleChatImagePasted = (id: string, path: string, base64: string, mediaType: string) => {
+    const attachment: ImageAttachment = {
+      id,
+      path,
+      base64,
+      mediaType: mediaType as ImageAttachment['mediaType'],
+      timestamp: Date.now(),
+      size: Buffer.from(base64, 'base64').length
+    };
+
+    setChatImages(prev => new Map(prev).set(id, attachment));
+  };
+
+  const extractImagesFromMessage = (messageText: string): ImageAttachment[] => {
+    const imagePattern = />image:([^>]+)>/g;
+    const matches = [...messageText.matchAll(imagePattern)];
+
+    return matches
+      .map(m => {
+        const filename = m[1];
+        const imageId = filename.split('.')[0];
+        return chatImages.get(imageId);
+      })
+      .filter((img): img is ImageAttachment => img !== undefined);
+  };
 
   const termHeight = stdout?.rows || 24;
 
@@ -109,10 +137,14 @@ export const DetailViewPage = ({
     if (input === 'P') setPromptScrollOffset(o => Math.min(Math.max(0, promptLines.length - maxPromptHeight), o + 1));
   });
 
-  const handleChatSubmit = () => {
-    if (chatInput.trim() && onSendMessage) {
-      onSendMessage(chatInput);
+  const handleChatSubmit = (value: string) => {
+    if (value.trim() && onSendMessage) {
+      const imageAttachments = extractImagesFromMessage(value);
+      const cleanMessage = value.replace(/>image:[^>]+>/g, '').trim();
+
+      onSendMessage(cleanMessage, imageAttachments);
       setChatInput('');
+      setChatImages(new Map());
       if (onToggleChatMode) {
         onToggleChatMode();
       }
@@ -220,12 +252,17 @@ export const DetailViewPage = ({
 
       {chatMode && (
         <Box flexDirection="column" flexShrink={0} borderStyle="single" borderColor="cyan" paddingX={1}>
-          <Text color="cyan" bold>Send message (Esc to cancel):</Text>
-          <TextInput
+          <Text color="cyan" bold>Send message (Ctrl+V to paste image, Esc to cancel):</Text>
+          <MultilineInput
             value={chatInput}
             onChange={setChatInput}
             onSubmit={handleChatSubmit}
+            onImagePasted={handleChatImagePasted}
+            placeholder="Type your message..."
           />
+          {chatImages.size > 0 && (
+            <Text dimColor>📎 {chatImages.size} image{chatImages.size > 1 ? 's' : ''} attached</Text>
+          )}
         </Box>
       )}
     </Box>
