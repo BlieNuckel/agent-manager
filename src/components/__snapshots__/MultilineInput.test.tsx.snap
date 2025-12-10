@@ -1,0 +1,11 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`MultilineInput > snapshots > renders empty state correctly 1`] = `"█"`;
+
+exports[`MultilineInput > snapshots > renders long single line correctly 1`] = `"This is a very long line of text that might wrap depending on terminal width█"`;
+
+exports[`MultilineInput > snapshots > renders multiline correctly 1`] = `"First line\\nSecond line\\nThird line█"`;
+
+exports[`MultilineInput > snapshots > renders single line correctly 1`] = `"Hello, World!█"`;
+
+exports[`MultilineInput > snapshots > renders with placeholder correctly 1`] = `"█Type something..."`;

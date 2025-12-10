@@ -1,0 +1,37 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`QuitConfirmationPrompt > snapshots > renders with 1 agent correctly 1`] = `
+"╭──────────────────────────────────────────────────────────────────────────────────────────────────╮
+│                                                                                                  │
+│ ⚠️  Active Agents Running                                                                        │
+│ You have 1 active agent running.                                                                 │
+│ Quitting will terminate all running agents.                                                      │
+│                                                                                                  │
+│ Are you sure you want to quit? [y] Yes  [n] No                                                   │
+│                                                                                                  │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────╯"
+`;
+
+exports[`QuitConfirmationPrompt > snapshots > renders with large agent count correctly 1`] = `
+"╭──────────────────────────────────────────────────────────────────────────────────────────────────╮
+│                                                                                                  │
+│ ⚠️  Active Agents Running                                                                        │
+│ You have 99 active agents running.                                                               │
+│ Quitting will terminate all running agents.                                                      │
+│                                                                                                  │
+│ Are you sure you want to quit? [y] Yes  [n] No                                                   │
+│                                                                                                  │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────╯"
+`;
+
+exports[`QuitConfirmationPrompt > snapshots > renders with multiple agents correctly 1`] = `
+"╭──────────────────────────────────────────────────────────────────────────────────────────────────╮
+│                                                                                                  │
+│ ⚠️  Active Agents Running                                                                        │
+│ You have 5 active agents running.                                                                │
+│ Quitting will terminate all running agents.                                                      │
+│                                                                                                  │
+│ Are you sure you want to quit? [y] Yes  [n] No                                                   │
+│                                                                                                  │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────╯"
+`;

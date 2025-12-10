@@ -1,0 +1,49 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`DeleteConfirmationPrompt > snapshots > renders error status correctly 1`] = `
+"╭──────────────────────────────────────────────────────────────────────────────────────────────────╮
+│                                                                                                  │
+│ ⚠️  Delete Active Agent?                                                                         │
+│ Agent Test Agent is currently in error state.                                                    │
+│ Deleting will terminate the agent and remove it from the list.                                   │
+│                                                                                                  │
+│ Are you sure you want to delete? [y] Yes  [n] No                                                 │
+│                                                                                                  │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────╯"
+`;
+
+exports[`DeleteConfirmationPrompt > snapshots > renders waiting status correctly 1`] = `
+"╭──────────────────────────────────────────────────────────────────────────────────────────────────╮
+│                                                                                                  │
+│ ⚠️  Delete Active Agent?                                                                         │
+│ Agent Test Agent is currently waiting for permission.                                            │
+│ Deleting will terminate the agent and remove it from the list.                                   │
+│                                                                                                  │
+│ Are you sure you want to delete? [y] Yes  [n] No                                                 │
+│                                                                                                  │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────╯"
+`;
+
+exports[`DeleteConfirmationPrompt > snapshots > renders with long agent title correctly 1`] = `
+"╭──────────────────────────────────────────────────────────────────────────────────────────────────╮
+│                                                                                                  │
+│ ⚠️  Delete Active Agent?                                                                         │
+│ Agent A Very Long Agent Title That Might Wrap is currently working.                              │
+│ Deleting will terminate the agent and remove it from the list.                                   │
+│                                                                                                  │
+│ Are you sure you want to delete? [y] Yes  [n] No                                                 │
+│                                                                                                  │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────╯"
+`;
+
+exports[`DeleteConfirmationPrompt > snapshots > renders working status correctly 1`] = `
+"╭──────────────────────────────────────────────────────────────────────────────────────────────────╮
+│                                                                                                  │
+│ ⚠️  Delete Active Agent?                                                                         │
+│ Agent Test Agent is currently working.                                                           │
+│ Deleting will terminate the agent and remove it from the list.                                   │
+│                                                                                                  │
+│ Are you sure you want to delete? [y] Yes  [n] No                                                 │
+│                                                                                                  │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────╯"
+`;
