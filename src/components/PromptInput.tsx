@@ -33,6 +33,7 @@ export const PromptInput = ({ onSubmit, onCancel, onStateChange }: {
   const [slashSearchQuery, setSlashSearchQuery] = useState('');
   const [slashSelectedIndex, setSlashSelectedIndex] = useState(0);
   const [images, setImages] = useState<Map<string, ImageAttachment>>(new Map());
+  const [showCancelConfirmation, setShowCancelConfirmation] = useState(false);
 
   const handleImagePasted = (id: string, path: string, base64: string, mediaType: string) => {
     const attachment: ImageAttachment = {
@@ -58,6 +59,10 @@ export const PromptInput = ({ onSubmit, onCancel, onStateChange }: {
         return images.get(imageId);
       })
       .filter((img): img is ImageAttachment => img !== undefined);
+  };
+
+  const hasAnyContent = () => {
+    return title.trim() !== '' || prompt.trim() !== '' || images.size > 0;
   };
 
   useEffect(() => {
@@ -97,6 +102,19 @@ export const PromptInput = ({ onSubmit, onCancel, onStateChange }: {
   };
 
   useInput((input, key) => {
+    if (showCancelConfirmation) {
+      if (input === 'y' || input === 'Y') {
+        setShowCancelConfirmation(false);
+        onCancel();
+        return;
+      }
+      if (input === 'n' || input === 'N' || key.escape) {
+        setShowCancelConfirmation(false);
+        return;
+      }
+      return;
+    }
+
     if (showSlashMenu) {
       if (key.escape) {
         setShowSlashMenu(false);
@@ -146,7 +164,14 @@ export const PromptInput = ({ onSubmit, onCancel, onStateChange }: {
       return;
     }
 
-    if (key.escape) { onCancel(); return; }
+    if (key.escape) {
+      if (hasAnyContent()) {
+        setShowCancelConfirmation(true);
+      } else {
+        onCancel();
+      }
+      return;
+    }
 
     if (key.leftArrow) {
       if (step === 'prompt') {
@@ -469,6 +494,21 @@ export const PromptInput = ({ onSubmit, onCancel, onStateChange }: {
           searchQuery={artifactFilter}
           selectedIndex={artifactSelectedIndex}
         />
+      )}
+
+      {showCancelConfirmation && (
+        <Box flexDirection="column" borderStyle="round" borderColor="yellow" padding={1} marginTop={1}>
+          <Text bold color="yellow">Discard Changes?</Text>
+          <Text>You have unsaved content in this form.</Text>
+          <Text dimColor>Leaving will discard your title and prompt.</Text>
+          <Box marginTop={1}>
+            <Text bold>Are you sure you want to leave? </Text>
+            <Text color="green">[y]</Text>
+            <Text> Yes  </Text>
+            <Text color="red">[n]</Text>
+            <Text> No</Text>
+          </Box>
+        </Box>
       )}
     </>
   );
