@@ -210,7 +210,7 @@ export const DemoApp = () => {
           { content: listContent, widthPercent: 40 },
           { content: detailContent, widthPercent: 60 }
         ],
-        help: detailAgent.pendingPermission ? null : getDetailViewHelp(promptNeedsScroll, detailAgent.status === 'done', false),
+        help: getDetailViewHelp(promptNeedsScroll, detailAgent.status === 'done', false, undefined, !!detailAgent.pendingPermission, !!detailAgent.pendingQuestion),
       };
     }
 

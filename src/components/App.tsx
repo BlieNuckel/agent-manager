@@ -643,7 +643,7 @@ Please execute these commands and report the results.`;
           { content: listContent, widthPercent: 40 },
           { content: detailContent, widthPercent: 60 }
         ],
-        help: getDetailViewHelp(promptNeedsScroll, detailAgent.status === 'working' || detailAgent.status === 'idle', chatMode, detailAgent.pendingMerge),
+        help: getDetailViewHelp(promptNeedsScroll, detailAgent.status === 'working' || detailAgent.status === 'idle', chatMode, detailAgent.pendingMerge, !!detailAgent.pendingPermission, !!detailAgent.pendingQuestion),
       };
     }
 
