@@ -92,9 +92,11 @@ export const DetailViewPage = ({
   const outputBoxHeight = visibleLines + outputBoxOverhead;
 
   useInput((input, key) => {
-    if (chatMode && key.escape && onToggleChatMode) {
-      setChatInput('');
-      onToggleChatMode();
+    if (chatMode) {
+      if (key.escape && onToggleChatMode) {
+        setChatInput('');
+        onToggleChatMode();
+      }
       return;
     }
 
@@ -102,8 +104,6 @@ export const DetailViewPage = ({
       onBack();
       return;
     }
-
-    if (chatMode) return;
 
     if (agent.pendingMerge) {
       if (agent.pendingMerge.status === 'ready' && onMergeResponse) {
