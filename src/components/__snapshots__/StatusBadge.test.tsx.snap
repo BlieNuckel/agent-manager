@@ -1,0 +1,11 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`StatusBadge > renders done status correctly 1`] = `"+ Done"`;
+
+exports[`StatusBadge > renders error status correctly 1`] = `"x Error"`;
+
+exports[`StatusBadge > renders idle status correctly 1`] = `"~ Idle"`;
+
+exports[`StatusBadge > renders waiting status correctly 1`] = `"? Waiting"`;
+
+exports[`StatusBadge > renders working status correctly 1`] = `"[*] Working"`;

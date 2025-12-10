@@ -1,0 +1,18 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`HistoryItem > prompt truncation > shows short prompts with ellipsis 1`] = `"  Implement Feature X                2h ago      Short prompt..."`;
+
+exports[`HistoryItem > prompt truncation > truncates prompt to 30 characters plus ellipsis 1`] = `"  Implement Feature X                2h ago      This is a very long prompt tha..."`;
+
+exports[`HistoryItem > selection state > renders selected entry correctly 1`] = `"> Implement Feature X                2h ago      Create a new feature that does..."`;
+
+exports[`HistoryItem > selection state > renders unselected entry correctly 1`] = `"  Implement Feature X                2h ago      Create a new feature that does..."`;
+
+exports[`HistoryItem > title display > renders entry title 1`] = `"  Fix Authentication Bug             2h ago      Create a new feature that does..."`;
+
+exports[`HistoryItem > title display > renders long title 1`] = `
+"  A very long title that describes   2h ago      Create a new feature that does...
+  the task in detail"
+`;
+
+exports[`HistoryItem > various entry configurations > renders entry with images indicator in images array 1`] = `"  Implement Feature X                2h ago      Create a new feature that does..."`;

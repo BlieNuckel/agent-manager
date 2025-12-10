@@ -1,0 +1,21 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`Header > active count display > renders with multiple active agents 1`] = `"🤖 Agent Manager v2 (SDK) • 5 active"`;
+
+exports[`Header > active count display > renders with one active agent 1`] = `"🤖 Agent Manager v2 (SDK) • 1 active"`;
+
+exports[`Header > active count display > renders with zero active agents 1`] = `"🤖 Agent Manager v2 (SDK) • 0 active"`;
+
+exports[`Header > basic rendering > renders header with app title 1`] = `"🤖 Agent Manager v2 (SDK) • 0 active"`;
+
+exports[`Header > combined states > renders many active with many waiting 1`] = `"🤖 Agent Manager v2 (SDK) • 10 active • 5 waiting"`;
+
+exports[`Header > combined states > renders no agents state 1`] = `"🤖 Agent Manager v2 (SDK) • 0 active"`;
+
+exports[`Header > combined states > renders only waiting agents (edge case) 1`] = `"🤖 Agent Manager v2 (SDK) • 0 active • 3 waiting"`;
+
+exports[`Header > waiting count display > does not show waiting count when zero 1`] = `"🤖 Agent Manager v2 (SDK) • 3 active"`;
+
+exports[`Header > waiting count display > shows waiting count of one 1`] = `"🤖 Agent Manager v2 (SDK) • 1 active • 1 waiting"`;
+
+exports[`Header > waiting count display > shows waiting count when greater than zero 1`] = `"🤖 Agent Manager v2 (SDK) • 3 active • 2 waiting"`;
