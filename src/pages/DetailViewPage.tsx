@@ -215,7 +215,7 @@ export const DetailViewPage = ({
                     {subagentLabel && <Text color="magenta" dimColor>{subagentLabel}</Text>}
                     {line.startsWith('[x]') ? <Text color="red">{line}</Text> :
                       line.startsWith('[+]') ? <Text color="green">{line}</Text> :
-                        line.startsWith('[>]') ? <Text color="blue">{line}</Text> :
+                        line.startsWith('[>]') ? <Text dimColor>{line}</Text> :
                           line.startsWith('[-]') ? <Text color="yellow">{line}</Text> :
                             line.startsWith('[!]') ? <Text color="yellow">{line}</Text> :
                               line}
