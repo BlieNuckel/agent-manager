@@ -68,6 +68,7 @@ export interface Agent {
   updatedAt: Date;
   workDir: string;
   worktreeName?: string;
+  worktreePath?: string;
   sessionId?: string;
   pendingPermission?: PermissionRequest;
   permissionQueue: PermissionRequest[];
