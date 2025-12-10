@@ -12,13 +12,18 @@ src/
 ├── components/      # React/Ink UI components
 │   ├── App.tsx                 # Main application component with state management
 │   ├── AgentItem.tsx           # Individual agent list item display
-│   ├── DetailView.tsx          # Full agent detail view with output scrolling
 │   ├── HelpBar.tsx             # Keyboard shortcut help display
 │   ├── HistoryItem.tsx         # History list item display
+│   ├── Layout.tsx              # Main layout with header and help bar
 │   ├── PermissionPrompt.tsx    # Permission request UI
-│   ├── PromptInput.tsx         # Multi-step agent creation form
+│   ├── SplitPane.tsx           # Split pane container for list/detail views
 │   ├── StatusBadge.tsx         # Agent status indicator
 │   └── Tab.tsx                 # Tab navigation component
+│
+├── pages/           # Page-level components
+│   ├── DetailViewPage.tsx      # Full agent detail view with output scrolling
+│   ├── ListViewPage.tsx        # Agent list view
+│   └── NewAgentPage.tsx        # Multi-step agent creation form
 │
 ├── demo/            # Demo mode with mock data
 │   ├── index.tsx    # Demo mode entry point
@@ -54,7 +59,9 @@ src/
 ### Component Organization
 Components are organized by functionality:
 - **Display components**: StatusBadge, Tab, AgentItem, HistoryItem, HelpBar
-- **Interactive components**: PermissionPrompt, PromptInput, DetailView
+- **Interactive components**: PermissionPrompt, QuestionPrompt, MergePrompt
+- **Layout components**: Layout, SplitPane
+- **Page components**: DetailViewPage, ListViewPage, NewAgentPage
 - **Container component**: App (manages state and orchestrates other components)
 
 ### State Management

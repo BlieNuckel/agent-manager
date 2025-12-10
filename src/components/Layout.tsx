@@ -30,7 +30,7 @@ export const Layout = ({ activeCount, waitingCount, helpContent, children, split
         <Header activeCount={activeCount} waitingCount={waitingCount} />
       </Box>
 
-      <Box flexDirection="column" flexGrow={1} minHeight={0}>
+      <Box flexDirection="column" flexGrow={1} minHeight={0} overflow="hidden">
         {splitPanes ? (
           <SplitPane panes={splitPanes} />
         ) : (

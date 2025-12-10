@@ -43,25 +43,25 @@ export const DetailViewPage = ({
   const appHelpBarHeight = 3;
   const availableForPage = termHeight - appHeaderHeight - appHelpBarHeight;
 
-  const permissionHeight = agent.pendingPermission ? 10 : 0;
-  const questionHeight = agent.pendingQuestion ? Math.min(15, 8 + (agent.pendingQuestion.questions.length * 3)) : 0;
-  const mergePromptHeight = agent.pendingMerge ? 8 : 0;
-  const chatInputHeight = chatMode ? 3 : 0;
+  const permissionHeight = agent.pendingPermission ? 16 : 0;
+  const questionHeight = agent.pendingQuestion ? Math.min(18, 10 + (agent.pendingQuestion.questions.length * 4)) : 0;
+  const mergePromptHeight = agent.pendingMerge ? 10 : 0;
+  const chatInputHeight = chatMode ? 4 : 0;
   const agentTitleHeight = 3;
   const promptHeaderHeight = 1;
   const workDirHeight = 1;
-  const outputHeaderHeight = 1;
-  const outputBorderHeight = 2;
+  const outputBoxOverhead = 4;
 
   const promptLines = agent.prompt.split('\n');
 
-  const fixedHeight = agentTitleHeight + promptHeaderHeight + workDirHeight + outputHeaderHeight + outputBorderHeight + permissionHeight + questionHeight + mergePromptHeight + chatInputHeight;
-  const availableHeight = Math.max(10, availableForPage - fixedHeight);
+  const fixedUIHeight = agentTitleHeight + promptHeaderHeight + workDirHeight + outputBoxOverhead + permissionHeight + questionHeight + mergePromptHeight + chatInputHeight;
+  const availableForContent = availableForPage - fixedUIHeight;
 
-  const maxPromptHeight = Math.min(promptLines.length, Math.floor(availableHeight * 0.3));
+  const maxPromptHeight = Math.max(1, Math.min(promptLines.length, Math.floor(Math.max(0, availableForContent) * 0.3)));
   const promptActualHeight = Math.min(promptLines.length, maxPromptHeight);
 
-  const visibleLines = Math.max(1, availableHeight - promptActualHeight);
+  const visibleLines = Math.max(1, availableForContent - promptActualHeight);
+  const outputBoxHeight = visibleLines + outputBoxOverhead;
 
   useInput((input, key) => {
     if (chatMode && key.escape && onToggleChatMode) {
@@ -121,12 +121,15 @@ export const DetailViewPage = ({
 
   useEffect(() => {
     if (!agent.pendingPermission && !agent.pendingQuestion) {
-      const atBottom = scrollOffset >= agent.output.length - visibleLines - 2;
+      const maxScroll = Math.max(0, agent.output.length - visibleLines);
+      const atBottom = scrollOffset >= maxScroll - 2;
       if (atBottom || agent.status === 'working') {
-        setScrollOffset(Math.max(0, agent.output.length - visibleLines));
+        setScrollOffset(maxScroll);
+      } else if (scrollOffset > maxScroll) {
+        setScrollOffset(maxScroll);
       }
     }
-  }, [agent.output.length, agent.pendingPermission, agent.pendingQuestion, visibleLines]);
+  }, [agent.output.length, agent.pendingPermission, agent.pendingQuestion, visibleLines, scrollOffset, agent.status]);
 
   const displayedLines = agent.output.slice(scrollOffset, scrollOffset + visibleLines);
   const displayedPromptLines = promptLines.slice(promptScrollOffset, promptScrollOffset + maxPromptHeight);
@@ -134,7 +137,7 @@ export const DetailViewPage = ({
   const promptNeedsScroll = promptLines.length > maxPromptHeight;
 
   return (
-    <>
+    <Box flexDirection="column" flexGrow={1} flexShrink={1} minHeight={0} overflow="hidden">
       <Box flexDirection="column" flexShrink={0}>
         <Box borderStyle="single" borderColor={agent.pendingPermission ? 'yellow' : agent.pendingQuestion ? 'magenta' : 'cyan'} paddingX={1}>
           <StatusBadge status={agent.status} />
@@ -158,34 +161,36 @@ export const DetailViewPage = ({
         </Box>
       </Box>
 
-      <Box flexDirection="column" flexGrow={1} borderStyle="round" borderColor="gray" padding={1}>
-        <Box flexShrink={0}>
-          <Text dimColor>Output ({agent.output.length} lines, scroll: {scrollOffset + 1}-{Math.min(scrollOffset + visibleLines, agent.output.length)} of {agent.output.length})</Text>
+      <Box flexDirection="column" height={outputBoxHeight} flexShrink={0} flexGrow={0} borderStyle="round" borderColor="gray" paddingX={1} overflow="hidden">
+        <Box flexShrink={0} height={1}>
+          <Text dimColor wrap="truncate-end">Output ({agent.output.length} lines, scroll: {scrollOffset + 1}-{Math.min(scrollOffset + visibleLines, agent.output.length)} of {agent.output.length})</Text>
         </Box>
-        {displayedLines.length === 0 ? (
-          <Text dimColor>Waiting for output...</Text>
-        ) : (
-          displayedLines.map((outputLine, i) => {
-            const line = outputLine.text;
-            const prefix = outputLine.isSubagent ? '  → ' : '';
-            const subagentLabel = outputLine.isSubagent && outputLine.subagentType ? `[${outputLine.subagentType}] ` : '';
+        <Box flexDirection="column" height={visibleLines} flexShrink={0} flexGrow={0} overflow="hidden">
+          {displayedLines.length === 0 ? (
+            <Text dimColor>Waiting for output...</Text>
+          ) : (
+            displayedLines.map((outputLine, i) => {
+              const line = outputLine.text;
+              const prefix = outputLine.isSubagent ? '  → ' : '';
+              const subagentLabel = outputLine.isSubagent && outputLine.subagentType ? `[${outputLine.subagentType}] ` : '';
 
-            return (
-              <Box key={scrollOffset + i} height={1} flexShrink={0}>
-                <Text wrap="truncate-end">
-                  {outputLine.isSubagent && <Text dimColor>{prefix}</Text>}
-                  {subagentLabel && <Text color="magenta" dimColor>{subagentLabel}</Text>}
-                  {line.startsWith('[x]') ? <Text color="red">{line}</Text> :
-                    line.startsWith('[+]') ? <Text color="green">{line}</Text> :
-                      line.startsWith('[>]') ? <Text color="blue">{line}</Text> :
-                        line.startsWith('[-]') ? <Text color="yellow">{line}</Text> :
-                          line.startsWith('[!]') ? <Text color="yellow">{line}</Text> :
-                            line}
-                </Text>
-              </Box>
-            );
-          })
-        )}
+              return (
+                <Box key={scrollOffset + i} height={1} flexShrink={0}>
+                  <Text wrap="truncate-end">
+                    {outputLine.isSubagent && <Text dimColor>{prefix}</Text>}
+                    {subagentLabel && <Text color="magenta" dimColor>{subagentLabel}</Text>}
+                    {line.startsWith('[x]') ? <Text color="red">{line}</Text> :
+                      line.startsWith('[+]') ? <Text color="green">{line}</Text> :
+                        line.startsWith('[>]') ? <Text color="blue">{line}</Text> :
+                          line.startsWith('[-]') ? <Text color="yellow">{line}</Text> :
+                            line.startsWith('[!]') ? <Text color="yellow">{line}</Text> :
+                              line}
+                  </Text>
+                </Box>
+              );
+            })
+          )}
+        </Box>
       </Box>
 
       {agent.pendingPermission && (
@@ -223,7 +228,7 @@ export const DetailViewPage = ({
           />
         </Box>
       )}
-    </>
+    </Box>
   );
 };
 

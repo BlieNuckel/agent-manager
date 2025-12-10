@@ -28,7 +28,7 @@ export const SplitPane = ({ panes }: SplitPaneProps) => {
                 <Text color="gray">│</Text>
               </Box>
             )}
-            <Box width={isFirst ? width : width - 1} flexDirection="column" flexGrow={0} flexShrink={0} minHeight={0}>
+            <Box width={isFirst ? width : width - 1} flexDirection="column" flexGrow={1} flexShrink={1} minHeight={0} overflow="hidden">
               {pane.content}
             </Box>
           </React.Fragment>
