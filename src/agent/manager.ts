@@ -231,7 +231,7 @@ export class AgentSDKManager extends EventEmitter {
       abortController,
       permissionMode,
       canUseTool: this.createCanUseTool(id),
-      settingSources: ['project'],
+      settingSources: ['user', 'project', 'local'],
       maxThinkingTokens: 16384,
       mcpServers: {
         'question-handler': this.createQuestionMcpServer(id)
@@ -590,7 +590,7 @@ export class AgentSDKManager extends EventEmitter {
       permissionMode: state.permissionMode,
       resume: entry.sessionId,
       canUseTool: this.createCanUseTool(id),
-      settingSources: ['project'],
+      settingSources: ['user', 'project', 'local'],
       maxThinkingTokens: 16384,
       mcpServers: {
         'question-handler': this.createQuestionMcpServer(id)
