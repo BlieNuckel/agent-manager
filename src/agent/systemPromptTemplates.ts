@@ -4,31 +4,112 @@ export interface WorktreeContext {
   gitRoot: string;
   currentBranch: string;
   repoName: string;
-  worktreePath?: string;
-  branchName?: string;
 }
 
 export function buildWorktreeInstructions(context: WorktreeContext): string {
-  if (!context.enabled || !context.worktreePath) {
+  if (!context.enabled) {
     return '';
   }
 
   return `
-# Git Worktree Context
+# Git Worktree Management Instructions
 
-You are working in an isolated git worktree for this task.
+You are working in a git repository and the user has requested to use git worktrees for isolated development.
 
-## Environment
-- **Worktree Path:** ${context.worktreePath}
-- **Branch:** ${context.branchName}
-- **Main Repository:** ${context.gitRoot}
-- **Target Branch (for merge):** ${context.currentBranch}
+## Current Repository Context
+- Git Root: ${context.gitRoot}
+- Current Branch: ${context.currentBranch}
+- Repository Name: ${context.repoName}
+- Suggested Branch Name: ${context.suggestedName || '(auto-generate from task)'}
+
+## Your Responsibilities
+
+### 1. Create Git Worktree (First Step)
+Before starting any work, you MUST create a git worktree:
+
+\`\`\`bash
+# Generate a branch name from the task (2-4 kebab-case words) if not provided
+# Example: "add-dark-mode", "fix-auth-bug", "refactor-api-routes"
+BRANCH_NAME="${context.suggestedName || '<generate-from-task>'}"
+
+# Create worktree in parent directory with naming pattern: <repo-name>-<branch-name>
+WORKTREE_PATH="${context.gitRoot}/../${context.repoName}-\${BRANCH_NAME}"
+
+# Create the worktree branching from current branch
+git worktree add -b "\${BRANCH_NAME}" "\${WORKTREE_PATH}" "${context.currentBranch}"
+
+# IMPORTANT: Signal that worktree was created (so the UI can display it)
+echo "[WORKTREE_CREATED] \${BRANCH_NAME}"
+
+# Change to worktree directory for all subsequent work
+cd "\${WORKTREE_PATH}"
+\`\`\`
+
+### 2. Work in Isolated Environment
+- All file operations (Read, Write, Edit, etc.) should happen in the worktree directory
+- Make commits as you normally would
+- The worktree is isolated from the main repository
+
+### 3. Prepare for Merge (Final Step)
+When your work is complete and you've tested everything:
+
+\`\`\`bash
+# Ensure all changes are committed
+git add .
+git commit -m "Your descriptive commit message"
+
+# Switch back to main repository
+cd "${context.gitRoot}"
+
+# Test if merge will have conflicts (dry-run)
+git merge --no-commit --no-ff "\${BRANCH_NAME}"
+
+# Check the status
+if git status --porcelain | grep -q '^UU\\|^AA\\|^DD'; then
+  echo "[WORKTREE_MERGE_CONFLICTS] Branch \${BRANCH_NAME} has conflicts"
+  git merge --abort
+else
+  echo "[WORKTREE_MERGE_READY] Branch \${BRANCH_NAME} is ready to merge"
+  git merge --abort
+fi
+\`\`\`
+
+### 4. Signal Events
+Output these markers at the appropriate times:
+- \`[WORKTREE_CREATED] <branch-name>\` - Output immediately after creating the worktree (Step 1)
+- \`[WORKTREE_MERGE_READY] <branch-name>\` - Branch is ready to merge without conflicts (end of work)
+- \`[WORKTREE_MERGE_CONFLICTS] <branch-name>\` - Branch has merge conflicts that need manual resolution
+- \`[WORKTREE_MERGE_FAILED] <branch-name> <error-message>\` - Could not test merge
 
 ## Important Notes
-- All your file operations are isolated in this worktree
-- You can use relative paths normally - your working directory is the worktree
-- When your work is complete, the merge process will be handled automatically
-- Do NOT attempt to merge yourself - simply complete your task and signal completion
+- ALWAYS create the worktree as your first action
+- ALWAYS work within the worktree directory (not the main repository)
+- ALWAYS test merge viability before completing
+- DO NOT attempt to merge yourself - signal readiness and let the user decide
+- DO NOT delete the worktree or branch - cleanup will be handled after merge confirmation
+
+## Example Workflow
+
+\`\`\`bash
+# Step 1: Create worktree
+git worktree add -b "add-user-auth" "${context.gitRoot}/../${context.repoName}-add-user-auth" "${context.currentBranch}"
+echo "[WORKTREE_CREATED] add-user-auth"
+cd "${context.gitRoot}/../${context.repoName}-add-user-auth"
+
+# Step 2: Do your work
+# ... make changes, write code, test ...
+git add .
+git commit -m "Add user authentication system"
+
+# Step 3: Test merge viability
+cd "${context.gitRoot}"
+git merge --no-commit --no-ff "add-user-auth"
+git status --porcelain
+git merge --abort
+
+# Step 4: Signal completion
+echo "[WORKTREE_MERGE_READY] add-user-auth"
+\`\`\`
 `.trim();
 }
 
@@ -99,9 +180,47 @@ export function buildSystemPrompt(worktreeContext?: WorktreeContext): string {
 
   parts.push(buildArtifactsInstructions());
 
-  if (worktreeContext?.enabled && worktreeContext.worktreePath) {
+  if (worktreeContext?.enabled) {
     parts.push(buildWorktreeInstructions(worktreeContext));
   }
 
   return parts.join('\n\n');
+}
+
+export function buildWorktreePromptPrefix(context: WorktreeContext): string {
+  if (context.suggestedName) {
+    return `**MANDATORY FIRST STEP - CREATE GIT WORKTREE:**
+Before doing ANYTHING else, you MUST execute these exact commands to set up an isolated worktree:
+
+\`\`\`bash
+git worktree add -b "${context.suggestedName}" "${context.gitRoot}/../${context.repoName}-${context.suggestedName}" "${context.currentBranch}"
+echo "[WORKTREE_CREATED] ${context.suggestedName}"
+cd "${context.gitRoot}/../${context.repoName}-${context.suggestedName}"
+\`\`\`
+
+After creating the worktree and cd'ing into it, proceed with the actual task below.
+
+---
+
+**ACTUAL TASK:**
+`;
+  }
+
+  return `**MANDATORY FIRST STEP - CREATE GIT WORKTREE:**
+Before doing ANYTHING else, you MUST:
+1. Generate a branch name from the task (2-4 kebab-case words, e.g., "add-dark-mode", "fix-auth-bug")
+2. Execute the commands below (replace YOUR_BRANCH_NAME with your generated name)
+
+\`\`\`bash
+git worktree add -b "YOUR_BRANCH_NAME" "${context.gitRoot}/../${context.repoName}-YOUR_BRANCH_NAME" "${context.currentBranch}"
+echo "[WORKTREE_CREATED] YOUR_BRANCH_NAME"
+cd "${context.gitRoot}/../${context.repoName}-YOUR_BRANCH_NAME"
+\`\`\`
+
+After creating the worktree and cd'ing into it, proceed with the actual task below.
+
+---
+
+**ACTUAL TASK:**
+`;
 }

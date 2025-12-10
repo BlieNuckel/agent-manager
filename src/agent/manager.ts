@@ -8,7 +8,7 @@ import type { AgentType, Question, PermissionMode, ImageAttachment } from '../ty
 import { debug } from '../utils/logger';
 import { generateTitle } from '../utils/titleGenerator';
 import type { WorktreeContext } from './systemPromptTemplates';
-import { buildSystemPrompt } from './systemPromptTemplates';
+import { buildSystemPrompt, buildWorktreePromptPrefix } from './systemPromptTemplates';
 
 const PERMISSION_REQUIRED_TOOLS = ['Write', 'Edit', 'MultiEdit', 'Bash', 'NotebookEdit', 'KillBash'];
 export const AUTO_ACCEPT_EDIT_TOOLS = ['Write', 'Edit', 'MultiEdit', 'NotebookEdit'];
@@ -240,12 +240,17 @@ export class AgentSDKManager extends EventEmitter {
 
     const systemPromptAppend = buildSystemPrompt(worktreeContext);
 
-    const effectiveCwd = worktreeContext?.worktreePath || workDir;
+    let finalPrompt = prompt;
+    if (worktreeContext?.enabled) {
+      const worktreePrefix = buildWorktreePromptPrefix(worktreeContext);
+      finalPrompt = worktreePrefix + prompt;
+      debug('Prepending worktree setup instructions to prompt');
+    }
 
     let promptContent: string | any[];
     if (images && images.length > 0) {
       promptContent = [
-        { type: 'text', text: prompt }
+        { type: 'text', text: finalPrompt }
       ];
 
       for (const img of images) {
@@ -260,11 +265,11 @@ export class AgentSDKManager extends EventEmitter {
       }
       debug('Including', images.length, 'image(s) in prompt');
     } else {
-      promptContent = prompt;
+      promptContent = finalPrompt;
     }
 
     const queryOptions: any = {
-      cwd: effectiveCwd,
+      cwd: workDir,
       abortController,
       permissionMode,
       canUseTool: this.createCanUseTool(id),
@@ -275,12 +280,10 @@ export class AgentSDKManager extends EventEmitter {
       }
     };
 
-    if (worktreeContext?.enabled && worktreeContext.worktreePath) {
-      queryOptions.additionalDirectories = [
-        worktreeContext.gitRoot,
-        path.dirname(worktreeContext.worktreePath)
-      ];
-      debug('Adding worktree directories to trusted paths:', queryOptions.additionalDirectories);
+    if (worktreeContext?.enabled && worktreeContext.gitRoot) {
+      const worktreeParentDir = path.dirname(worktreeContext.gitRoot);
+      queryOptions.additionalDirectories = [worktreeParentDir];
+      debug('Adding worktree parent directory to trusted paths:', worktreeParentDir);
     }
 
     if (systemPromptAppend) {
@@ -302,7 +305,7 @@ export class AgentSDKManager extends EventEmitter {
       abort: abortController,
       alive: true,
       iterating: false,
-      workDir: effectiveCwd,
+      workDir,
       systemPromptAppend: systemPromptAppend || undefined,
       activeSubagents: new Map(),
     });
@@ -346,6 +349,45 @@ export class AgentSDKManager extends EventEmitter {
     }
   }
 
+  private checkForWorktreeSignals(id: string, text: string): void {
+    const lines = text.split('\n');
+    for (const line of lines) {
+      if (line.includes('[WORKTREE_CREATED]')) {
+        const branchName = line.split('[WORKTREE_CREATED]')[1]?.trim();
+        if (branchName) {
+          debug('Worktree created signal detected:', { id, branchName });
+          this.emit('worktreeCreated', id, branchName);
+        }
+      } else if (line.includes('[WORKTREE_MERGE_READY]')) {
+        const branchName = line.split('[WORKTREE_MERGE_READY]')[1]?.trim();
+        if (branchName) {
+          debug('Merge ready signal detected:', { id, branchName });
+          this.emit('mergeReady', id, branchName);
+        }
+      } else if (line.includes('[WORKTREE_MERGE_CONFLICTS]')) {
+        const branchName = line.split('[WORKTREE_MERGE_CONFLICTS]')[1]?.trim();
+        if (branchName) {
+          debug('Merge conflicts signal detected:', { id, branchName });
+          this.emit('mergeConflicts', id, branchName);
+        }
+      } else if (line.includes('[WORKTREE_MERGE_FAILED]')) {
+        const parts = line.split('[WORKTREE_MERGE_FAILED]')[1]?.trim().split(' ') || [];
+        const branchName = parts[0];
+        const error = parts.slice(1).join(' ');
+        if (branchName) {
+          debug('Merge failed signal detected:', { id, branchName, error });
+          this.emit('mergeFailed', id, branchName, error);
+        }
+      } else if (line.includes('[WORKTREE_MERGED]')) {
+        const branchName = line.split('[WORKTREE_MERGED]')[1]?.trim();
+        if (branchName) {
+          debug('Merge completed signal detected:', { id, branchName });
+          this.emit('mergeCompleted', id, branchName);
+        }
+      }
+    }
+  }
+
   private processMessage(id: string, message: SDKMessage): void {
     debug('Received message:', { type: message.type, subtype: (message as any).subtype });
 
@@ -376,6 +418,21 @@ export class AgentSDKManager extends EventEmitter {
           }
         }
 
+        if (message.tool_use_result) {
+          let resultStr: string;
+          if (typeof message.tool_use_result === 'string') {
+            resultStr = message.tool_use_result;
+          } else if (typeof message.tool_use_result === 'object' && message.tool_use_result !== null) {
+            const result = message.tool_use_result as Record<string, unknown>;
+            resultStr = typeof result.stdout === 'string' ? result.stdout : '';
+          } else {
+            resultStr = '';
+          }
+
+          if (resultStr) {
+            this.checkForWorktreeSignals(id, resultStr);
+          }
+        }
         break;
 
       case 'assistant':
@@ -422,6 +479,7 @@ export class AgentSDKManager extends EventEmitter {
                 this.emit('output', id, line, isSubagent, subagentInfo.subagentId, subagentInfo.subagentType);
               }
             }
+            this.checkForWorktreeSignals(id, content.text);
           } else if (content.type === 'tool_use') {
             debug('Tool use in assistant message:', { name: content.name, id: content.id, isSubagent });
 
