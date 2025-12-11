@@ -10,9 +10,6 @@ import { MultilineInput } from '../components/MultilineInput';
 
 interface DetailViewPageProps {
   agent: Agent;
-  onPermissionResponse: (allowed: boolean) => void;
-  onAlwaysAllow: () => void;
-  onAlwaysAllowInRepo?: () => void;
   onQuestionResponse: (answers: Record<string, string | string[]>) => void;
   onMergeResponse?: (approved: boolean) => void;
   onResolveConflicts?: () => void;
@@ -25,9 +22,6 @@ interface DetailViewPageProps {
 
 export const DetailViewPage = ({
   agent,
-  onPermissionResponse,
-  onAlwaysAllow,
-  onAlwaysAllowInRepo,
   onQuestionResponse,
   onMergeResponse,
   onResolveConflicts,
@@ -242,9 +236,6 @@ export const DetailViewPage = ({
       {agent.pendingPermission && (
         <PermissionPrompt
           permission={agent.pendingPermission}
-          onResponse={onPermissionResponse}
-          onAlwaysAllow={onAlwaysAllow}
-          onAlwaysAllowInRepo={onAlwaysAllowInRepo}
           queueCount={agent.permissionQueue.length}
         />
       )}

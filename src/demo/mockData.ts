@@ -14,9 +14,21 @@ export const createMockPermissionRequest = (toolName: 'Write' | 'Bash' = 'Write'
         file_path: '/Users/demo/project/src/components/Example.tsx',
         content: 'export const Example = () => { return <div>Hello</div>; };'
       },
-      suggestions: [{ type: 'addRules', rules: [{ toolName: 'Write' }], behavior: 'allow', destination: 'localSettings' }],
-      resolve: (result: { allowed: boolean; alwaysAllowInRepo?: boolean }) => {
-        console.log(`Permission ${result.allowed ? 'granted' : 'denied'} for Write tool${result.alwaysAllowInRepo ? ' (saved to repo)' : ''}`);
+      suggestions: [
+        {
+          type: 'addRules',
+          rules: [{ toolName: 'Write', ruleContent: 'src/**/*.tsx' }],
+          behavior: 'allow',
+          destination: 'localSettings'
+        },
+        {
+          type: 'setMode',
+          mode: 'acceptEdits',
+          destination: 'session'
+        }
+      ],
+      resolve: (result: { allowed: boolean; suggestions?: unknown[] }) => {
+        console.log(`Permission ${result.allowed ? 'granted' : 'denied'} for Write tool${result.suggestions ? ` (with ${result.suggestions.length} suggestion(s))` : ''}`);
       }
     };
   } else {
@@ -25,9 +37,21 @@ export const createMockPermissionRequest = (toolName: 'Write' | 'Bash' = 'Write'
       toolInput: {
         command: 'npm install && npm run build'
       },
-      suggestions: [{ type: 'addRules', rules: [{ toolName: 'Bash' }], behavior: 'allow', destination: 'localSettings' }],
-      resolve: (result: { allowed: boolean; alwaysAllowInRepo?: boolean }) => {
-        console.log(`Permission ${result.allowed ? 'granted' : 'denied'} for Bash tool${result.alwaysAllowInRepo ? ' (saved to repo)' : ''}`);
+      suggestions: [
+        {
+          type: 'addRules',
+          rules: [{ toolName: 'Bash', ruleContent: 'npm *' }],
+          behavior: 'allow',
+          destination: 'projectSettings'
+        },
+        {
+          type: 'addDirectories',
+          directories: ['/Users/demo/project/node_modules/.bin'],
+          destination: 'projectSettings'
+        }
+      ],
+      resolve: (result: { allowed: boolean; suggestions?: unknown[] }) => {
+        console.log(`Permission ${result.allowed ? 'granted' : 'denied'} for Bash tool${result.suggestions ? ` (with ${result.suggestions.length} suggestion(s))` : ''}`);
       }
     };
   }

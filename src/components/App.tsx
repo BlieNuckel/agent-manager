@@ -166,7 +166,29 @@ export const App = () => {
     };
     const onPermissionRequest = (id: string, permission: PermissionRequest) => {
       debug('Permission request received in UI:', { id, toolName: permission.toolName });
-      dispatch({ type: 'QUEUE_PERMISSION', id, permission });
+
+      const originalResolve = permission.resolve;
+      const wrappedPermission = {
+        ...permission,
+        resolve: (result: { allowed: boolean; suggestions?: unknown[] }) => {
+          debug('Permission resolved:', { id, allowed: result.allowed, hasSuggestions: !!result.suggestions });
+
+          if (result.allowed && !result.suggestions) {
+            const agent = state.agents.find(a => a.id === id);
+            const isEditTool = agent?.pendingPermission && ['Write', 'Edit', 'MultiEdit', 'NotebookEdit'].includes(agent.pendingPermission.toolName);
+
+            if (isEditTool) {
+              agentManager.setPermissionMode(id, 'acceptEdits');
+              dispatch({ type: 'UPDATE_AGENT', id, updates: { permissionMode: 'acceptEdits' } });
+            }
+          }
+
+          originalResolve(result);
+          dispatch({ type: 'DEQUEUE_PERMISSION', id });
+        }
+      };
+
+      dispatch({ type: 'QUEUE_PERMISSION', id, permission: wrappedPermission });
 
       if (mode !== 'detail' || detailAgentId !== id) {
         process.stdout.write('\u0007');
@@ -322,44 +344,6 @@ export const App = () => {
     saveHistory(newHistory);
   };
 
-  const handlePermissionResponse = (allowed: boolean) => {
-    debug('handlePermissionResponse called:', { detailAgentId, allowed });
-    if (detailAgentId) {
-      const agent = state.agents.find(a => a.id === detailAgentId);
-      debug('Found agent:', { id: agent?.id, hasPendingPermission: !!agent?.pendingPermission, queueLength: agent?.permissionQueue?.length });
-      if (agent?.pendingPermission) {
-        debug('Resolving permission with:', { allowed });
-        agent.pendingPermission.resolve({ allowed });
-        dispatch({ type: 'DEQUEUE_PERMISSION', id: detailAgentId });
-      }
-    }
-  };
-
-  const handleAlwaysAllow = () => {
-    debug('handleAlwaysAllow called:', { detailAgentId });
-    if (detailAgentId) {
-      const agent = state.agents.find(a => a.id === detailAgentId);
-      if (agent?.pendingPermission) {
-        debug('Setting acceptEdits mode for agent:', detailAgentId);
-        agent.pendingPermission.resolve({ allowed: true });
-        agentManager.setPermissionMode(detailAgentId, 'acceptEdits');
-        dispatch({ type: 'UPDATE_AGENT', id: detailAgentId, updates: { permissionMode: 'acceptEdits' } });
-        dispatch({ type: 'DEQUEUE_PERMISSION', id: detailAgentId });
-      }
-    }
-  };
-
-  const handleAlwaysAllowInRepo = () => {
-    debug('handleAlwaysAllowInRepo called:', { detailAgentId });
-    if (detailAgentId) {
-      const agent = state.agents.find(a => a.id === detailAgentId);
-      if (agent?.pendingPermission) {
-        debug('Always allowing in repo for agent:', detailAgentId);
-        agent.pendingPermission.resolve({ allowed: true, alwaysAllowInRepo: true });
-        dispatch({ type: 'DEQUEUE_PERMISSION', id: detailAgentId });
-      }
-    }
-  };
 
   const handleQuestionResponse = (answers: Record<string, string | string[]>) => {
     debug('handleQuestionResponse called:', { detailAgentId, answers });
@@ -847,9 +831,6 @@ export const App = () => {
       const detailContent = (
         <DetailViewPage
           agent={detailAgent}
-          onPermissionResponse={handlePermissionResponse}
-          onAlwaysAllow={handleAlwaysAllow}
-          onAlwaysAllowInRepo={handleAlwaysAllowInRepo}
           onQuestionResponse={handleQuestionResponse}
           onMergeResponse={handleMergeResponse}
           onResolveConflicts={handleResolveConflicts}

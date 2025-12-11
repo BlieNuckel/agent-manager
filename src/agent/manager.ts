@@ -154,7 +154,7 @@ export class AgentSDKManager extends EventEmitter {
       debug('Requesting permission for tool:', toolName);
       this.emit('output', id, `[!] Permission required for: ${toolName}`, isSubagentTool, options.agentID, subagentType);
 
-      const result = await new Promise<{ allowed: boolean; alwaysAllowInRepo?: boolean }>((resolvePermission) => {
+      const result = await new Promise<{ allowed: boolean; suggestions?: unknown[] }>((resolvePermission) => {
         this.emit('permissionRequest', id, {
           toolName,
           toolInput,
@@ -163,7 +163,7 @@ export class AgentSDKManager extends EventEmitter {
         });
       });
 
-      debug('Permission result:', { toolName, allowed: result.allowed, alwaysAllowInRepo: result.alwaysAllowInRepo });
+      debug('Permission result:', { toolName, allowed: result.allowed, hasSuggestions: !!result.suggestions });
       this.emit('output', id, result.allowed ? `[+] Allowed: ${toolName}` : `[-] Denied: ${toolName}`, isSubagentTool, options.agentID, subagentType);
 
       if (result.allowed) {
@@ -171,8 +171,8 @@ export class AgentSDKManager extends EventEmitter {
           behavior: 'allow' as const,
           updatedInput: toolInput
         };
-        if (result.alwaysAllowInRepo && options.suggestions) {
-          response.updatedPermissions = options.suggestions;
+        if (result.suggestions && result.suggestions.length > 0) {
+          response.updatedPermissions = result.suggestions;
         }
         return response;
       } else {
