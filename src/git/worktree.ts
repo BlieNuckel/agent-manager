@@ -1,6 +1,7 @@
 import { execSync } from 'child_process';
 import * as path from 'path';
 import { debug } from '../utils/logger';
+import { copySettingsToWorktree, mergeSettingsFromWorktree } from './settingsSync';
 
 export function getGitRoot(): string | null {
   try {
@@ -181,6 +182,11 @@ export async function createWorktree(
       { cwd: gitRoot, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] }
     );
 
+    const settingsResult = copySettingsToWorktree(gitRoot, worktreePath);
+    if (settingsResult.copied) {
+      debug('Settings copied to worktree');
+    }
+
     debug('Worktree created successfully:', worktreePath);
 
     return {
@@ -298,13 +304,18 @@ export async function performMerge(
 export async function cleanupWorktree(
   worktreePath: string,
   branchName: string
-): Promise<{ success: boolean; error?: string }> {
+): Promise<{ success: boolean; error?: string; settingsMerged?: boolean; newPermissions?: string[] }> {
   try {
     debug('Cleaning up worktree:', { worktreePath, branchName });
 
     const gitRoot = getGitRoot();
     if (!gitRoot) {
       return { success: false, error: 'Not in a git repository' };
+    }
+
+    const settingsResult = mergeSettingsFromWorktree(gitRoot, worktreePath);
+    if (settingsResult.merged) {
+      debug('Settings merged from worktree:', settingsResult.newPermissions);
     }
 
     try {
@@ -330,7 +341,11 @@ export async function cleanupWorktree(
 
     debug('Worktree cleanup completed successfully');
 
-    return { success: true };
+    return {
+      success: true,
+      settingsMerged: settingsResult.merged,
+      newPermissions: settingsResult.newPermissions
+    };
   } catch (error: any) {
     debug('Worktree cleanup failed:', error.message);
     return {
