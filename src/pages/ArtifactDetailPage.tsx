@@ -20,7 +20,8 @@ export const ArtifactDetailPage = ({ artifact, onBack }: ArtifactDetailPageProps
   const availableForPage = termHeight - appHeaderHeight - appHelpBarHeight;
   const artifactHeaderHeight = 3;
   const borderHeight = 2;
-  const visibleLines = Math.max(1, availableForPage - artifactHeaderHeight - borderHeight);
+  const paddingHeight = 2;
+  const visibleLines = Math.max(1, availableForPage - artifactHeaderHeight - borderHeight - paddingHeight);
 
   useEffect(() => {
     const loadContent = async () => {
@@ -83,7 +84,7 @@ export const ArtifactDetailPage = ({ artifact, onBack }: ArtifactDetailPageProps
         <Text dimColor>Path: {artifact.path}</Text>
       </Box>
 
-      <Box flexDirection="column" borderStyle="round" borderColor="gray" padding={1} flexGrow={1} minHeight={0}>
+      <Box flexDirection="column" borderStyle="round" borderColor="gray" padding={1} height={visibleLines + borderHeight + paddingHeight}>
         {visibleContent.map((line, idx) => (
           <Box key={scrollOffset + idx}>
             <Markdown>{line || ' '}</Markdown>
