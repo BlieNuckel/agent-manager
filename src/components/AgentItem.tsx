@@ -2,6 +2,7 @@ import React from 'react';
 import { Box, Text } from 'ink';
 import type { Agent } from '../types';
 import { StatusBadge } from './StatusBadge';
+import { ContextHealthIndicator } from './ContextHealthIndicator';
 import { formatTime } from '../utils/helpers';
 
 export const AgentItem = ({ agent, selected }: { agent: Agent; selected: boolean }) => {
@@ -18,6 +19,9 @@ export const AgentItem = ({ agent, selected }: { agent: Agent; selected: boolean
         {agent.pendingMerge && agent.pendingMerge.status === 'conflicts' && <Text color="yellow"> [!] Merge Conflicts</Text>}
         {agent.pendingMerge && agent.pendingMerge.status === 'failed' && <Text color="red"> [x] Merge Failed</Text>}
         {agent.pendingMerge && agent.pendingMerge.status === 'resolving' && <Text color="blue"> [~] Resolving Conflicts</Text>}
+        <Box marginLeft={1}>
+          <ContextHealthIndicator agent={agent} compact />
+        </Box>
       </Box>
       <Box marginLeft={14}>
         <Text dimColor wrap="truncate">{agent.prompt.slice(0, 60)}{agent.prompt.length > 60 ? '...' : ''}</Text>

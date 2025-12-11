@@ -92,6 +92,15 @@ export function reducer(state: State, action: Action): State {
       };
     case 'SET_ARTIFACTS':
       return { ...state, artifacts: action.artifacts };
+    case 'UPDATE_TOKEN_USAGE':
+      return {
+        ...state,
+        agents: state.agents.map(a =>
+          a.id === action.id
+            ? { ...a, tokenUsage: action.tokenUsage, updatedAt: new Date() }
+            : a
+        ),
+      };
     default:
       return state;
   }

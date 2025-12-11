@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useReducer } from 'react';
 import { useInput, useApp } from 'ink';
-import type { Agent, AgentType, HistoryEntry, Mode, PermissionRequest, QuestionRequest, InputStep, PermissionMode, ImageAttachment } from '../types';
+import type { Agent, AgentType, HistoryEntry, Mode, PermissionRequest, QuestionRequest, InputStep, PermissionMode, ImageAttachment, TokenTracking } from '../types';
 import { reducer } from '../state/reducer';
 import { loadHistory, saveHistory } from '../state/history';
 import { AgentSDKManager } from '../agent/manager';
@@ -209,6 +209,9 @@ export const App = () => {
       const newHistory = state.history.map(h => h.id === id ? { ...h, title } : h);
       saveHistory(newHistory);
     };
+    const onTokenUsage = (id: string, tokenUsage: TokenTracking) => {
+      dispatch({ type: 'UPDATE_TOKEN_USAGE', id, tokenUsage });
+    };
 
     agentManager.on('output', onOutput);
     agentManager.on('idle', onIdle);
@@ -218,6 +221,7 @@ export const App = () => {
     agentManager.on('permissionRequest', onPermissionRequest);
     agentManager.on('questionRequest', onQuestionRequest);
     agentManager.on('titleUpdate', onTitleUpdate);
+    agentManager.on('tokenUsage', onTokenUsage);
 
     return () => {
       agentManager.off('output', onOutput);
@@ -228,6 +232,7 @@ export const App = () => {
       agentManager.off('permissionRequest', onPermissionRequest);
       agentManager.off('questionRequest', onQuestionRequest);
       agentManager.off('titleUpdate', onTitleUpdate);
+      agentManager.off('tokenUsage', onTokenUsage);
     };
   }, [state.history, mode, detailAgentId, state.agents]);
 

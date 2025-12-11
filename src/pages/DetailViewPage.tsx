@@ -3,6 +3,7 @@ import { Box, Text, useInput, useStdout } from 'ink';
 import TextInput from 'ink-text-input';
 import type { Agent, ImageAttachment } from '../types';
 import { StatusBadge } from '../components/StatusBadge';
+import { ContextHealthIndicator } from '../components/ContextHealthIndicator';
 import { PermissionPrompt } from '../components/PermissionPrompt';
 import { QuestionPrompt } from '../components/QuestionPrompt';
 import { MergePrompt } from '../components/MergePrompt';
@@ -184,6 +185,8 @@ export const DetailViewPage = ({
           <Text bold color={agent.pendingPermission ? 'yellow' : agent.pendingQuestion ? 'magenta' : 'cyan'} dimColor={isPending} italic={isPending}> {agent.title}</Text>
           {agent.worktreeName && <Text color="magenta"> * {agent.worktreeName}</Text>}
           {agent.sessionId && <Text dimColor> (session: {agent.sessionId.slice(0, 8)}...)</Text>}
+          <Text> │ </Text>
+          <ContextHealthIndicator agent={agent} />
         </Box>
 
         <Box flexDirection="column">
