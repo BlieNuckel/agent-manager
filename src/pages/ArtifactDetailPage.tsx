@@ -1,6 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Box, Text, useInput, useStdout } from 'ink';
-import { Markdown } from '../components/Markdown';
+import { marked } from 'marked';
+import TerminalRenderer from 'marked-terminal';
+import chalk from 'chalk';
+import { AnsiText } from '../utils/ansiToInk';
 import fs from 'fs';
 import type { ArtifactInfo } from '../types';
 
@@ -8,6 +11,34 @@ interface ArtifactDetailPageProps {
   artifact: ArtifactInfo;
   onBack: () => void;
 }
+
+chalk.level = 3;
+
+const renderer = new TerminalRenderer({
+  code: chalk.yellow,
+  codespan: chalk.yellow,
+  tableOptions: {
+    style: {
+      head: ['cyan'],
+      border: ['gray']
+    }
+  }
+});
+
+marked.setOptions({ renderer });
+
+const useRenderedMarkdown = (content: string): string[] => {
+  return useMemo(() => {
+    if (!content) return [];
+    try {
+      const rendered = marked.parse(content);
+      const output = typeof rendered === 'string' ? rendered : '';
+      return output.split('\n');
+    } catch {
+      return content.split('\n');
+    }
+  }, [content]);
+};
 
 export const ArtifactDetailPage = ({ artifact, onBack }: ArtifactDetailPageProps) => {
   const { stdout } = useStdout();
@@ -21,10 +52,12 @@ export const ArtifactDetailPage = ({ artifact, onBack }: ArtifactDetailPageProps
   const artifactHeaderHeight = 3;
   const borderHeight = 2;
   const paddingHeight = 2;
-  const visibleLines = Math.max(1, availableForPage - artifactHeaderHeight - borderHeight - paddingHeight);
+  const scrollIndicatorHeight = 1;
+  const visibleLines = Math.max(1, availableForPage - artifactHeaderHeight - borderHeight - paddingHeight - scrollIndicatorHeight);
 
   useEffect(() => {
     const loadContent = async () => {
+      setScrollOffset(0);
       try {
         const data = await fs.promises.readFile(artifact.path, 'utf-8');
         setContent(data);
@@ -35,8 +68,14 @@ export const ArtifactDetailPage = ({ artifact, onBack }: ArtifactDetailPageProps
     loadContent();
   }, [artifact.path]);
 
-  const contentLines = content.split('\n');
-  const maxScroll = Math.max(0, contentLines.length - visibleLines);
+  const renderedLines = useRenderedMarkdown(content);
+  const maxScroll = Math.max(0, renderedLines.length - visibleLines);
+
+  useEffect(() => {
+    if (scrollOffset > maxScroll) {
+      setScrollOffset(maxScroll);
+    }
+  }, [renderedLines.length, visibleLines, scrollOffset, maxScroll]);
 
   useInput((input, key) => {
     if (key.escape || input === 'q') {
@@ -57,7 +96,6 @@ export const ArtifactDetailPage = ({ artifact, onBack }: ArtifactDetailPageProps
       setScrollOffset(Math.min(maxScroll, scrollOffset + visibleLines));
     }
 
-    // Vim-style navigation
     if (input === 'g') {
       setScrollOffset(0);
     }
@@ -74,7 +112,7 @@ export const ArtifactDetailPage = ({ artifact, onBack }: ArtifactDetailPageProps
     }
   });
 
-  const visibleContent = contentLines.slice(scrollOffset, scrollOffset + visibleLines);
+  const visibleContent = renderedLines.slice(scrollOffset, scrollOffset + visibleLines);
 
   return (
     <Box flexDirection="column" flexGrow={1} minHeight={0}>
@@ -86,21 +124,23 @@ export const ArtifactDetailPage = ({ artifact, onBack }: ArtifactDetailPageProps
 
       <Box flexDirection="column" borderStyle="round" borderColor="gray" padding={1} height={visibleLines + borderHeight + paddingHeight}>
         {visibleContent.map((line, idx) => (
-          <Box key={scrollOffset + idx}>
-            <Markdown>{line || ' '}</Markdown>
+          <Box key={`line-${scrollOffset + idx}`} height={1} flexShrink={0}>
+            <AnsiText wrap="truncate-end">{line || ' '}</AnsiText>
           </Box>
         ))}
       </Box>
 
-      {maxScroll > 0 && (
-        <Box marginTop={1}>
+      <Box marginTop={1} height={1}>
+        {maxScroll > 0 ? (
           <Text dimColor>
-            Line {scrollOffset + 1}-{Math.min(scrollOffset + visibleLines, contentLines.length)} of {contentLines.length}
-            {scrollOffset > 0 && ' (scroll up for more)'}
-            {scrollOffset < maxScroll && ' (scroll down for more)'}
+            Line {scrollOffset + 1}-{Math.min(scrollOffset + visibleLines, renderedLines.length)} of {renderedLines.length}
+            {scrollOffset > 0 && ' ↑'}
+            {scrollOffset < maxScroll && ' ↓'}
           </Text>
-        </Box>
-      )}
+        ) : (
+          <Text dimColor> </Text>
+        )}
+      </Box>
     </Box>
   );
 };
