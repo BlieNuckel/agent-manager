@@ -1,0 +1,12 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`DiscardConfirmationPrompt > snapshots > renders correctly 1`] = `
+"╭──────────────────────────────────────────────────────────────────────────────────────────────────╮
+│                                                                                                  │
+│ Discard changes?                                                                                 │
+│ You have unsaved input in the form.                                                              │
+│                                                                                                  │
+│ Discard and exit? [y] Yes  [n] No                                                                │
+│                                                                                                  │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────╯"
+`;

@@ -8,6 +8,7 @@ import { AgentSDKManager } from '../agent/manager';
 import { SlashCommandMenu } from '../components/SlashCommandMenu';
 import { MultilineInput } from '../components/MultilineInput';
 import { listArtifacts, formatArtifactReference, type ArtifactInfo } from '../utils/artifacts';
+import { DiscardConfirmationPrompt } from '../components/DiscardConfirmationPrompt';
 
 interface NewAgentPageProps {
   onSubmit: (title: string, p: string, agentType: AgentType, worktree: { enabled: boolean; name: string }, images?: ImageAttachment[]) => void;
@@ -32,6 +33,11 @@ export const NewAgentPage = ({ onSubmit, onCancel, onStateChange, initialHistory
   const [artifacts, setArtifacts] = useState<ArtifactInfo[]>([]);
   const [selectedArtifactIndex, setSelectedArtifactIndex] = useState(-1);
   const [images, setImages] = useState<Map<string, ImageAttachment>>(new Map());
+  const [showDiscardConfirmation, setShowDiscardConfirmation] = useState(false);
+
+  const hasFormContent = () => {
+    return title.trim() !== '' || prompt.trim() !== '' || worktreeName.trim() !== '';
+  };
 
   const handleImagePasted = (id: string, path: string, base64: string, mediaType: string) => {
     const attachment: ImageAttachment = {
@@ -78,6 +84,15 @@ export const NewAgentPage = ({ onSubmit, onCancel, onStateChange, initialHistory
   }, [step, showSlashMenu, onStateChange]);
 
   useInput((input, key) => {
+    if (showDiscardConfirmation) {
+      if (input === 'y' || input === 'Y') {
+        onCancel();
+      } else if (input === 'n' || input === 'N' || key.escape) {
+        setShowDiscardConfirmation(false);
+      }
+      return;
+    }
+
     if (showSlashMenu) {
       if (key.escape) {
         setShowSlashMenu(false);
@@ -127,7 +142,14 @@ export const NewAgentPage = ({ onSubmit, onCancel, onStateChange, initialHistory
       return;
     }
 
-    if (key.escape) { onCancel(); return; }
+    if (key.escape) {
+      if (hasFormContent()) {
+        setShowDiscardConfirmation(true);
+      } else {
+        onCancel();
+      }
+      return;
+    }
 
     if (key.leftArrow) {
       if (step === 'prompt') {
@@ -407,6 +429,13 @@ export const NewAgentPage = ({ onSubmit, onCancel, onStateChange, initialHistory
           commands={slashCommands}
           searchQuery={slashSearchQuery}
           selectedIndex={slashSelectedIndex}
+        />
+      )}
+
+      {showDiscardConfirmation && (
+        <DiscardConfirmationPrompt
+          onConfirm={onCancel}
+          onCancel={() => setShowDiscardConfirmation(false)}
         />
       )}
     </>
