@@ -39,9 +39,9 @@ exports[`MergePrompt > snapshots > renders ready state correctly 1`] = `
 │                                                                                                  │
 │ 🌿 Merge Ready                                                                                   │
 │ Branch: feature-xyz                                                                              │
-│ No conflicts detected. The agent will merge and clean up the worktree.                           │
+│ No conflicts detected.                                                                           │
 │                                                                                                  │
-│ Approve merge? [y] Yes  [n] No                                                                   │
+│ Choose action: [y] Merge  [p] Draft PR  [n] Cancel                                               │
 │                                                                                                  │
 ╰──────────────────────────────────────────────────────────────────────────────────────────────────╯"
 `;

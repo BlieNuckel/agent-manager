@@ -16,6 +16,7 @@ interface DetailViewPageProps {
   onQuestionResponse: (answers: Record<string, string | string[]>) => void;
   onMergeResponse?: (approved: boolean) => void;
   onResolveConflicts?: () => void;
+  onDraftPR?: () => void;
   onSendMessage?: (message: string, images?: ImageAttachment[]) => void;
   onBack: () => void;
   chatMode?: boolean;
@@ -30,6 +31,7 @@ export const DetailViewPage = ({
   onQuestionResponse,
   onMergeResponse,
   onResolveConflicts,
+  onDraftPR,
   onSendMessage,
   onBack,
   chatMode = false,
@@ -109,6 +111,14 @@ export const DetailViewPage = ({
 
     if (agent.pendingMerge) {
       if (agent.pendingMerge.status === 'ready' && onMergeResponse) {
+        if (input === 'y') {
+          onMergeResponse(true);
+        } else if (input === 'n') {
+          onMergeResponse(false);
+        } else if (input === 'p' && onDraftPR) {
+          onDraftPR();
+        }
+      } else if (agent.pendingMerge.status === 'pr-created' && onMergeResponse) {
         if (input === 'y') {
           onMergeResponse(true);
         } else if (input === 'n') {
@@ -251,6 +261,7 @@ export const DetailViewPage = ({
           mergeState={agent.pendingMerge}
           onApprove={() => onMergeResponse(true)}
           onDeny={() => onMergeResponse(false)}
+          onDraftPR={onDraftPR}
         />
       )}
 
@@ -286,8 +297,26 @@ export const getDetailViewHelp = (promptNeedsScroll: boolean, canChat: boolean, 
   if (pendingMerge?.status === 'ready') {
     return (
       <>
-        <Text color="green">y</Text>{' '}Approve{'  '}
-        <Text color="red">n</Text>{' '}Deny
+        <Text color="green">y</Text>{' '}Merge{'  '}
+        <Text color="cyan">p</Text>{' '}Draft PR{'  '}
+        <Text color="red">n</Text>{' '}Cancel
+      </>
+    );
+  }
+
+  if (pendingMerge?.status === 'pr-created') {
+    return (
+      <>
+        <Text color="green">y</Text>{' '}Cleanup{'  '}
+        <Text color="red">n</Text>{' '}Keep
+      </>
+    );
+  }
+
+  if (pendingMerge?.status === 'drafting-pr') {
+    return (
+      <>
+        <Text dimColor>Agent is drafting PR...</Text>
       </>
     );
   }

@@ -40,18 +40,19 @@ describe('MergePrompt', () => {
       expect(lastFrame()).toContain('No conflicts detected');
     });
 
-    it('shows approve merge question', () => {
+    it('shows action choices', () => {
       const { lastFrame } = render(
         <MergePrompt mergeState={readyState} onApprove={onApprove} onDeny={onDeny} />
       );
-      expect(lastFrame()).toContain('Approve merge?');
+      expect(lastFrame()).toContain('Choose action:');
     });
 
-    it('shows y/n options', () => {
+    it('shows y/p/n options', () => {
       const { lastFrame } = render(
         <MergePrompt mergeState={readyState} onApprove={onApprove} onDeny={onDeny} />
       );
       expect(lastFrame()).toContain('[y]');
+      expect(lastFrame()).toContain('[p]');
       expect(lastFrame()).toContain('[n]');
     });
 
