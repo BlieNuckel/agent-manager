@@ -24,7 +24,7 @@ export const NewAgentPage = ({ onSubmit, onCancel, onStateChange, initialHistory
   const [agentType, setAgentType] = useState<AgentType>('normal');
   const [useWorktree, setUseWorktree] = useState(false);
   const [worktreeName, setWorktreeName] = useState('');
-  const [step, setStep] = useState<InputStep>(initialHistoryEntry ? 'prompt' : initialArtifactPath ? 'prompt' : 'title');
+  const [step, setStep] = useState<InputStep>(initialHistoryEntry ? 'prompt' : 'title');
   const [gitRoot] = useState(() => getGitRoot());
   const [slashCommands, setSlashCommands] = useState<SlashCommand[]>([]);
   const [showSlashMenu, setShowSlashMenu] = useState(false);
