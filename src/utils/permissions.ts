@@ -57,6 +57,10 @@ function formatToolInputForRule(input: Record<string, unknown>): string {
       return `${words[0]} ${words[1]}:*`;
     }
 
+    if (words.length >= 2) {
+      return `${words[0]} ${words[1]}:*`;
+    }
+
     return `${baseCommand}:*`;
   }
 
