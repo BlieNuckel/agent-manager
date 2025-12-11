@@ -15,6 +15,7 @@ interface DetailViewPageProps {
   onAlwaysAllowInRepo?: () => void;
   onQuestionResponse: (answers: Record<string, string | string[]>) => void;
   onMergeResponse?: (approved: boolean) => void;
+  onResolveConflicts?: () => void;
   onSendMessage?: (message: string, images?: ImageAttachment[]) => void;
   onBack: () => void;
   chatMode?: boolean;
@@ -28,6 +29,7 @@ export const DetailViewPage = ({
   onAlwaysAllowInRepo,
   onQuestionResponse,
   onMergeResponse,
+  onResolveConflicts,
   onSendMessage,
   onBack,
   chatMode = false,
@@ -113,8 +115,8 @@ export const DetailViewPage = ({
           onMergeResponse(false);
         }
       } else if (agent.pendingMerge.status === 'conflicts' || agent.pendingMerge.status === 'failed') {
-        if (onMergeResponse) {
-          onMergeResponse(false);
+        if (input === 'r' && onResolveConflicts) {
+          onResolveConflicts();
         }
       }
       return;
@@ -293,7 +295,15 @@ export const getDetailViewHelp = (promptNeedsScroll: boolean, canChat: boolean, 
   if (pendingMerge?.status === 'conflicts' || pendingMerge?.status === 'failed') {
     return (
       <>
-        <Text dimColor>Press any key to continue...</Text>
+        <Text color="cyan">r</Text>{' '}Have agent resolve
+      </>
+    );
+  }
+
+  if (pendingMerge?.status === 'resolving') {
+    return (
+      <>
+        <Text dimColor>Agent is resolving conflicts...</Text>
       </>
     );
   }
