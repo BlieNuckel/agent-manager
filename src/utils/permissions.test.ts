@@ -23,60 +23,70 @@ describe('formatPermissionRule', () => {
     expect(formatPermissionRule(suggestion)).toBe('Write');
   });
 
-  it('formats command input with first word and wildcard', () => {
+  it('displays SDK-provided command pattern directly', () => {
     const suggestion: PermissionSuggestion = {
       type: 'addRules',
-      rules: [{ toolName: 'Bash', toolInput: { command: 'npm install' } }],
+      rules: [{ toolName: 'Bash', toolInput: { command: 'npm:*' } }],
       behavior: 'allow',
       destination: 'localSettings'
     };
     expect(formatPermissionRule(suggestion)).toBe('Bash("npm:*")');
   });
 
-  it('formats npx commands with two words', () => {
+  it('displays SDK-provided npx command pattern directly', () => {
     const suggestion: PermissionSuggestion = {
       type: 'addRules',
-      rules: [{ toolName: 'Bash', toolInput: { command: 'npx vitest --watch' } }],
+      rules: [{ toolName: 'Bash', toolInput: { command: 'npx vitest:*' } }],
       behavior: 'allow',
       destination: 'localSettings'
     };
     expect(formatPermissionRule(suggestion)).toBe('Bash("npx vitest:*")');
   });
 
-  it('formats npm run commands with three words', () => {
+  it('displays SDK-provided npm run pattern directly', () => {
     const suggestion: PermissionSuggestion = {
       type: 'addRules',
-      rules: [{ toolName: 'Bash', toolInput: { command: 'npm run test --coverage' } }],
+      rules: [{ toolName: 'Bash', toolInput: { command: 'npm run test:*' } }],
       behavior: 'allow',
       destination: 'localSettings'
     };
     expect(formatPermissionRule(suggestion)).toBe('Bash("npm run test:*")');
   });
 
-  it('formats yarn package runner with two words', () => {
+  it('displays SDK-provided npm test pattern directly', () => {
     const suggestion: PermissionSuggestion = {
       type: 'addRules',
-      rules: [{ toolName: 'Bash', toolInput: { command: 'yarn dlx eslint .' } }],
+      rules: [{ toolName: 'Bash', toolInput: { command: 'npm test:*' } }],
+      behavior: 'allow',
+      destination: 'localSettings'
+    };
+    expect(formatPermissionRule(suggestion)).toBe('Bash("npm test:*")');
+  });
+
+  it('displays SDK-provided yarn dlx pattern directly', () => {
+    const suggestion: PermissionSuggestion = {
+      type: 'addRules',
+      rules: [{ toolName: 'Bash', toolInput: { command: 'yarn dlx:*' } }],
       behavior: 'allow',
       destination: 'localSettings'
     };
     expect(formatPermissionRule(suggestion)).toBe('Bash("yarn dlx:*")');
   });
 
-  it('formats pnpm run commands with three words', () => {
+  it('displays SDK-provided pnpm run pattern directly', () => {
     const suggestion: PermissionSuggestion = {
       type: 'addRules',
-      rules: [{ toolName: 'Bash', toolInput: { command: 'pnpm run build' } }],
+      rules: [{ toolName: 'Bash', toolInput: { command: 'pnpm run build:*' } }],
       behavior: 'allow',
       destination: 'localSettings'
     };
     expect(formatPermissionRule(suggestion)).toBe('Bash("pnpm run build:*")');
   });
 
-  it('formats file_path input with path and wildcard', () => {
+  it('displays SDK-provided file_path directly', () => {
     const suggestion: PermissionSuggestion = {
       type: 'addRules',
-      rules: [{ toolName: 'Write', toolInput: { file_path: '/test/file.ts' } }],
+      rules: [{ toolName: 'Write', toolInput: { file_path: '/test/file.ts:*' } }],
       behavior: 'allow',
       destination: 'localSettings'
     };
@@ -108,14 +118,14 @@ describe('formatPermissionRule', () => {
     expect(formatPermissionRule(suggestion)).toBe('Write, Edit, Bash');
   });
 
-  it('returns wildcard for unknown input structure', () => {
+  it('returns tool name for unknown input structure without command or file_path', () => {
     const suggestion: PermissionSuggestion = {
       type: 'addRules',
       rules: [{ toolName: 'Custom', toolInput: { unknown: 'data' } }],
       behavior: 'allow',
       destination: 'localSettings'
     };
-    expect(formatPermissionRule(suggestion)).toBe('Custom("*")');
+    expect(formatPermissionRule(suggestion)).toBe('Custom');
   });
 
   it('handles undefined suggestion rules', () => {
@@ -159,15 +169,15 @@ describe('getPermissionExplanation', () => {
     expect(result?.saveLocation).toBe('~/.claude/settings.json');
   });
 
-  it('includes formatted rule in whatWillBeSaved', () => {
+  it('includes SDK-provided rule in whatWillBeSaved', () => {
     const suggestions: PermissionSuggestion[] = [{
       type: 'addRules',
-      rules: [{ toolName: 'Bash', toolInput: { command: 'npm test' } }],
+      rules: [{ toolName: 'Bash', toolInput: { command: 'npm test:*' } }],
       behavior: 'allow',
       destination: 'localSettings'
     }];
     const result = getPermissionExplanation(suggestions, 'Bash');
-    expect(result?.whatWillBeSaved).toBe('Bash("npm:*")');
+    expect(result?.whatWillBeSaved).toBe('Bash("npm test:*")');
   });
 
   it('uses toolInput param for rule formatting', () => {

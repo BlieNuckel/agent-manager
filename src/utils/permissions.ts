@@ -9,15 +9,33 @@ export function formatPermissionRule(suggestion: PermissionSuggestion, fallbackT
 
   if (toolNames.length === 1) {
     const rule = suggestion.rules[0];
-    const toolInput = rule.toolInput || fallbackToolInput;
-    if (toolInput && typeof toolInput === 'object') {
-      const inputStr = formatToolInputForRule(toolInput as Record<string, unknown>);
+
+    if (rule.toolInput && typeof rule.toolInput === 'object') {
+      const inputStr = extractInputString(rule.toolInput as Record<string, unknown>);
+      if (inputStr) {
+        return `${rule.toolName}("${inputStr}")`;
+      }
+    }
+
+    if (fallbackToolInput && typeof fallbackToolInput === 'object') {
+      const inputStr = formatToolInputForRule(fallbackToolInput as Record<string, unknown>);
       return `${rule.toolName}("${inputStr}")`;
     }
+
     return rule.toolName;
   }
 
   return toolNames.join(', ');
+}
+
+function extractInputString(input: Record<string, unknown>): string | null {
+  if ('command' in input && typeof input.command === 'string') {
+    return input.command;
+  }
+  if ('file_path' in input && typeof input.file_path === 'string') {
+    return input.file_path;
+  }
+  return null;
 }
 
 function formatToolInputForRule(input: Record<string, unknown>): string {
