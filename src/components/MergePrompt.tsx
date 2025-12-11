@@ -6,22 +6,35 @@ interface Props {
   mergeState: MergeState;
   onApprove: () => void;
   onDeny: () => void;
+  onDraftPR?: () => void;
 }
 
-export const MergePrompt = ({ mergeState, onApprove, onDeny }: Props) => {
+export const MergePrompt = ({ mergeState, onApprove, onDeny, onDraftPR }: Props) => {
   if (mergeState.status === 'ready') {
     return (
       <Box flexDirection="column" borderStyle="round" borderColor="green" padding={1} flexShrink={0}>
         <Text bold color="green">🌿 Merge Ready</Text>
         <Text>Branch: <Text color="cyan">{mergeState.branchName}</Text></Text>
-        <Text dimColor>No conflicts detected. The agent will merge and clean up the worktree.</Text>
+        <Text dimColor>No conflicts detected.</Text>
         <Box marginTop={1}>
-          <Text bold>Approve merge? </Text>
+          <Text bold>Choose action: </Text>
           <Text color="green">[y]</Text>
-          <Text> Yes  </Text>
+          <Text> Merge  </Text>
+          <Text color="cyan">[p]</Text>
+          <Text> Draft PR  </Text>
           <Text color="red">[n]</Text>
-          <Text> No</Text>
+          <Text> Cancel</Text>
         </Box>
+      </Box>
+    );
+  }
+
+  if (mergeState.status === 'drafting-pr') {
+    return (
+      <Box flexDirection="column" borderStyle="round" borderColor="blue" padding={1} flexShrink={0}>
+        <Text bold color="blue">📝 Drafting Pull Request...</Text>
+        <Text>Branch: <Text color="cyan">{mergeState.branchName}</Text></Text>
+        <Text dimColor>Agent is creating the PR using gh pr create</Text>
       </Box>
     );
   }
@@ -62,6 +75,24 @@ export const MergePrompt = ({ mergeState, onApprove, onDeny }: Props) => {
         <Text bold color="blue">🔧 Resolving Merge Conflicts...</Text>
         <Text>Branch: <Text color="cyan">{mergeState.branchName}</Text></Text>
         <Text dimColor>Agent is working on resolving merge conflicts</Text>
+      </Box>
+    );
+  }
+
+  if (mergeState.status === 'pr-created') {
+    return (
+      <Box flexDirection="column" borderStyle="round" borderColor="green" padding={1} flexShrink={0}>
+        <Text bold color="green">✅ Pull Request Created</Text>
+        <Text>Branch: <Text color="cyan">{mergeState.branchName}</Text></Text>
+        {mergeState.prUrl && <Text>PR: <Text color="cyan">{mergeState.prUrl}</Text></Text>}
+        <Text dimColor>Ready to cleanup worktree</Text>
+        <Box marginTop={1}>
+          <Text bold>Cleanup worktree? </Text>
+          <Text color="green">[y]</Text>
+          <Text> Yes  </Text>
+          <Text color="red">[n]</Text>
+          <Text> Keep</Text>
+        </Box>
       </Box>
     );
   }

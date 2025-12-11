@@ -74,6 +74,39 @@ export const App = () => {
 
       const agent = state.agents.find(a => a.id === id);
 
+      if (agent?.pendingMerge?.status === 'drafting-pr') {
+        const recentOutput = agent.output.slice(-20);
+        let prUrl: string | undefined;
+
+        for (const line of recentOutput) {
+          const match = line.text.match(/https:\/\/github\.com\/[^\/]+\/[^\/]+\/pull\/\d+/);
+          if (match) {
+            prUrl = match[0];
+            break;
+          }
+        }
+
+        dispatch({
+          type: 'SET_MERGE_STATE',
+          id,
+          mergeState: {
+            branchName: agent.pendingMerge.branchName,
+            status: 'pr-created',
+            prUrl
+          }
+        });
+
+        dispatch({
+          type: 'APPEND_OUTPUT',
+          id,
+          line: { text: prUrl ? `[+] PR created: ${prUrl}` : '[+] PR draft completed', isSubagent: false }
+        });
+
+        process.stdout.write('\u0007');
+        dispatch({ type: 'UPDATE_AGENT', id, updates: { status: 'idle' } });
+        return;
+      }
+
       if (agent?.worktreeName && agent.worktreePath) {
         const gitRoot = getGitRoot();
         if (gitRoot) {
@@ -413,6 +446,43 @@ export const App = () => {
     const agent = state.agents.find(a => a.id === detailAgentId);
     if (!agent?.pendingMerge) return;
 
+    if (agent.pendingMerge.status === 'pr-created') {
+      if (approved) {
+        dispatch({
+          type: 'APPEND_OUTPUT',
+          id: detailAgentId,
+          line: { text: '[i] Cleaning up worktree...', isSubagent: false }
+        });
+
+        if (agent.worktreePath) {
+          const cleanupResult = await cleanupWorktree(agent.worktreePath, agent.pendingMerge.branchName);
+
+          if (cleanupResult.success) {
+            dispatch({
+              type: 'APPEND_OUTPUT',
+              id: detailAgentId,
+              line: { text: '[+] Worktree cleaned up', isSubagent: false }
+            });
+          } else {
+            dispatch({
+              type: 'APPEND_OUTPUT',
+              id: detailAgentId,
+              line: { text: `[!] Cleanup warning: ${cleanupResult.error}`, isSubagent: false }
+            });
+          }
+        }
+
+        dispatch({
+          type: 'UPDATE_AGENT',
+          id: detailAgentId,
+          updates: { worktreeName: undefined, worktreePath: undefined }
+        });
+      }
+
+      dispatch({ type: 'SET_MERGE_STATE', id: detailAgentId, mergeState: undefined });
+      return;
+    }
+
     if (approved && agent.pendingMerge.status === 'ready') {
       const gitRoot = getGitRoot();
       if (!gitRoot) {
@@ -511,6 +581,46 @@ export const App = () => {
         type: 'APPEND_OUTPUT',
         id: detailAgentId,
         line: { text: `[x] Failed to send resolve request: ${error.message}`, isSubagent: false }
+      });
+    }
+  };
+
+  const handleDraftPR = async () => {
+    if (!detailAgentId) return;
+
+    const agent = state.agents.find(a => a.id === detailAgentId);
+    if (!agent?.pendingMerge || agent.pendingMerge.status !== 'ready') return;
+
+    const branchName = agent.pendingMerge.branchName;
+
+    dispatch({
+      type: 'SET_MERGE_STATE',
+      id: detailAgentId,
+      mergeState: { branchName, status: 'drafting-pr' }
+    });
+
+    const prMessage = `Use gh pr create to draft a pull request with the changes in your branch. The gh CLI will guide you through creating the PR with appropriate title and body.`;
+
+    dispatch({
+      type: 'APPEND_OUTPUT',
+      id: detailAgentId,
+      line: { text: '[i] Asking agent to draft PR...', isSubagent: false }
+    });
+
+    try {
+      await agentManager.sendFollowUpMessage(detailAgentId, prMessage);
+      dispatch({ type: 'UPDATE_AGENT', id: detailAgentId, updates: { status: 'working' } });
+    } catch (error: any) {
+      debug('Error sending PR draft request:', error);
+      dispatch({
+        type: 'APPEND_OUTPUT',
+        id: detailAgentId,
+        line: { text: `[x] Failed to send PR draft request: ${error.message}`, isSubagent: false }
+      });
+      dispatch({
+        type: 'SET_MERGE_STATE',
+        id: detailAgentId,
+        mergeState: { branchName, status: 'ready' }
       });
     }
   };
@@ -743,6 +853,7 @@ export const App = () => {
           onQuestionResponse={handleQuestionResponse}
           onMergeResponse={handleMergeResponse}
           onResolveConflicts={handleResolveConflicts}
+          onDraftPR={handleDraftPR}
           onSendMessage={handleSendMessage}
           onBack={handleBackFromDetail}
           chatMode={chatMode}

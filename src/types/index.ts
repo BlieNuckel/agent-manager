@@ -36,8 +36,9 @@ export interface QuestionRequest {
 
 export interface MergeState {
   branchName: string;
-  status: 'ready' | 'conflicts' | 'failed' | 'resolving';
+  status: 'ready' | 'conflicts' | 'failed' | 'resolving' | 'drafting-pr' | 'pr-created';
   error?: string;
+  prUrl?: string;
 }
 
 export interface OutputLine {
