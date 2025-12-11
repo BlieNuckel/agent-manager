@@ -1,119 +1,237 @@
-import React, { useState, useMemo } from 'react';
+import React, { useMemo, useCallback } from 'react';
 import { Box, Text, useInput } from 'ink';
-import type { PermissionRequest } from '../types';
+import type { PermissionRequest, PermissionSuggestion, PermissionDestination } from '../types';
 import { formatToolInput } from '../utils/helpers';
 import { AUTO_ACCEPT_EDIT_TOOLS } from '../agent/manager';
-import { getPermissionExplanation, getAlwaysAllowExplanation } from '../utils/permissions';
+import { getAlwaysAllowExplanation, getDestinationInfo } from '../utils/permissions';
+import { SuggestionList } from './SuggestionList';
 
-export const PermissionPrompt = ({ permission, onResponse, onAlwaysAllow, onAlwaysAllowInRepo, queueCount = 0 }: {
+function validateSuggestions(suggestions: unknown[]): PermissionSuggestion[] {
+  const validated: PermissionSuggestion[] = [];
+
+  for (const suggestion of suggestions) {
+    if (isSuggestion(suggestion)) {
+      validated.push(suggestion);
+    }
+  }
+
+  return validated;
+}
+
+function isSuggestion(value: unknown): value is PermissionSuggestion {
+  if (typeof value !== 'object' || value === null) return false;
+
+  const obj = value as any;
+
+  if (!('type' in obj) || !('destination' in obj)) return false;
+
+  switch (obj.type) {
+    case 'addRules':
+    case 'replaceRules':
+    case 'removeRules':
+      return 'rules' in obj && 'behavior' in obj;
+    case 'setMode':
+      return 'mode' in obj;
+    case 'addDirectories':
+    case 'removeDirectories':
+      return 'directories' in obj;
+    default:
+      return false;
+  }
+}
+
+export const PermissionPrompt = ({
+  permission,
+  queueCount = 0,
+}: {
   permission: PermissionRequest;
-  onResponse: (allowed: boolean) => void;
-  onAlwaysAllow: () => void;
-  onAlwaysAllowInRepo?: () => void;
   queueCount?: number;
 }) => {
   const isEditTool = AUTO_ACCEPT_EDIT_TOOLS.includes(permission.toolName);
-  const hasSuggestions = permission.suggestions && permission.suggestions.length > 0;
-  const isUserSettings = hasSuggestions && permission.suggestions![0].destination === 'globalSettings';
-  const repoExplanation = getPermissionExplanation(permission.suggestions, permission.toolName, permission.toolInput);
+
+  const groupedSuggestions = useMemo(() => {
+    if (!permission.suggestions || permission.suggestions.length === 0) {
+      return {};
+    }
+
+    const validated = validateSuggestions(permission.suggestions);
+    const groups: Record<string, PermissionSuggestion[]> = {};
+
+    for (const suggestion of validated) {
+      const dest = suggestion.destination;
+      if (!groups[dest]) {
+        groups[dest] = [];
+      }
+      groups[dest].push(suggestion);
+    }
+
+    return groups as Record<PermissionDestination, PermissionSuggestion[]>;
+  }, [permission.suggestions]);
+
+  const hasRepoSuggestions = 'projectSettings' in groupedSuggestions;
+  const hasLocalSuggestions = 'localSettings' in groupedSuggestions;
+  const hasUserSuggestions = 'userSettings' in groupedSuggestions;
+  const hasSessionSuggestions = 'session' in groupedSuggestions;
+  const hasSuggestions = Object.keys(groupedSuggestions).length > 0;
+
   const alwaysExplanation = getAlwaysAllowExplanation(permission.toolName);
 
-  const options = useMemo(() => {
-    const opts: Array<'yes' | 'no' | 'always' | 'repo' | 'user'> = ['yes', 'no'];
-    if (isEditTool) opts.push('always');
-    if (hasSuggestions && onAlwaysAllowInRepo) opts.push(isUserSettings ? 'user' : 'repo');
-    return opts;
-  }, [isEditTool, hasSuggestions, onAlwaysAllowInRepo, isUserSettings]);
+  const handleInput = useCallback(
+    (input: string, key: any) => {
+      if (input === 'y' || input === 'Y') {
+        permission.resolve({ allowed: true });
+        return;
+      }
 
-  const [selected, setSelected] = useState(0);
-  const maxOption = options.length - 1;
+      if (input === 'n' || input === 'N') {
+        permission.resolve({ allowed: false });
+        return;
+      }
 
-  useInput((input, key) => {
-    if (key.leftArrow || input === 'h') setSelected(s => Math.max(0, s - 1));
-    if (key.rightArrow || input === 'l') setSelected(s => Math.min(maxOption, s + 1));
-    if (input === 'y' || input === 'Y') { onResponse(true); return; }
-    if (input === 'n' || input === 'N') { onResponse(false); return; }
-    if (isEditTool && (input === 'a' || input === 'A')) { onAlwaysAllow(); return; }
-    if (hasSuggestions && onAlwaysAllowInRepo && !isUserSettings && (input === 'r' || input === 'R')) { onAlwaysAllowInRepo(); return; }
-    if (hasSuggestions && onAlwaysAllowInRepo && isUserSettings && (input === 'u' || input === 'U')) { onAlwaysAllowInRepo(); return; }
-    if (key.return) {
-      const currentOption = options[selected];
-      if (currentOption === 'yes') onResponse(true);
-      else if (currentOption === 'no') onResponse(false);
-      else if (currentOption === 'always') onAlwaysAllow();
-      else if (currentOption === 'repo' || currentOption === 'user') onAlwaysAllowInRepo?.();
-      return;
-    }
-  });
+      if (isEditTool && (input === 'a' || input === 'A')) {
+        permission.resolve({ allowed: true });
+        return;
+      }
 
-  const getButtonConfig = (option: 'yes' | 'no' | 'always' | 'repo' | 'user', index: number) => {
-    const isSelected = selected === index;
-    switch (option) {
-      case 'yes':
-        return { label: '[Y]es', color: 'green' as const, description: 'Allow this once' };
-      case 'no':
-        return { label: '[N]o', color: 'red' as const, description: 'Deny this once' };
-      case 'always':
-        return { label: '[A]lways', color: 'yellow' as const, description: 'Auto-accept edits this session' };
-      case 'repo':
-        return { label: '[R]epo', color: 'blue' as const, description: 'Save to repo settings' };
-      case 'user':
-        return { label: '[U]ser', color: 'blue' as const, description: 'Save to user settings' };
-    }
-  };
+      if ((input === 'r' || input === 'R') && hasRepoSuggestions) {
+        permission.resolve({
+          allowed: true,
+          suggestions: groupedSuggestions.projectSettings,
+        });
+        return;
+      }
+
+      if ((input === 'l' || input === 'L') && hasLocalSuggestions) {
+        permission.resolve({
+          allowed: true,
+          suggestions: groupedSuggestions.localSettings,
+        });
+        return;
+      }
+
+      if ((input === 'u' || input === 'U') && hasUserSuggestions) {
+        permission.resolve({
+          allowed: true,
+          suggestions: groupedSuggestions.userSettings,
+        });
+        return;
+      }
+
+      if ((input === 's' || input === 'S') && hasSessionSuggestions) {
+        permission.resolve({
+          allowed: true,
+          suggestions: groupedSuggestions.session,
+        });
+        return;
+      }
+    },
+    [
+      permission,
+      isEditTool,
+      hasRepoSuggestions,
+      hasLocalSuggestions,
+      hasUserSuggestions,
+      hasSessionSuggestions,
+      groupedSuggestions,
+    ]
+  );
+
+  useInput(handleInput);
 
   const getShortcutHint = () => {
-    let hint = 'y/n';
-    if (isEditTool) hint += '/a';
-    if (hasSuggestions && onAlwaysAllowInRepo) hint += isUserSettings ? '/u' : '/r';
-    return hint;
+    const shortcuts = ['y/n'];
+    if (isEditTool) shortcuts.push('a');
+    if (hasRepoSuggestions) shortcuts.push('r');
+    if (hasLocalSuggestions) shortcuts.push('l');
+    if (hasUserSuggestions) shortcuts.push('u');
+    if (hasSessionSuggestions) shortcuts.push('s');
+    return shortcuts.join('/');
   };
 
   return (
     <Box flexDirection="column" flexShrink={0} borderStyle="round" borderColor="yellow" padding={1}>
       <Box>
-        <Text color="yellow" bold>[!] Permission Request</Text>
+        <Text color="yellow" bold>
+          [!] Permission Request
+        </Text>
         {queueCount > 0 && <Text dimColor> (+{queueCount} more pending)</Text>}
       </Box>
+
       <Box marginTop={1}>
         <Text>Tool: </Text>
-        <Text color="cyan" bold>{permission.toolName}</Text>
+        <Text color="cyan" bold>
+          {permission.toolName}
+        </Text>
       </Box>
+
       <Box>
         <Text dimColor>Input: {formatToolInput(permission.toolInput)}</Text>
       </Box>
-      <Box marginTop={1} gap={2} flexShrink={0}>
-        {options.map((option, index) => {
-          const config = getButtonConfig(option, index);
-          const isSelected = selected === index;
-          return (
-            <Box key={option} paddingX={2} flexShrink={0} borderStyle={isSelected ? 'bold' : 'single'} borderColor={isSelected ? config.color : 'gray'}>
-              <Text color={isSelected ? config.color : 'white'} bold={isSelected}>{config.label}</Text>
-            </Box>
-          );
-        })}
-      </Box>
-      <Box marginTop={1}>
-        <Text dimColor>←/→ to select • {getShortcutHint()} or Enter to confirm</Text>
+
+      <Box marginTop={1} flexDirection="column">
+        <Text bold>Available Actions:</Text>
+        <Text>
+          <Text color="green">[Y]</Text>es - Allow once
+        </Text>
+        <Text>
+          <Text color="red">[N]</Text>o - Deny
+        </Text>
       </Box>
 
       {isEditTool && (
         <Box marginTop={1} flexDirection="column" borderStyle="single" borderColor="gray" paddingX={1}>
-          <Text color="yellow" bold>[A]lways:</Text>
+          <Text color="yellow" bold>
+            [A]lways (session):
+          </Text>
           <Text dimColor>{alwaysExplanation}</Text>
         </Box>
       )}
 
-      {hasSuggestions && onAlwaysAllowInRepo && repoExplanation && (
-        <Box marginTop={1} flexDirection="column" borderStyle="single" borderColor="gray" paddingX={1}>
-          <Text color="blue" bold>{isUserSettings ? '[U]ser' : '[R]epo'}: Save to {repoExplanation.saveLocation}</Text>
-          <Box>
-            <Text dimColor>• Rule: </Text>
-            <Text color="cyan">{repoExplanation.whatWillBeSaved}</Text>
-          </Box>
-          <Text dimColor>• {repoExplanation.futureBeha}</Text>
+      {hasSuggestions && (
+        <Box marginTop={1} flexDirection="column">
+          <Text bold>Save for future (always allow):</Text>
+
+          {hasRepoSuggestions && (
+            <Box marginTop={1} flexDirection="column" borderStyle="single" borderColor="blue" paddingX={1}>
+              <Text color="blue" bold>
+                [{getDestinationInfo('projectSettings').shortcut}]epo ({getDestinationInfo('projectSettings').filePath}):
+              </Text>
+              <SuggestionList suggestions={groupedSuggestions.projectSettings} destination="projectSettings" />
+            </Box>
+          )}
+
+          {hasLocalSuggestions && (
+            <Box marginTop={1} flexDirection="column" borderStyle="single" borderColor="blue" paddingX={1}>
+              <Text color="blue" bold>
+                [{getDestinationInfo('localSettings').shortcut}]ocal ({getDestinationInfo('localSettings').filePath}):
+              </Text>
+              <SuggestionList suggestions={groupedSuggestions.localSettings} destination="localSettings" />
+            </Box>
+          )}
+
+          {hasUserSuggestions && (
+            <Box marginTop={1} flexDirection="column" borderStyle="single" borderColor="blue" paddingX={1}>
+              <Text color="blue" bold>
+                [{getDestinationInfo('userSettings').shortcut}]ser ({getDestinationInfo('userSettings').filePath}):
+              </Text>
+              <SuggestionList suggestions={groupedSuggestions.userSettings} destination="userSettings" />
+            </Box>
+          )}
+
+          {hasSessionSuggestions && (
+            <Box marginTop={1} flexDirection="column" borderStyle="single" borderColor="blue" paddingX={1}>
+              <Text color="blue" bold>
+                [{getDestinationInfo('session').shortcut}]ession (not saved to file):
+              </Text>
+              <SuggestionList suggestions={groupedSuggestions.session} destination="session" />
+            </Box>
+          )}
         </Box>
       )}
+
+      <Box marginTop={1}>
+        <Text dimColor>{getShortcutHint()} to choose</Text>
+      </Box>
     </Box>
   );
 };

@@ -20,6 +20,18 @@ export const DemoApp = () => {
   const [cycleState, setCycleState] = useState(0);
 
   useEffect(() => {
+    state.agents.forEach(agent => {
+      if (agent.pendingPermission) {
+        const originalResolve = agent.pendingPermission.resolve;
+        agent.pendingPermission.resolve = (result: { allowed: boolean; suggestions?: unknown[] }) => {
+          originalResolve(result);
+          dispatch({ type: 'DEQUEUE_PERMISSION', id: agent.id });
+        };
+      }
+    });
+  }, []);
+
+  useEffect(() => {
     if (demoMode === 'cycling') {
       const timer = setTimeout(() => {
         setCycleState(prev => {
@@ -73,36 +85,6 @@ export const DemoApp = () => {
     }
   }, [demoMode, cycleState, state.agents]);
 
-  const handlePermissionResponse = (allowed: boolean) => {
-    if (detailAgentId) {
-      const agent = state.agents.find(a => a.id === detailAgentId);
-      if (agent?.pendingPermission) {
-        agent.pendingPermission.resolve({ allowed });
-        dispatch({ type: 'DEQUEUE_PERMISSION', id: detailAgentId });
-      }
-    }
-  };
-
-  const handleAlwaysAllow = () => {
-    if (detailAgentId) {
-      const agent = state.agents.find(a => a.id === detailAgentId);
-      if (agent?.pendingPermission) {
-        agent.pendingPermission.resolve({ allowed: true });
-        dispatch({ type: 'UPDATE_AGENT', id: detailAgentId, updates: { permissionMode: 'acceptEdits' } });
-        dispatch({ type: 'DEQUEUE_PERMISSION', id: detailAgentId });
-      }
-    }
-  };
-
-  const handleAlwaysAllowInRepo = () => {
-    if (detailAgentId) {
-      const agent = state.agents.find(a => a.id === detailAgentId);
-      if (agent?.pendingPermission) {
-        agent.pendingPermission.resolve({ allowed: true, alwaysAllowInRepo: true });
-        dispatch({ type: 'DEQUEUE_PERMISSION', id: detailAgentId });
-      }
-    }
-  };
 
   useInput((input, key) => {
     if (input === 'c' && mode === 'normal') {
@@ -197,9 +179,6 @@ export const DemoApp = () => {
       const detailContent = (
         <DetailViewPage
           agent={detailAgent}
-          onPermissionResponse={handlePermissionResponse}
-          onAlwaysAllow={handleAlwaysAllow}
-          onAlwaysAllowInRepo={handleAlwaysAllowInRepo}
           onQuestionResponse={() => {}}
           onBack={() => setMode('normal')}
         />

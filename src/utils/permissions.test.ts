@@ -1,236 +1,150 @@
 import { describe, it, expect } from 'vitest';
-import { formatPermissionRule, getPermissionExplanation, getAlwaysAllowExplanation } from './permissions';
-import type { PermissionSuggestion } from '../types';
+import { formatPermissionRule, getPermissionExplanation, getAlwaysAllowExplanation, getDestinationInfo } from './permissions';
+import type { PermissionSuggestion, PermissionRuleValue } from '../types';
 
 describe('formatPermissionRule', () => {
-  it('returns empty string when suggestion has no rules', () => {
-    const suggestion: PermissionSuggestion = {
-      type: 'addRules',
-      rules: [],
-      behavior: 'allow',
-      destination: 'localSettings'
-    };
-    expect(formatPermissionRule(suggestion)).toBe('');
+  it('returns tool name for rule without ruleContent', () => {
+    const rule: PermissionRuleValue = { toolName: 'Write' };
+    expect(formatPermissionRule(rule)).toBe('Write');
   });
 
-  it('returns tool name for single rule without toolInput', () => {
-    const suggestion: PermissionSuggestion = {
-      type: 'addRules',
-      rules: [{ toolName: 'Write' }],
-      behavior: 'allow',
-      destination: 'localSettings'
-    };
-    expect(formatPermissionRule(suggestion)).toBe('Write');
+  it('formats rule with ruleContent', () => {
+    const rule: PermissionRuleValue = { toolName: 'Bash', ruleContent: 'npm test:*' };
+    expect(formatPermissionRule(rule)).toBe('Bash("npm test:*")');
   });
 
-  it('displays SDK-provided command pattern directly', () => {
-    const suggestion: PermissionSuggestion = {
-      type: 'addRules',
-      rules: [{ toolName: 'Bash', toolInput: { command: 'npm:*' } }],
-      behavior: 'allow',
-      destination: 'localSettings'
-    };
-    expect(formatPermissionRule(suggestion)).toBe('Bash("npm:*")');
+  it('formats Write tool with file pattern', () => {
+    const rule: PermissionRuleValue = { toolName: 'Write', ruleContent: 'src/**/*.ts' };
+    expect(formatPermissionRule(rule)).toBe('Write("src/**/*.ts")');
   });
 
-  it('displays SDK-provided npx command pattern directly', () => {
-    const suggestion: PermissionSuggestion = {
-      type: 'addRules',
-      rules: [{ toolName: 'Bash', toolInput: { command: 'npx vitest:*' } }],
-      behavior: 'allow',
-      destination: 'localSettings'
-    };
-    expect(formatPermissionRule(suggestion)).toBe('Bash("npx vitest:*")');
+  it('formats Edit tool without ruleContent', () => {
+    const rule: PermissionRuleValue = { toolName: 'Edit' };
+    expect(formatPermissionRule(rule)).toBe('Edit');
+  });
+});
+
+describe('getDestinationInfo', () => {
+  it('returns correct info for projectSettings', () => {
+    const info = getDestinationInfo('projectSettings');
+    expect(info.label).toBe('Repo');
+    expect(info.filePath).toBe('.claude/settings.json');
+    expect(info.shortcut).toBe('R');
+    expect(info.description).toContain('repository');
   });
 
-  it('displays SDK-provided npm run pattern directly', () => {
-    const suggestion: PermissionSuggestion = {
-      type: 'addRules',
-      rules: [{ toolName: 'Bash', toolInput: { command: 'npm run test:*' } }],
-      behavior: 'allow',
-      destination: 'localSettings'
-    };
-    expect(formatPermissionRule(suggestion)).toBe('Bash("npm run test:*")');
+  it('returns correct info for localSettings', () => {
+    const info = getDestinationInfo('localSettings');
+    expect(info.label).toBe('Local');
+    expect(info.filePath).toBe('.claude/settings.local.json');
+    expect(info.shortcut).toBe('L');
   });
 
-  it('displays SDK-provided npm test pattern directly', () => {
-    const suggestion: PermissionSuggestion = {
-      type: 'addRules',
-      rules: [{ toolName: 'Bash', toolInput: { command: 'npm test:*' } }],
-      behavior: 'allow',
-      destination: 'localSettings'
-    };
-    expect(formatPermissionRule(suggestion)).toBe('Bash("npm test:*")');
+  it('returns correct info for userSettings', () => {
+    const info = getDestinationInfo('userSettings');
+    expect(info.label).toBe('User');
+    expect(info.filePath).toBe('~/.claude/settings.json');
+    expect(info.shortcut).toBe('U');
   });
 
-  it('displays SDK-provided yarn dlx pattern directly', () => {
-    const suggestion: PermissionSuggestion = {
-      type: 'addRules',
-      rules: [{ toolName: 'Bash', toolInput: { command: 'yarn dlx:*' } }],
-      behavior: 'allow',
-      destination: 'localSettings'
-    };
-    expect(formatPermissionRule(suggestion)).toBe('Bash("yarn dlx:*")');
+  it('returns null filePath for session', () => {
+    const info = getDestinationInfo('session');
+    expect(info.label).toBe('Session');
+    expect(info.filePath).toBeNull();
+    expect(info.shortcut).toBe('S');
   });
 
-  it('displays SDK-provided pnpm run pattern directly', () => {
-    const suggestion: PermissionSuggestion = {
-      type: 'addRules',
-      rules: [{ toolName: 'Bash', toolInput: { command: 'pnpm run build:*' } }],
-      behavior: 'allow',
-      destination: 'localSettings'
-    };
-    expect(formatPermissionRule(suggestion)).toBe('Bash("pnpm run build:*")');
-  });
-
-  it('displays SDK-provided file_path directly', () => {
-    const suggestion: PermissionSuggestion = {
-      type: 'addRules',
-      rules: [{ toolName: 'Write', toolInput: { file_path: '/test/file.ts:*' } }],
-      behavior: 'allow',
-      destination: 'localSettings'
-    };
-    expect(formatPermissionRule(suggestion)).toBe('Write("/test/file.ts:*")');
-  });
-
-  it('uses fallback toolInput when rule has no toolInput', () => {
-    const suggestion: PermissionSuggestion = {
-      type: 'addRules',
-      rules: [{ toolName: 'Edit' }],
-      behavior: 'allow',
-      destination: 'localSettings'
-    };
-    const fallback = { file_path: '/fallback/path.ts' };
-    expect(formatPermissionRule(suggestion, fallback)).toBe('Edit("/fallback/path.ts:*")');
-  });
-
-  it('returns comma-separated tool names for multiple rules', () => {
-    const suggestion: PermissionSuggestion = {
-      type: 'addRules',
-      rules: [
-        { toolName: 'Write' },
-        { toolName: 'Edit' },
-        { toolName: 'Bash' }
-      ],
-      behavior: 'allow',
-      destination: 'localSettings'
-    };
-    expect(formatPermissionRule(suggestion)).toBe('Write, Edit, Bash');
-  });
-
-  it('returns tool name for unknown input structure without command or file_path', () => {
-    const suggestion: PermissionSuggestion = {
-      type: 'addRules',
-      rules: [{ toolName: 'Custom', toolInput: { unknown: 'data' } }],
-      behavior: 'allow',
-      destination: 'localSettings'
-    };
-    expect(formatPermissionRule(suggestion)).toBe('Custom');
-  });
-
-  it('handles undefined suggestion rules', () => {
-    const suggestion = {
-      type: 'addRules',
-      behavior: 'allow',
-      destination: 'localSettings'
-    } as PermissionSuggestion;
-    expect(formatPermissionRule(suggestion)).toBe('');
+  it('returns null filePath for cliArg', () => {
+    const info = getDestinationInfo('cliArg');
+    expect(info.label).toBe('CLI');
+    expect(info.filePath).toBeNull();
+    expect(info.shortcut).toBe('C');
   });
 });
 
 describe('getPermissionExplanation', () => {
-  it('returns null for undefined suggestions', () => {
-    expect(getPermissionExplanation(undefined, 'Write')).toBeNull();
-  });
-
-  it('returns null for empty suggestions array', () => {
-    expect(getPermissionExplanation([], 'Write')).toBeNull();
-  });
-
-  it('returns local settings path for localSettings destination', () => {
-    const suggestions: PermissionSuggestion[] = [{
-      type: 'addRules',
-      rules: [{ toolName: 'Write' }],
-      behavior: 'allow',
-      destination: 'localSettings'
-    }];
-    const result = getPermissionExplanation(suggestions, 'Write');
-    expect(result?.saveLocation).toBe('.claude/settings.local.json');
-  });
-
-  it('returns global settings path for globalSettings destination', () => {
-    const suggestions: PermissionSuggestion[] = [{
-      type: 'addRules',
-      rules: [{ toolName: 'Write' }],
-      behavior: 'allow',
-      destination: 'globalSettings'
-    }];
-    const result = getPermissionExplanation(suggestions, 'Write');
-    expect(result?.saveLocation).toBe('~/.claude/settings.json');
-  });
-
-  it('includes SDK-provided rule in whatWillBeSaved', () => {
-    const suggestions: PermissionSuggestion[] = [{
-      type: 'addRules',
-      rules: [{ toolName: 'Bash', toolInput: { command: 'npm test:*' } }],
-      behavior: 'allow',
-      destination: 'localSettings'
-    }];
-    const result = getPermissionExplanation(suggestions, 'Bash');
-    expect(result?.whatWillBeSaved).toBe('Bash("npm test:*")');
-  });
-
-  it('uses toolInput param for rule formatting', () => {
-    const suggestions: PermissionSuggestion[] = [{
-      type: 'addRules',
-      rules: [{ toolName: 'Write' }],
-      behavior: 'allow',
-      destination: 'localSettings'
-    }];
-    const result = getPermissionExplanation(suggestions, 'Write', { file_path: '/test.ts' });
-    expect(result?.whatWillBeSaved).toBe('Write("/test.ts:*")');
-  });
-
-  it('describes allow behavior for futureBeha', () => {
-    const suggestions: PermissionSuggestion[] = [{
-      type: 'addRules',
-      rules: [{ toolName: 'Write' }],
-      behavior: 'allow',
-      destination: 'localSettings'
-    }];
-    const result = getPermissionExplanation(suggestions, 'Write');
-    expect(result?.futureBeha).toBe('Future Write commands matching this pattern will be automatically allowed');
-  });
-
-  it('describes deny behavior for futureBeha', () => {
-    const suggestions: PermissionSuggestion[] = [{
-      type: 'addRules',
-      rules: [{ toolName: 'Bash' }],
-      behavior: 'deny',
-      destination: 'localSettings'
-    }];
-    const result = getPermissionExplanation(suggestions, 'Bash');
-    expect(result?.futureBeha).toBe('Future Bash commands matching this pattern will be automatically denied');
-  });
-
-  it('only uses first suggestion when multiple are provided', () => {
+  it('groups suggestions by destination', () => {
     const suggestions: PermissionSuggestion[] = [
       {
         type: 'addRules',
-        rules: [{ toolName: 'First' }],
+        rules: [{ toolName: 'Write' }],
         behavior: 'allow',
-        destination: 'localSettings'
+        destination: 'projectSettings'
       },
       {
-        type: 'addRules',
-        rules: [{ toolName: 'Second' }],
-        behavior: 'deny',
-        destination: 'globalSettings'
+        type: 'addDirectories',
+        directories: ['/path'],
+        destination: 'projectSettings'
+      },
+      {
+        type: 'setMode',
+        mode: 'acceptEdits',
+        destination: 'session'
       }
     ];
-    const result = getPermissionExplanation(suggestions, 'First');
-    expect(result?.saveLocation).toBe('.claude/settings.local.json');
-    expect(result?.futureBeha).toContain('automatically allowed');
+
+    const result = getPermissionExplanation(suggestions);
+    expect(Object.keys(result.groups)).toEqual(['projectSettings', 'session']);
+    expect(result.groups.projectSettings).toHaveLength(2);
+    expect(result.groups.session).toHaveLength(1);
+  });
+
+  it('generates correct summary for single suggestion', () => {
+    const suggestions: PermissionSuggestion[] = [
+      {
+        type: 'addRules',
+        rules: [{ toolName: 'Bash', ruleContent: 'npm test:*' }],
+        behavior: 'allow',
+        destination: 'localSettings'
+      }
+    ];
+
+    const result = getPermissionExplanation(suggestions);
+    expect(result.summary).toBe('1 permission update across 1 location');
+  });
+
+  it('generates correct summary for multiple suggestions in one location', () => {
+    const suggestions: PermissionSuggestion[] = [
+      {
+        type: 'addRules',
+        rules: [{ toolName: 'Write' }],
+        behavior: 'allow',
+        destination: 'projectSettings'
+      },
+      {
+        type: 'addDirectories',
+        directories: ['/path'],
+        destination: 'projectSettings'
+      }
+    ];
+
+    const result = getPermissionExplanation(suggestions);
+    expect(result.summary).toBe('2 permission updates across 1 location');
+  });
+
+  it('generates correct summary for multiple locations', () => {
+    const suggestions: PermissionSuggestion[] = [
+      {
+        type: 'addRules',
+        rules: [{ toolName: 'Write' }],
+        behavior: 'allow',
+        destination: 'projectSettings'
+      },
+      {
+        type: 'setMode',
+        mode: 'acceptEdits',
+        destination: 'session'
+      }
+    ];
+
+    const result = getPermissionExplanation(suggestions);
+    expect(result.summary).toBe('2 permission updates across 2 locations');
+  });
+
+  it('handles empty array', () => {
+    const result = getPermissionExplanation([]);
+    expect(result.summary).toBe('0 permission updates across 0 locations');
+    expect(Object.keys(result.groups)).toHaveLength(0);
   });
 });
 

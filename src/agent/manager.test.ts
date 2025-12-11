@@ -450,21 +450,22 @@ describe('AgentSDKManager', () => {
       expect(result.message).toBe('User denied permission');
     });
 
-    it('includes updated permissions when alwaysAllowInRepo is true', async () => {
+    it('includes updated permissions when suggestions are provided', async () => {
       let canUseToolFn: any;
       vi.mocked(query).mockImplementationOnce((opts: any) => {
         canUseToolFn = opts.options.canUseTool;
         return createMockQuery([]) as any;
       });
 
+      const suggestions = [{ type: 'allow', tool: 'Write' }];
+
       manager.on('permissionRequest', (id, request) => {
-        request.resolve({ allowed: true, alwaysAllowInRepo: true });
+        request.resolve({ allowed: true, suggestions });
       });
       manager.on('idle', vi.fn());
 
       await manager.spawn('test-id', 'test prompt', '/test/dir', 'normal');
 
-      const suggestions = [{ type: 'allow', tool: 'Write' }];
       const result = await canUseToolFn(
         'Write',
         { file_path: '/test/file.ts' },

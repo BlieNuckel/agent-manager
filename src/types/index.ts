@@ -1,20 +1,30 @@
+import type {
+  PermissionUpdate,
+  PermissionRuleValue,
+  PermissionBehavior,
+} from '@anthropic-ai/claude-agent-sdk';
+
 export type Status = 'working' | 'waiting' | 'idle' | 'done' | 'error';
 export type Mode = 'normal' | 'input' | 'detail' | 'detail-chat' | 'command' | 'command-result';
 export type InputStep = 'title' | 'prompt' | 'agentType' | 'artifact' | 'worktree' | 'worktreeName';
 export type AgentType = 'normal' | 'planning' | 'auto-accept';
 
-export interface PermissionSuggestion {
-  type: 'addRules';
-  rules: Array<{ toolName: string; toolInput?: Record<string, unknown> }>;
-  behavior: 'allow' | 'deny';
-  destination: 'localSettings' | 'globalSettings';
-}
+export type PermissionDestination =
+  | 'userSettings'
+  | 'projectSettings'
+  | 'localSettings'
+  | 'session'
+  | 'cliArg';
+
+export type PermissionSuggestion = PermissionUpdate;
+
+export type { PermissionRuleValue, PermissionBehavior };
 
 export interface PermissionRequest {
   toolName: string;
   toolInput: unknown;
-  suggestions?: PermissionSuggestion[];
-  resolve: (result: { allowed: boolean; alwaysAllowInRepo?: boolean }) => void;
+  suggestions?: unknown[];
+  resolve: (result: { allowed: boolean; suggestions?: PermissionSuggestion[] }) => void;
 }
 
 export interface QuestionOption {
