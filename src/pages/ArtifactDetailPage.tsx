@@ -33,7 +33,7 @@ const useRenderedMarkdown = (content: string): string[] => {
     try {
       const rendered = marked.parse(content);
       const output = typeof rendered === 'string' ? rendered : '';
-      return output.split('\n');
+      return output.trimStart().split('\n');
     } catch {
       return content.split('\n');
     }
