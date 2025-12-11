@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { getGitRoot, getCurrentBranch, getRepoName } from './worktree';
+import { getGitRoot, getCurrentBranch, getRepoName, generateBranchName } from './worktree';
 import { execSync } from 'child_process';
 
 vi.mock('child_process', () => ({
@@ -155,5 +155,49 @@ describe('getRepoName', () => {
     const result = getRepoName('repo');
 
     expect(result).toBe('repo');
+  });
+});
+
+describe('generateBranchName', () => {
+  it('generates a branch name from task description', () => {
+    const result = generateBranchName('Add user authentication feature');
+
+    expect(result).toBe('add-user-authentication-feature');
+  });
+
+  it('removes content between angle brackets', () => {
+    const result = generateBranchName('When generating a <branch-name>, please cut out everything');
+
+    expect(result).toBe('when-generating-cut-out');
+  });
+
+  it('removes multiple angle bracket sections', () => {
+    const result = generateBranchName('Fix <bug-123> in the <old-component> new module');
+
+    expect(result).toBe('fix-new-module');
+  });
+
+  it('handles nested-looking angle brackets', () => {
+    const result = generateBranchName('Update <component<T>> handler');
+
+    expect(result).toBe('update-handler');
+  });
+
+  it('filters out stop words', () => {
+    const result = generateBranchName('I want to add a new feature for the users');
+
+    expect(result).toBe('add-new-feature-users');
+  });
+
+  it('limits to 4 keywords', () => {
+    const result = generateBranchName('implement user authentication login page form validation');
+
+    expect(result).toBe('implement-user-authentication-login');
+  });
+
+  it('returns fallback for empty meaningful words', () => {
+    const result = generateBranchName('a the is to');
+
+    expect(result).toMatch(/^task-[a-z0-9]+$/);
   });
 });

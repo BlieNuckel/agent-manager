@@ -45,6 +45,7 @@ export function generateBranchName(taskDescription: string): string {
   const stopWords = new Set(['a', 'an', 'the', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by', 'is', 'it', 'as', 'be', 'this', 'that', 'from', 'i', 'me', 'my', 'we', 'you', 'your', 'please', 'help', 'want', 'need', 'would', 'like', 'can', 'could', 'should', 'will', 'must']);
 
   const words = taskDescription
+    .replace(/<[^>]*>/g, ' ')
     .toLowerCase()
     .replace(/[^a-z0-9\s]/g, ' ')
     .split(/\s+/)
