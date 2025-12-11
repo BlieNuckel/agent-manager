@@ -33,7 +33,11 @@ const useRenderedMarkdown = (content: string): string[] => {
     try {
       const rendered = marked.parse(content);
       const output = typeof rendered === 'string' ? rendered : '';
-      return output.trimStart().split('\n');
+      const lines = output.split('\n');
+      while (lines.length > 0 && lines[lines.length - 1].trim() === '') {
+        lines.pop();
+      }
+      return lines;
     } catch {
       return content.split('\n');
     }
@@ -122,8 +126,16 @@ export const ArtifactDetailPage = ({ artifact, onBack }: ArtifactDetailPageProps
         <Text dimColor>Path: {artifact.path}</Text>
       </Box>
 
-      <Box flexDirection="column" borderStyle="round" borderColor="gray" padding={1} height={visibleLines + borderHeight + paddingHeight}>
-        <AnsiText wrap="truncate-end">{visibleContent.map(line => line || ' ').join('\n')}</AnsiText>
+      <Box flexDirection="column" borderStyle="round" borderColor="gray" padding={1} minHeight={0} flexGrow={1}>
+        {visibleContent.length === 0 ? (
+          <Text dimColor>Empty file</Text>
+        ) : (
+          visibleContent.map((line, idx) => (
+            <Box key={scrollOffset + idx} height={1} flexShrink={0}>
+              <AnsiText wrap="truncate-end">{line || ' '}</AnsiText>
+            </Box>
+          ))
+        )}
       </Box>
 
       <Box marginTop={1} height={1}>
