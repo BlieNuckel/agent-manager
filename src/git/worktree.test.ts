@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { getGitRoot, getCurrentBranch, getRepoName } from './worktree';
+import { getGitRoot, getCurrentBranch, getRepoName, generateBranchName } from './worktree';
 import { execSync } from 'child_process';
 
 vi.mock('child_process', () => ({
@@ -155,5 +155,67 @@ describe('getRepoName', () => {
     const result = getRepoName('repo');
 
     expect(result).toBe('repo');
+  });
+});
+
+describe('generateBranchName', () => {
+  it('extracts meaningful keywords from verbose prompts', () => {
+    expect(generateBranchName('Please refactor the authentication system to use JWT tokens'))
+      .toBe('refactor/authentication-jwt-tokens');
+  });
+
+  it('uses fix prefix for bug-related prompts', () => {
+    expect(generateBranchName('Fix the broken pagination on dashboard'))
+      .toBe('fix/broken-pagination-dashboard');
+  });
+
+  it('uses feat prefix for new features', () => {
+    expect(generateBranchName('Add dark mode toggle to the application'))
+      .toBe('feat/dark-toggle-application');
+  });
+
+  it('extracts issue numbers', () => {
+    expect(generateBranchName('Fix #123: Memory leak in event handler'))
+      .toBe('fix/123-memory-event-handler');
+  });
+
+  it('prioritizes technical terms', () => {
+    expect(generateBranchName('Review and optimize slow database queries in the user service'))
+      .toBe('database-queries-user-service');
+  });
+
+  it('handles empty input', () => {
+    expect(generateBranchName('')).toMatch(/^task-[a-z0-9]+$/);
+  });
+
+  it('handles whitespace-only input', () => {
+    expect(generateBranchName('   ')).toMatch(/^task-[a-z0-9]+$/);
+  });
+
+  it('filters noise words', () => {
+    const result = generateBranchName('Fix all the new very broken things');
+    expect(result).not.toContain('all');
+    expect(result).not.toContain('new');
+    expect(result).not.toContain('very');
+  });
+
+  it('uses update prefix for update prompts', () => {
+    expect(generateBranchName('Update the user authentication flow'))
+      .toBe('update/user-authentication-flow');
+  });
+
+  it('uses chore prefix for setup tasks', () => {
+    expect(generateBranchName('Setup the CI/CD pipeline'))
+      .toBe('chore/ci-cd-pipeline');
+  });
+
+  it('handles prompts without recognized intent prefix', () => {
+    expect(generateBranchName('Analyze the performance bottlenecks'))
+      .toBe('analyze-performance-bottlenecks');
+  });
+
+  it('handles issue number without prefix', () => {
+    expect(generateBranchName('Investigate #456 performance issue'))
+      .toBe('456-investigate-performance-issue');
   });
 });

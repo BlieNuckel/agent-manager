@@ -41,8 +41,87 @@ export interface MergeResult {
   error?: string;
 }
 
+const stopWords = new Set([
+  'a', 'an', 'the', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by',
+  'is', 'it', 'as', 'be', 'this', 'that', 'from', 'i', 'me', 'my', 'we', 'you', 'your',
+  'please', 'help', 'want', 'need', 'would', 'like', 'can', 'could', 'should', 'will', 'must',
+  'all', 'new', 'very', 'some', 'any', 'thing', 'stuff',
+  'just', 'only', 'also', 'into', 'make', 'get', 'set',
+  'now', 'then', 'here', 'there', 'when', 'where', 'how',
+  'code', 'file', 'files', 'project', 'repo', 'repository'
+]);
+
+const intentPrefixes: Record<string, string> = {
+  'fix': 'fix',
+  'bug': 'fix',
+  'repair': 'fix',
+  'resolve': 'fix',
+  'add': 'feat',
+  'implement': 'feat',
+  'create': 'feat',
+  'build': 'feat',
+  'refactor': 'refactor',
+  'reorganize': 'refactor',
+  'restructure': 'refactor',
+  'clean': 'refactor',
+  'update': 'update',
+  'upgrade': 'update',
+  'migrate': 'migrate',
+  'docs': 'docs',
+  'document': 'docs',
+  'test': 'test',
+  'chore': 'chore',
+  'setup': 'chore',
+  'configure': 'chore',
+};
+
+const technicalTerms = new Set([
+  'api', 'auth', 'authentication', 'authorization', 'jwt', 'oauth',
+  'database', 'db', 'sql', 'postgres', 'postgresql', 'mongodb', 'redis',
+  'cache', 'caching', 'session', 'cookie', 'token',
+  'component', 'hook', 'context', 'state', 'redux', 'store',
+  'route', 'router', 'routing', 'endpoint', 'middleware',
+  'webpack', 'vite', 'docker', 'kubernetes', 'ci', 'cd',
+  'graphql', 'rest', 'websocket', 'ssr', 'csr', 'ssg',
+  'validation', 'form', 'input', 'button', 'modal', 'dialog',
+  'user', 'admin', 'role', 'permission', 'login', 'logout',
+  'payment', 'checkout', 'cart', 'order', 'product',
+  'notification', 'email', 'sms', 'push',
+  'search', 'filter', 'sort', 'pagination',
+  'error', 'exception', 'logging', 'monitoring',
+  'i18n', 'l10n', 'locale', 'translation',
+  'theme', 'dark', 'light', 'style', 'css',
+]);
+
+function extractIssueNumber(text: string): string | null {
+  const match = text.match(/#(\d+)/);
+  return match ? match[1] : null;
+}
+
+function scoreWord(word: string, position: number): number {
+  let score = 1;
+
+  if (technicalTerms.has(word)) {
+    score += 3;
+  }
+
+  if (word.length >= 5) {
+    score += 1;
+  }
+
+  if (position < 2) {
+    score -= 0.5;
+  }
+
+  return score;
+}
+
 export function generateBranchName(taskDescription: string): string {
-  const stopWords = new Set(['a', 'an', 'the', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by', 'is', 'it', 'as', 'be', 'this', 'that', 'from', 'i', 'me', 'my', 'we', 'you', 'your', 'please', 'help', 'want', 'need', 'would', 'like', 'can', 'could', 'should', 'will', 'must']);
+  if (!taskDescription?.trim()) {
+    return `task-${Date.now().toString(36)}`;
+  }
+
+  const issueNumber = extractIssueNumber(taskDescription);
 
   const words = taskDescription
     .toLowerCase()
@@ -50,13 +129,39 @@ export function generateBranchName(taskDescription: string): string {
     .split(/\s+/)
     .filter(word => word.length > 1 && !stopWords.has(word));
 
-  const keywords = words.slice(0, 4);
-
-  if (keywords.length === 0) {
+  if (words.length === 0) {
     return `task-${Date.now().toString(36)}`;
   }
 
-  return keywords.join('-');
+  const prefix = intentPrefixes[words[0]] || null;
+  const wordsToScore = prefix ? words.slice(1) : words;
+
+  const scoredWords = wordsToScore.map((word, i) => ({
+    word,
+    score: scoreWord(word, i)
+  }));
+
+  scoredWords.sort((a, b) => b.score - a.score);
+
+  const keywords = scoredWords
+    .slice(0, prefix ? 3 : 4)
+    .sort((a, b) => wordsToScore.indexOf(a.word) - wordsToScore.indexOf(b.word))
+    .map(s => s.word);
+
+  let branchName = keywords.join('-');
+
+  if (prefix) {
+    branchName = `${prefix}/${branchName}`;
+  }
+
+  if (issueNumber) {
+    branchName = branchName.replace(`${issueNumber}-`, '');
+    branchName = prefix
+      ? `${prefix}/${issueNumber}-${branchName.replace(`${prefix}/`, '')}`
+      : `${issueNumber}-${branchName}`;
+  }
+
+  return branchName || `task-${Date.now().toString(36)}`;
 }
 
 export async function createWorktree(
