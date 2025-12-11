@@ -27,8 +27,9 @@ You are working in an isolated git worktree for this task.
 ## Important Notes
 - All your file operations are isolated in this worktree
 - You can use relative paths normally - your working directory is the worktree
-- When your work is complete, the merge process will be handled automatically
-- Do NOT attempt to merge yourself - simply complete your task and signal completion
+- **CRITICAL: You MUST commit your changes before signaling completion.** Uncommitted changes will NOT be merged. Use \`git add\` and \`git commit\` to save your work.
+- When your work is complete and committed, the merge process will be handled automatically
+- Do NOT attempt to merge yourself - simply complete your task after committing
 `.trim();
 }
 
