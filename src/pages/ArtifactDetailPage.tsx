@@ -123,11 +123,7 @@ export const ArtifactDetailPage = ({ artifact, onBack }: ArtifactDetailPageProps
       </Box>
 
       <Box flexDirection="column" borderStyle="round" borderColor="gray" padding={1} height={visibleLines + borderHeight + paddingHeight}>
-        {visibleContent.map((line, idx) => (
-          <Box key={`line-${scrollOffset + idx}`} height={1} flexShrink={0}>
-            <AnsiText wrap="truncate-end">{line || ' '}</AnsiText>
-          </Box>
-        ))}
+        <AnsiText wrap="truncate-end">{visibleContent.map(line => line || ' ').join('\n')}</AnsiText>
       </Box>
 
       <Box marginTop={1} height={1}>
