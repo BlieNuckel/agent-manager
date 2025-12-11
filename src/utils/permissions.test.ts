@@ -33,6 +33,46 @@ describe('formatPermissionRule', () => {
     expect(formatPermissionRule(suggestion)).toBe('Bash("npm:*")');
   });
 
+  it('formats npx commands with two words', () => {
+    const suggestion: PermissionSuggestion = {
+      type: 'addRules',
+      rules: [{ toolName: 'Bash', toolInput: { command: 'npx vitest --watch' } }],
+      behavior: 'allow',
+      destination: 'localSettings'
+    };
+    expect(formatPermissionRule(suggestion)).toBe('Bash("npx vitest:*")');
+  });
+
+  it('formats npm run commands with three words', () => {
+    const suggestion: PermissionSuggestion = {
+      type: 'addRules',
+      rules: [{ toolName: 'Bash', toolInput: { command: 'npm run test --coverage' } }],
+      behavior: 'allow',
+      destination: 'localSettings'
+    };
+    expect(formatPermissionRule(suggestion)).toBe('Bash("npm run test:*")');
+  });
+
+  it('formats yarn package runner with two words', () => {
+    const suggestion: PermissionSuggestion = {
+      type: 'addRules',
+      rules: [{ toolName: 'Bash', toolInput: { command: 'yarn dlx eslint .' } }],
+      behavior: 'allow',
+      destination: 'localSettings'
+    };
+    expect(formatPermissionRule(suggestion)).toBe('Bash("yarn dlx:*")');
+  });
+
+  it('formats pnpm run commands with three words', () => {
+    const suggestion: PermissionSuggestion = {
+      type: 'addRules',
+      rules: [{ toolName: 'Bash', toolInput: { command: 'pnpm run build' } }],
+      behavior: 'allow',
+      destination: 'localSettings'
+    };
+    expect(formatPermissionRule(suggestion)).toBe('Bash("pnpm run build:*")');
+  });
+
   it('formats file_path input with path and wildcard', () => {
     const suggestion: PermissionSuggestion = {
       type: 'addRules',

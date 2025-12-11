@@ -22,9 +22,24 @@ export function formatPermissionRule(suggestion: PermissionSuggestion, fallbackT
 
 function formatToolInputForRule(input: Record<string, unknown>): string {
   if ('command' in input && typeof input.command === 'string') {
-    const cmd = input.command;
-    const firstWord = cmd.split(/\s+/)[0];
-    return `${firstWord}:*`;
+    const cmd = input.command.trim();
+    const words = cmd.split(/\s+/);
+    const baseCommand = words[0];
+
+    const packageRunners = ['npx', 'pnpm', 'yarn', 'bunx'];
+    const multiWordCommands = ['npm run', 'npm exec', 'yarn run', 'pnpm run', 'pnpm exec'];
+
+    for (const multi of multiWordCommands) {
+      if (cmd.startsWith(multi + ' ') && words.length >= 3) {
+        return `${words[0]} ${words[1]} ${words[2]}:*`;
+      }
+    }
+
+    if (packageRunners.includes(baseCommand) && words.length >= 2) {
+      return `${words[0]} ${words[1]}:*`;
+    }
+
+    return `${baseCommand}:*`;
   }
 
   if ('file_path' in input && typeof input.file_path === 'string') {
