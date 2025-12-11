@@ -18,20 +18,11 @@ export const SplitPane = ({ panes }: SplitPaneProps) => {
     <Box flexDirection="row" flexGrow={1} minHeight={0}>
       {panes.map((pane, index) => {
         const width = Math.floor(termWidth * pane.widthPercent / 100);
-        const isFirst = index === 0;
-        const isLast = index === panes.length - 1;
 
         return (
-          <React.Fragment key={index}>
-            {!isFirst && (
-              <Box width={1} flexDirection="column" flexGrow={0} flexShrink={0}>
-                <Text color="gray">│</Text>
-              </Box>
-            )}
-            <Box width={isFirst ? width : width - 1} flexDirection="column" flexGrow={1} flexShrink={1} minHeight={0} overflow="hidden">
-              {pane.content}
-            </Box>
-          </React.Fragment>
+          <Box key={index} width={width} flexDirection="column" flexGrow={1} flexShrink={1} minHeight={0} overflow="hidden">
+            {pane.content}
+          </Box>
         );
       })}
     </Box>
