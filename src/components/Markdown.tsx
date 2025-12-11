@@ -26,8 +26,12 @@ marked.setOptions({ renderer });
 
 export const Markdown = ({ children, wrap = 'wrap' }: MarkdownProps) => {
   const text = useMemo(() => {
-    const rendered = marked.parse(children);
-    return typeof rendered === 'string' ? rendered.trim() : '';
+    try {
+      const rendered = marked.parse(children);
+      return typeof rendered === 'string' ? rendered.trim() : '';
+    } catch {
+      return children;
+    }
   }, [children]);
 
   return <AnsiText wrap={wrap}>{text}</AnsiText>;
