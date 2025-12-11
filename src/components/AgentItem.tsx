@@ -17,6 +17,7 @@ export const AgentItem = ({ agent, selected }: { agent: Agent; selected: boolean
         {agent.pendingMerge && agent.pendingMerge.status === 'ready' && <Text color="green"> [✓] Merge Ready</Text>}
         {agent.pendingMerge && agent.pendingMerge.status === 'conflicts' && <Text color="yellow"> [!] Merge Conflicts</Text>}
         {agent.pendingMerge && agent.pendingMerge.status === 'failed' && <Text color="red"> [x] Merge Failed</Text>}
+        {agent.pendingMerge && agent.pendingMerge.status === 'resolving' && <Text color="blue"> [~] Resolving Conflicts</Text>}
       </Box>
       <Box marginLeft={14}>
         <Text dimColor wrap="truncate">{agent.prompt.slice(0, 60)}{agent.prompt.length > 60 ? '...' : ''}</Text>

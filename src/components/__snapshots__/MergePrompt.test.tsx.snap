@@ -5,9 +5,8 @@ exports[`MergePrompt > snapshots > renders conflicts state correctly 1`] = `
 │                                                                                                  │
 │ ⚠️  Merge Conflicts Detected                                                                     │
 │ Branch: feature-conflicts                                                                        │
-│ Manual resolution required. Check git status for details.                                        │
 │                                                                                                  │
-│ Press any key to continue...                                                                     │
+│ Have the agent resolve conflicts? [r] Resolve                                                    │
 │                                                                                                  │
 ╰──────────────────────────────────────────────────────────────────────────────────────────────────╯"
 `;
@@ -19,7 +18,7 @@ exports[`MergePrompt > snapshots > renders failed state correctly 1`] = `
 │ Branch: feature-failed                                                                           │
 │ Something went wrong                                                                             │
 │                                                                                                  │
-│ Press any key to continue...                                                                     │
+│ Have the agent resolve this? [r] Resolve                                                         │
 │                                                                                                  │
 ╰──────────────────────────────────────────────────────────────────────────────────────────────────╯"
 `;
@@ -30,7 +29,7 @@ exports[`MergePrompt > snapshots > renders failed state without error correctly 
 │ ❌ Merge Test Failed                                                                              │
 │ Branch: feature-failed-no-error                                                                  │
 │                                                                                                  │
-│ Press any key to continue...                                                                     │
+│ Have the agent resolve this? [r] Resolve                                                         │
 │                                                                                                  │
 ╰──────────────────────────────────────────────────────────────────────────────────────────────────╯"
 `;

@@ -475,6 +475,46 @@ export const App = () => {
     dispatch({ type: 'SET_MERGE_STATE', id: detailAgentId, mergeState: undefined });
   };
 
+  const handleResolveConflicts = async () => {
+    if (!detailAgentId) return;
+
+    const agent = state.agents.find(a => a.id === detailAgentId);
+    if (!agent?.pendingMerge) return;
+
+    const conflictInfo = agent.pendingMerge.error || 'Unknown merge issue';
+    const branchName = agent.pendingMerge.branchName;
+    const currentBranch = getCurrentBranch();
+
+    dispatch({
+      type: 'SET_MERGE_STATE',
+      id: detailAgentId,
+      mergeState: { branchName, status: 'resolving' }
+    });
+
+    const resolveMessage = agent.pendingMerge.status === 'conflicts'
+      ? `The merge to ${currentBranch} branch has conflicts. ${conflictInfo}. Please resolve these conflicts by merging ${currentBranch} into your branch and resolving the conflicts, then commit the result.`
+      : `The merge test failed with error: ${conflictInfo}. Please investigate and fix the issue so the branch can be merged to ${currentBranch}.`;
+
+    dispatch({
+      type: 'APPEND_OUTPUT',
+      id: detailAgentId,
+      line: { text: '[i] Asking agent to resolve merge conflicts...', isSubagent: false }
+    });
+
+    try {
+      await agentManager.sendFollowUpMessage(detailAgentId, resolveMessage);
+      dispatch({ type: 'UPDATE_AGENT', id: detailAgentId, updates: { status: 'working' } });
+      dispatch({ type: 'SET_MERGE_STATE', id: detailAgentId, mergeState: undefined });
+    } catch (error: any) {
+      debug('Error sending resolve message:', error);
+      dispatch({
+        type: 'APPEND_OUTPUT',
+        id: detailAgentId,
+        line: { text: `[x] Failed to send resolve request: ${error.message}`, isSubagent: false }
+      });
+    }
+  };
+
   const handleOpenCommandPalette = async () => {
     setCommandsLoading(true);
     setMode('command');
@@ -702,6 +742,7 @@ export const App = () => {
           onAlwaysAllowInRepo={handleAlwaysAllowInRepo}
           onQuestionResponse={handleQuestionResponse}
           onMergeResponse={handleMergeResponse}
+          onResolveConflicts={handleResolveConflicts}
           onSendMessage={handleSendMessage}
           onBack={handleBackFromDetail}
           chatMode={chatMode}

@@ -31,9 +31,11 @@ export const MergePrompt = ({ mergeState, onApprove, onDeny }: Props) => {
       <Box flexDirection="column" borderStyle="round" borderColor="yellow" padding={1} flexShrink={0}>
         <Text bold color="yellow">⚠️  Merge Conflicts Detected</Text>
         <Text>Branch: <Text color="cyan">{mergeState.branchName}</Text></Text>
-        <Text color="yellow">Manual resolution required. Check git status for details.</Text>
+        {mergeState.error && <Text color="yellow">{mergeState.error}</Text>}
         <Box marginTop={1}>
-          <Text dimColor>Press any key to continue...</Text>
+          <Text bold>Have the agent resolve conflicts? </Text>
+          <Text color="cyan">[r]</Text>
+          <Text> Resolve</Text>
         </Box>
       </Box>
     );
@@ -46,8 +48,20 @@ export const MergePrompt = ({ mergeState, onApprove, onDeny }: Props) => {
         <Text>Branch: <Text color="cyan">{mergeState.branchName}</Text></Text>
         {mergeState.error && <Text color="red">{mergeState.error}</Text>}
         <Box marginTop={1}>
-          <Text dimColor>Press any key to continue...</Text>
+          <Text bold>Have the agent resolve this? </Text>
+          <Text color="cyan">[r]</Text>
+          <Text> Resolve</Text>
         </Box>
+      </Box>
+    );
+  }
+
+  if (mergeState.status === 'resolving') {
+    return (
+      <Box flexDirection="column" borderStyle="round" borderColor="blue" padding={1} flexShrink={0}>
+        <Text bold color="blue">🔧 Resolving Merge Conflicts...</Text>
+        <Text>Branch: <Text color="cyan">{mergeState.branchName}</Text></Text>
+        <Text dimColor>Agent is working on resolving merge conflicts</Text>
       </Box>
     );
   }

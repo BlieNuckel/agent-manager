@@ -84,18 +84,13 @@ describe('MergePrompt', () => {
       expect(lastFrame()).toContain('conflicting-branch');
     });
 
-    it('shows manual resolution required message', () => {
+    it('shows resolve conflicts option', () => {
       const { lastFrame } = render(
         <MergePrompt mergeState={conflictsState} onApprove={onApprove} onDeny={onDeny} />
       );
-      expect(lastFrame()).toContain('Manual resolution required');
-    });
-
-    it('shows press any key prompt', () => {
-      const { lastFrame } = render(
-        <MergePrompt mergeState={conflictsState} onApprove={onApprove} onDeny={onDeny} />
-      );
-      expect(lastFrame()).toContain('Press any key to continue');
+      expect(lastFrame()).toContain('Have the agent resolve conflicts?');
+      expect(lastFrame()).toContain('[r]');
+      expect(lastFrame()).toContain('Resolve');
     });
 
     it('does not show y/n options', () => {
@@ -135,11 +130,13 @@ describe('MergePrompt', () => {
       expect(lastFrame()).toContain('Git command failed: exit code 128');
     });
 
-    it('shows press any key prompt', () => {
+    it('shows resolve option', () => {
       const { lastFrame } = render(
         <MergePrompt mergeState={failedState} onApprove={onApprove} onDeny={onDeny} />
       );
-      expect(lastFrame()).toContain('Press any key to continue');
+      expect(lastFrame()).toContain('Have the agent resolve this?');
+      expect(lastFrame()).toContain('[r]');
+      expect(lastFrame()).toContain('Resolve');
     });
 
     it('handles missing error message', () => {
@@ -151,6 +148,34 @@ describe('MergePrompt', () => {
         <MergePrompt mergeState={stateWithoutError} onApprove={onApprove} onDeny={onDeny} />
       );
       expect(lastFrame()).toContain('Merge Test Failed');
+    });
+  });
+
+  describe('resolving state', () => {
+    const resolvingState: MergeState = {
+      branchName: 'resolving-branch',
+      status: 'resolving'
+    };
+
+    it('renders Resolving header', () => {
+      const { lastFrame } = render(
+        <MergePrompt mergeState={resolvingState} onApprove={onApprove} onDeny={onDeny} />
+      );
+      expect(lastFrame()).toContain('Resolving Merge Conflicts');
+    });
+
+    it('displays branch name', () => {
+      const { lastFrame } = render(
+        <MergePrompt mergeState={resolvingState} onApprove={onApprove} onDeny={onDeny} />
+      );
+      expect(lastFrame()).toContain('resolving-branch');
+    });
+
+    it('shows agent working message', () => {
+      const { lastFrame } = render(
+        <MergePrompt mergeState={resolvingState} onApprove={onApprove} onDeny={onDeny} />
+      );
+      expect(lastFrame()).toContain('Agent is working on resolving merge conflicts');
     });
   });
 
