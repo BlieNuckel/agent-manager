@@ -4,7 +4,7 @@ import { query, type Query, type SDKMessage, type SlashCommand, createSdkMcpServ
 import { z } from 'zod';
 import { homedir } from 'os';
 import { resolve, normalize } from 'path';
-import type { AgentType, Question, PermissionMode, ImageAttachment } from '../types';
+import type { AgentType, Question, PermissionMode, ImageAttachment, TokenTracking } from '../types';
 import { debug } from '../utils/logger';
 import { generateTitle } from '../utils/titleGenerator';
 import type { WorktreeContext } from './systemPromptTemplates';
@@ -62,6 +62,7 @@ export class AgentSDKManager extends EventEmitter {
   private queries: Map<string, QueryEntry> = new Map();
   private agentStates: Map<string, { agentType: AgentType; hasTitle: boolean; permissionMode: PermissionMode }> = new Map();
   private thinkingStates: Map<string, boolean> = new Map();
+  private tokenTracking: Map<string, TokenTracking> = new Map();
   private static commandsCache: SlashCommand[] | null = null;
 
   private getPermissionModeForAgentType(agentType: AgentType): PermissionMode {
@@ -457,6 +458,39 @@ export class AgentSDKManager extends EventEmitter {
 
         if (message.subtype === 'success') {
           this.emit('output', id, '[+] Task completed successfully', resultIsSubagent, resultSubagentInfo.subagentId, resultSubagentInfo.subagentType);
+
+          if (!resultIsSubagent && message.modelUsage) {
+            const modelUsageValues = Object.values(message.modelUsage);
+            if (modelUsageValues.length > 0) {
+              const modelUsage = modelUsageValues[0];
+
+              const tracking = this.tokenTracking.get(id) || {
+                cumulativeInputTokens: 0,
+                cumulativeOutputTokens: 0,
+                cacheReadInputTokens: 0,
+                cacheCreationInputTokens: 0,
+                contextWindow: 200000,
+                lastUpdated: new Date()
+              };
+
+              tracking.cumulativeInputTokens += modelUsage.inputTokens;
+              tracking.cumulativeOutputTokens += modelUsage.outputTokens;
+              tracking.cacheReadInputTokens += modelUsage.cacheReadInputTokens;
+              tracking.cacheCreationInputTokens += modelUsage.cacheCreationInputTokens;
+              tracking.contextWindow = modelUsage.contextWindow;
+              tracking.lastUpdated = new Date();
+
+              this.tokenTracking.set(id, tracking);
+              this.emit('tokenUsage', id, tracking);
+
+              debug('Token usage updated:', {
+                id,
+                inputTokens: tracking.cumulativeInputTokens,
+                outputTokens: tracking.cumulativeOutputTokens,
+                contextWindow: tracking.contextWindow
+              });
+            }
+          }
         } else {
           this.emit('output', id, `[x] Error: ${(message as any).error || message.subtype}`, resultIsSubagent, resultSubagentInfo.subagentId, resultSubagentInfo.subagentType);
         }
@@ -482,6 +516,7 @@ export class AgentSDKManager extends EventEmitter {
     this.queries.delete(id);
     this.agentStates.delete(id);
     this.thinkingStates.delete(id);
+    this.tokenTracking.delete(id);
   }
 
   isRunning(id: string): boolean {

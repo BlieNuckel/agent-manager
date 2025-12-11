@@ -69,6 +69,15 @@ export interface ImageAttachment {
   size?: number;
 }
 
+export interface TokenTracking {
+  cumulativeInputTokens: number;
+  cumulativeOutputTokens: number;
+  cacheReadInputTokens: number;
+  cacheCreationInputTokens: number;
+  contextWindow: number;
+  lastUpdated: Date;
+}
+
 export interface Agent {
   id: string;
   title: string;
@@ -88,6 +97,7 @@ export interface Agent {
   agentType: AgentType;
   permissionMode: PermissionMode;
   images?: ImageAttachment[];
+  tokenUsage?: TokenTracking;
 }
 
 export interface HistoryEntry {
@@ -116,7 +126,8 @@ export type Action =
   | { type: 'SET_MERGE_STATE'; id: string; mergeState: MergeState | undefined }
   | { type: 'REMOVE_HISTORY'; index: number }
   | { type: 'UPDATE_HISTORY_TITLE'; id: string; title: string }
-  | { type: 'SET_ARTIFACTS'; artifacts: ArtifactInfo[] };
+  | { type: 'SET_ARTIFACTS'; artifacts: ArtifactInfo[] }
+  | { type: 'UPDATE_TOKEN_USAGE'; id: string; tokenUsage: TokenTracking };
 
 export interface ArtifactInfo {
   name: string;
