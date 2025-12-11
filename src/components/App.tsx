@@ -66,8 +66,8 @@ export const App = () => {
   }, []);
 
   useEffect(() => {
-    const onOutput = (id: string, line: string, isSubagent: boolean = false, subagentId?: string, subagentType?: string) => {
-      dispatch({ type: 'APPEND_OUTPUT', id, line: { text: line, isSubagent, subagentId, subagentType } });
+    const onOutput = (id: string, line: string, isSubagent: boolean = false, subagentId?: string, subagentType?: string, timestamp?: number) => {
+      dispatch({ type: 'APPEND_OUTPUT', id, line: { text: line, isSubagent, subagentId, subagentType }, timestamp });
     };
     const onIdle = async (id: string) => {
       dispatch({ type: 'SET_PERMISSION', id, permission: undefined });

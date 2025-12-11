@@ -1,9 +1,10 @@
 import type { Agent, HistoryEntry, PermissionRequest, OutputLine } from '../types';
 
-const toOutputLine = (text: string, isSubagent: boolean = false, subagentType?: string): OutputLine => ({
+const toOutputLine = (text: string, isSubagent: boolean = false, subagentType?: string, timestamp?: number): OutputLine => ({
   text,
   isSubagent,
-  subagentType
+  subagentType,
+  timestamp: timestamp ?? Date.now()
 });
 
 export const createMockPermissionRequest = (toolName: 'Write' | 'Bash' = 'Write'): PermissionRequest => {

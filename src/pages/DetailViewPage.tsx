@@ -37,6 +37,7 @@ export const DetailViewPage = ({
   const [promptScrollOffset, setPromptScrollOffset] = useState(0);
   const [chatInput, setChatInput] = useState('');
   const [chatImages, setChatImages] = useState<Map<string, ImageAttachment>>(new Map());
+  const [thinkingIndicator, setThinkingIndicator] = useState<{ show: boolean; duration: number } | null>(null);
 
   const handleChatImagePasted = (id: string, path: string, base64: string, mediaType: string) => {
     const attachment: ImageAttachment = {
@@ -172,6 +173,58 @@ export const DetailViewPage = ({
     }
   }, [agent.pendingPermission, agent.pendingQuestion, agent.output.length, visibleLines]);
 
+  useEffect(() => {
+    if (agent.status !== 'working') {
+      setThinkingIndicator(null);
+      return;
+    }
+
+    if (agent.pendingPermission || agent.pendingQuestion) {
+      setThinkingIndicator(null);
+      return;
+    }
+
+    const lastOutput = agent.output[agent.output.length - 1];
+    if (!lastOutput || !lastOutput.timestamp) {
+      return;
+    }
+
+    const isToolOutput = (text: string) => {
+      return text.startsWith('[>]') || text.startsWith('[!]');
+    };
+
+    if (isToolOutput(lastOutput.text)) {
+      setThinkingIndicator(null);
+      return;
+    }
+
+    const checkGap = () => {
+      const gap = Date.now() - (lastOutput.timestamp || Date.now());
+      const gapSeconds = Math.floor(gap / 1000);
+
+      if (gap > 1000) {
+        setThinkingIndicator({
+          show: true,
+          duration: gapSeconds,
+        });
+      } else {
+        setThinkingIndicator(null);
+      }
+    };
+
+    checkGap();
+
+    const interval = setInterval(checkGap, 1000);
+
+    return () => clearInterval(interval);
+  }, [
+    agent.status,
+    agent.pendingPermission,
+    agent.pendingQuestion,
+    agent.output,
+    agent.output.length,
+  ]);
+
   const displayedLines = agent.output.slice(scrollOffset, scrollOffset + visibleLines);
   const displayedPromptLines = promptLines.slice(promptScrollOffset, promptScrollOffset + maxPromptHeight);
   const isPending = agent.title === 'Pending...';
@@ -235,6 +288,14 @@ export const DetailViewPage = ({
           )}
         </Box>
       </Box>
+
+      {thinkingIndicator?.show && (
+        <Box flexShrink={0} paddingLeft={2} paddingTop={0}>
+          <Text color="yellow">
+            ⏱ Thinking... ({thinkingIndicator.duration}s)
+          </Text>
+        </Box>
+      )}
 
       {agent.pendingPermission && (
         <PermissionPrompt

@@ -135,25 +135,25 @@ export class AgentSDKManager extends EventEmitter {
             agentID: options.agentID,
             subagentType: detectedSubagentType
           });
-          this.emit('output', id, `[→] Starting subagent: ${detectedSubagentType}`, false);
+          this.emit('output', id, `[→] Starting subagent: ${detectedSubagentType}`, false, undefined, undefined, Date.now());
           debug('Subagent started:', { agentID: options.agentID, subagentType: detectedSubagentType, toolUseID: options.toolUseID });
         }
       }
 
       if (isToolOperatingOnArtifacts(toolName, toolInput)) {
         debug('Auto-allowing artifact directory operation:', { toolName, toolInput });
-        this.emit('output', id, `[+] Auto-allowed artifact access: ${toolName}`, isSubagentTool, options.agentID, subagentType);
+        this.emit('output', id, `[+] Auto-allowed artifact access: ${toolName}`, isSubagentTool, options.agentID, subagentType, Date.now());
         return { behavior: 'allow' as const, updatedInput: toolInput };
       }
 
       if (agentState?.permissionMode === 'acceptEdits' && AUTO_ACCEPT_EDIT_TOOLS.includes(toolName)) {
         debug('Auto-accepting edit permission for tool:', toolName);
-        this.emit('output', id, `[+] Auto-allowed: ${toolName}`, isSubagentTool, options.agentID, subagentType);
+        this.emit('output', id, `[+] Auto-allowed: ${toolName}`, isSubagentTool, options.agentID, subagentType, Date.now());
         return { behavior: 'allow' as const, updatedInput: toolInput };
       }
 
       debug('Requesting permission for tool:', toolName);
-      this.emit('output', id, `[!] Permission required for: ${toolName}`, isSubagentTool, options.agentID, subagentType);
+      this.emit('output', id, `[!] Permission required for: ${toolName}`, isSubagentTool, options.agentID, subagentType, Date.now());
 
       const result = await new Promise<{ allowed: boolean; suggestions?: unknown[] }>((resolvePermission) => {
         this.emit('permissionRequest', id, {
@@ -165,7 +165,7 @@ export class AgentSDKManager extends EventEmitter {
       });
 
       debug('Permission result:', { toolName, allowed: result.allowed, hasSuggestions: !!result.suggestions });
-      this.emit('output', id, result.allowed ? `[+] Allowed: ${toolName}` : `[-] Denied: ${toolName}`, isSubagentTool, options.agentID, subagentType);
+      this.emit('output', id, result.allowed ? `[+] Allowed: ${toolName}` : `[-] Denied: ${toolName}`, isSubagentTool, options.agentID, subagentType, Date.now());
 
       if (result.allowed) {
         const response: { behavior: 'allow'; updatedInput: Record<string, unknown>; updatedPermissions?: unknown[] } = {
@@ -210,7 +210,7 @@ export class AgentSDKManager extends EventEmitter {
           async (args) => {
             debug('AskQuestion tool called:', { agentId: id, questions: args.questions });
 
-            this.emit('output', id, '[?] Asking user for input...', false);
+            this.emit('output', id, '[?] Asking user for input...', false, undefined, undefined, Date.now());
 
             const answers = await new Promise<Record<string, string | string[]>>((resolveQuestion) => {
               this.emit('questionRequest', id, {
@@ -220,7 +220,7 @@ export class AgentSDKManager extends EventEmitter {
             });
 
             debug('Question answers received:', { agentId: id, answers });
-            this.emit('output', id, '[+] User provided answers', false);
+            this.emit('output', id, '[+] User provided answers', false, undefined, undefined, Date.now());
 
             return {
               content: [{
@@ -368,7 +368,7 @@ export class AgentSDKManager extends EventEmitter {
           if (entry && entry.activeSubagents.has(message.parent_tool_use_id)) {
             const subagentInfo = entry.activeSubagents.get(message.parent_tool_use_id)!;
             entry.activeSubagents.delete(message.parent_tool_use_id);
-            this.emit('output', id, `[←] Subagent completed: ${subagentInfo.subagentType}`, false);
+            this.emit('output', id, `[←] Subagent completed: ${subagentInfo.subagentType}`, false, undefined, undefined, Date.now());
             debug('Subagent completed:', {
               agentID: subagentInfo.agentID,
               subagentType: subagentInfo.subagentType,
@@ -411,7 +411,7 @@ export class AgentSDKManager extends EventEmitter {
         }
 
         if (hasThinking && !wasThinking) {
-          this.emit('output', id, '[•] thinking...', isSubagent, subagentInfo.subagentId, subagentInfo.subagentType);
+          this.emit('output', id, '[•] thinking...', isSubagent, subagentInfo.subagentId, subagentInfo.subagentType, Date.now());
           this.thinkingStates.set(id, true);
         }
 
@@ -420,7 +420,7 @@ export class AgentSDKManager extends EventEmitter {
             const lines = content.text.split('\n');
             for (const line of lines) {
               if (line.trim()) {
-                this.emit('output', id, line, isSubagent, subagentInfo.subagentId, subagentInfo.subagentType);
+                this.emit('output', id, line, isSubagent, subagentInfo.subagentId, subagentInfo.subagentType, Date.now());
               }
             }
           } else if (content.type === 'tool_use') {
@@ -428,7 +428,7 @@ export class AgentSDKManager extends EventEmitter {
 
             if (!isSubagent || (content.name !== 'Task' && PERMISSION_REQUIRED_TOOLS.includes(content.name))) {
               const inputSummary = this.formatToolInput(content.name, content.input as Record<string, unknown>);
-              this.emit('output', id, `[>] ${content.name}(${inputSummary})`, isSubagent, subagentInfo.subagentId, subagentInfo.subagentType);
+              this.emit('output', id, `[>] ${content.name}(${inputSummary})`, isSubagent, subagentInfo.subagentId, subagentInfo.subagentType, Date.now());
             }
           }
         }
@@ -457,7 +457,7 @@ export class AgentSDKManager extends EventEmitter {
         }
 
         if (message.subtype === 'success') {
-          this.emit('output', id, '[+] Task completed successfully', resultIsSubagent, resultSubagentInfo.subagentId, resultSubagentInfo.subagentType);
+          this.emit('output', id, '[+] Task completed successfully', resultIsSubagent, resultSubagentInfo.subagentId, resultSubagentInfo.subagentType, Date.now());
 
           if (!resultIsSubagent && message.modelUsage) {
             const modelUsageValues = Object.values(message.modelUsage);
@@ -492,7 +492,7 @@ export class AgentSDKManager extends EventEmitter {
             }
           }
         } else {
-          this.emit('output', id, `[x] Error: ${(message as any).error || message.subtype}`, resultIsSubagent, resultSubagentInfo.subagentId, resultSubagentInfo.subagentType);
+          this.emit('output', id, `[x] Error: ${(message as any).error || message.subtype}`, resultIsSubagent, resultSubagentInfo.subagentId, resultSubagentInfo.subagentType, Date.now());
         }
         break;
 
@@ -573,16 +573,16 @@ export class AgentSDKManager extends EventEmitter {
       throw new Error(`Agent state ${id} not found`);
     }
 
-    this.emit('output', id, '', false);
-    this.emit('output', id, `[>] User: ${message}`, false);
+    this.emit('output', id, '', false, undefined, undefined, Date.now());
+    this.emit('output', id, `[>] User: ${message}`, false, undefined, undefined, Date.now());
 
     if (images && images.length > 0) {
       for (const img of images) {
-        this.emit('output', id, `     <image:${img.id}.${img.mediaType.split('/')[1]}>`, false);
+        this.emit('output', id, `     <image:${img.id}.${img.mediaType.split('/')[1]}>`, false, undefined, undefined, Date.now());
       }
     }
 
-    this.emit('output', id, '', false);
+    this.emit('output', id, '', false, undefined, undefined, Date.now());
 
     let messageContent: string | any[];
     if (images && images.length > 0) {
@@ -640,7 +640,7 @@ export class AgentSDKManager extends EventEmitter {
       this.iterateQuery(id, newQuery);
     } catch (error: any) {
       debug('Error sending follow-up message:', error);
-      this.emit('output', id, `[x] Failed to send message: ${error.message}`, false);
+      this.emit('output', id, `[x] Failed to send message: ${error.message}`, false, undefined, undefined, Date.now());
       this.emit('error', id, error.message);
       throw error;
     }

@@ -114,7 +114,7 @@ describe('AgentSDKManager', () => {
       manager.on('idle', vi.fn());
 
       const images = [
-        { id: 'img1', mediaType: 'image/png' as const, base64: 'base64data' },
+        { id: 'img1', mediaType: 'image/png' as const, base64: 'base64data', path: '/tmp/img1.png', timestamp: Date.now() },
       ];
 
       await manager.spawn('test-id', 'test prompt', '/test/dir', 'normal', undefined, undefined, images);
@@ -681,7 +681,7 @@ describe('AgentSDKManager', () => {
       vi.mocked(query).mockImplementation(() => createMockQuery([]) as any);
 
       const images = [
-        { id: 'img1', mediaType: 'image/png' as const, base64: 'base64data' },
+        { id: 'img1', mediaType: 'image/png' as const, base64: 'base64data', path: '/tmp/img1.png', timestamp: Date.now() },
       ];
 
       await manager.sendFollowUpMessage('test-id', 'with image', images);

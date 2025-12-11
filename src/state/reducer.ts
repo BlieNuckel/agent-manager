@@ -25,7 +25,14 @@ export function reducer(state: State, action: Action): State {
         ...state,
         agents: state.agents.map(a =>
           a.id === action.id
-            ? { ...a, output: [...a.output.slice(-500), action.line], updatedAt: new Date() }
+            ? {
+                ...a,
+                output: [
+                  ...a.output.slice(-500),
+                  { ...action.line, timestamp: action.timestamp ?? Date.now() }
+                ],
+                updatedAt: new Date()
+              }
             : a
         ),
       };

@@ -56,6 +56,7 @@ export interface OutputLine {
   isSubagent: boolean;
   subagentId?: string;
   subagentType?: string;
+  timestamp?: number;
 }
 
 export type PermissionMode = 'default' | 'acceptEdits';
@@ -118,7 +119,7 @@ export type Action =
   | { type: 'UPDATE_AGENT'; id: string; updates: Partial<Agent> }
   | { type: 'UPDATE_AGENT_TITLE'; id: string; title: string }
   | { type: 'REMOVE_AGENT'; id: string }
-  | { type: 'APPEND_OUTPUT'; id: string; line: OutputLine }
+  | { type: 'APPEND_OUTPUT'; id: string; line: OutputLine; timestamp?: number }
   | { type: 'SET_PERMISSION'; id: string; permission: PermissionRequest | undefined }
   | { type: 'QUEUE_PERMISSION'; id: string; permission: PermissionRequest }
   | { type: 'DEQUEUE_PERMISSION'; id: string }
