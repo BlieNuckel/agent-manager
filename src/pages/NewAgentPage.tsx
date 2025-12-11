@@ -53,7 +53,7 @@ export const NewAgentPage = ({ onSubmit, onCancel, onStateChange, initialHistory
   };
 
   const extractImagesFromPrompt = (promptText: string): ImageAttachment[] => {
-    const imagePattern = />image:([^>]+)>/g;
+    const imagePattern = /<image:([^>]+)>/g;
     const matches = [...promptText.matchAll(imagePattern)];
 
     return matches
@@ -279,7 +279,7 @@ export const NewAgentPage = ({ onSubmit, onCancel, onStateChange, initialHistory
       finalPrompt = `${artifactRef}\n\n${finalPrompt}`;
     }
 
-    finalPrompt = finalPrompt.replace(/>image:[^>]+>/g, '').trim();
+    finalPrompt = finalPrompt.replace(/<image:[^>]+>/g, '').trim();
 
     return finalPrompt;
   };

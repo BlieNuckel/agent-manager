@@ -543,7 +543,7 @@ export class AgentSDKManager extends EventEmitter {
 
     if (images && images.length > 0) {
       for (const img of images) {
-        this.emit('output', id, `     >image:${img.id}.${img.mediaType.split('/')[1]}>`, false);
+        this.emit('output', id, `     <image:${img.id}.${img.mediaType.split('/')[1]}>`, false);
       }
     }
 

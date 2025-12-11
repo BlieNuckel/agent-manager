@@ -55,7 +55,7 @@ export const DetailViewPage = ({
   };
 
   const extractImagesFromMessage = (messageText: string): ImageAttachment[] => {
-    const imagePattern = />image:([^>]+)>/g;
+    const imagePattern = /<image:([^>]+)>/g;
     const matches = [...messageText.matchAll(imagePattern)];
 
     return matches
@@ -139,7 +139,7 @@ export const DetailViewPage = ({
   const handleChatSubmit = (value: string) => {
     if (value.trim() && onSendMessage) {
       const imageAttachments = extractImagesFromMessage(value);
-      const cleanMessage = value.replace(/>image:[^>]+>/g, '').trim();
+      const cleanMessage = value.replace(/<image:[^>]+>/g, '').trim();
 
       onSendMessage(cleanMessage, imageAttachments);
       setChatInput('');

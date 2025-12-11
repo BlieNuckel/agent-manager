@@ -49,7 +49,7 @@ export const MultilineInput = ({
         const buffer = Buffer.from(base64Data, 'base64');
         await writeFile(tempPath, buffer);
 
-        const indicator = `>image:${imageId}.${extension}>`;
+        const indicator = `<image:${imageId}.${extension}>`;
         const before = value.slice(0, cursor);
         const after = value.slice(cursor);
         const newValue = before + indicator + after;
