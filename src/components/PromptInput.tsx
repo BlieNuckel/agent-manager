@@ -49,7 +49,7 @@ export const PromptInput = ({ onSubmit, onCancel, onStateChange }: {
   };
 
   const extractImagesFromPrompt = (promptText: string): ImageAttachment[] => {
-    const imagePattern = />image:([^>]+)>/g;
+    const imagePattern = /<image:([^>]+)>/g;
     const matches = [...promptText.matchAll(imagePattern)];
 
     return matches
@@ -287,7 +287,7 @@ export const PromptInput = ({ onSubmit, onCancel, onStateChange }: {
       finalPrompt = `${artifactRef}\n\n${finalPrompt}`;
     }
 
-    finalPrompt = finalPrompt.replace(/>image:[^>]+>/g, '').trim();
+    finalPrompt = finalPrompt.replace(/<image:[^>]+>/g, '').trim();
 
     return finalPrompt;
   };
