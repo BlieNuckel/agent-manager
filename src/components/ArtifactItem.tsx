@@ -9,6 +9,9 @@ export const ArtifactItem = ({ artifact, selected }: { artifact: ArtifactInfo; s
       <Box>
         <Text color={selected ? 'cyan' : 'white'} bold={selected}>{selected ? '> ' : '  '}</Text>
         <Text bold={selected} color={selected ? 'cyan' : 'white'}>{artifact.name}</Text>
+        {artifact.templateId && (
+          <Text color="magenta"> [{artifact.templateId}]</Text>
+        )}
         <Text dimColor> ({formatTime(artifact.modifiedAt)})</Text>
       </Box>
     </Box>

@@ -44,7 +44,7 @@ export const ListViewPage = ({ tab, agents, history, artifacts, inboxIdx, histId
           )
         ) : (
           artifacts.length === 0 ? (
-            <Text dimColor>No artifacts yet.</Text>
+            <Text dimColor>No artifacts yet. Press 'a' to create one from a template.</Text>
           ) : (
             artifacts.map((a, i) => (
               <ArtifactItem key={a.path} artifact={a} selected={i === artifactsIdx} />
@@ -63,7 +63,7 @@ export const getListViewHelp = (tab: 'inbox' | 'history' | 'artifacts') => {
       <Text color="cyan">↑↓jk</Text>{' '}Nav{'  '}
       <Text color="cyan">Enter</Text>{' '}{tab === 'inbox' ? 'Open' : tab === 'history' ? 'Resume' : 'View'}{'  '}
       {tab === 'history' && <><Text color="cyan">e</Text>{' '}Edit{'  '}</>}
-      {tab === 'artifacts' && <><Text color="cyan">s</Text>{' '}Spawn{'  '}</>}
+      {tab === 'artifacts' && <><Text color="cyan">s</Text>{' '}Spawn{'  '}<Text color="cyan">a</Text>{' '}Add{'  '}</>}
       <Text color="cyan">n</Text>{' '}New{'  '}
       {tab === 'inbox' && <><Text color="cyan">x</Text>{' '}Kill{'  '}</>}
       {(tab === 'inbox' || tab === 'history' || tab === 'artifacts') && <><Text color="cyan">d</Text>{' '}{tab === 'inbox' ? 'Remove' : 'Delete'}{'  '}</>}

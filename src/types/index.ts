@@ -3,10 +3,13 @@ import type {
   PermissionRuleValue,
   PermissionBehavior,
 } from '@anthropic-ai/claude-agent-sdk';
+import type { Template, TemplateFrontmatter } from './templates';
 
 export type Status = 'working' | 'waiting' | 'idle' | 'done' | 'error';
-export type Mode = 'normal' | 'input' | 'detail' | 'detail-chat' | 'command-result';
+export type Mode = 'normal' | 'input' | 'detail' | 'detail-chat' | 'command-result' | 'new-artifact';
 export type InputStep = 'title' | 'prompt' | 'agentType' | 'artifact' | 'worktree' | 'worktreeName';
+
+export type { Template, TemplateFrontmatter };
 export type AgentType = 'normal' | 'planning' | 'auto-accept';
 
 export type PermissionDestination =
@@ -128,16 +131,21 @@ export type Action =
   | { type: 'REMOVE_HISTORY'; index: number }
   | { type: 'UPDATE_HISTORY_TITLE'; id: string; title: string }
   | { type: 'SET_ARTIFACTS'; artifacts: ArtifactInfo[] }
+  | { type: 'SET_TEMPLATES'; templates: Template[] }
   | { type: 'UPDATE_TOKEN_USAGE'; id: string; tokenUsage: TokenTracking };
 
 export interface ArtifactInfo {
   name: string;
   path: string;
   modifiedAt: Date;
+  frontmatter?: TemplateFrontmatter;
+  templateId?: string;
+  templateValid?: boolean;
 }
 
 export interface State {
   agents: Agent[];
   history: HistoryEntry[];
   artifacts: ArtifactInfo[];
+  templates: Template[];
 }

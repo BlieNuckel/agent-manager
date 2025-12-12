@@ -121,9 +121,22 @@ export const ArtifactDetailPage = ({ artifact, onBack }: ArtifactDetailPageProps
   return (
     <Box flexDirection="column" flexGrow={1} minHeight={0}>
       <Box flexDirection="column" marginBottom={1}>
-        <Text bold color="cyan">{artifact.name}</Text>
+        <Box>
+          <Text bold color="cyan">{artifact.name}</Text>
+          {artifact.templateId && (
+            <Text> </Text>
+          )}
+          {artifact.templateId && (
+            <Text color="magenta" bold>[{artifact.templateId}]</Text>
+          )}
+          {artifact.templateValid === false && (
+            <Text color="yellow"> (incomplete)</Text>
+          )}
+        </Box>
         <Text dimColor>Modified: {artifact.modifiedAt.toLocaleString()}</Text>
-        <Text dimColor>Path: {artifact.path}</Text>
+        {artifact.frontmatter?.title && (
+          <Text dimColor>Title: {String(artifact.frontmatter.title)}</Text>
+        )}
       </Box>
 
       <Box flexDirection="column" borderStyle="round" borderColor="gray" padding={1} minHeight={0} flexGrow={1}>
