@@ -65,6 +65,7 @@ export const getListViewHelp = (tab: 'inbox' | 'history' | 'artifacts') => {
       {tab === 'history' && <><Text color="cyan">e</Text>{' '}Edit{'  '}</>}
       {tab === 'artifacts' && <><Text color="cyan">s</Text>{' '}Spawn{'  '}<Text color="cyan">a</Text>{' '}Add{'  '}</>}
       <Text color="cyan">n</Text>{' '}New{'  '}
+      <Text color="cyan">w</Text>{' '}Workflow{'  '}
       {tab === 'inbox' && <><Text color="cyan">x</Text>{' '}Kill{'  '}</>}
       {(tab === 'inbox' || tab === 'history' || tab === 'artifacts') && <><Text color="cyan">d</Text>{' '}{tab === 'inbox' ? 'Remove' : 'Delete'}{'  '}</>}
       <Text color="cyan">:</Text>{' '}Commands{'  '}

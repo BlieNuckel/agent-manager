@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useReducer } from 'react';
 import { useInput, useApp } from 'ink';
-import type { Agent, AgentType, HistoryEntry, Mode, PermissionRequest, QuestionRequest, InputStep, PermissionMode, ImageAttachment, TokenTracking, CustomAgentType } from '../types';
+import type { Agent, AgentType, HistoryEntry, Mode, PermissionRequest, QuestionRequest, InputStep, PermissionMode, ImageAttachment, TokenTracking, CustomAgentType, Workflow, WorkflowExecutionState } from '../types';
 import { reducer } from '../state/reducer';
 import { loadHistory, saveHistory } from '../state/history';
 import { AgentSDKManager } from '../agent/manager';
@@ -11,10 +11,13 @@ import { debug } from '../utils/logger';
 import { listArtifacts, deleteArtifact } from '../utils/artifacts';
 import { listTemplates } from '../utils/templates';
 import { listAgentTypes } from '../utils/agentTypes';
+import { listWorkflows, createWorkflowExecution, canSkipStage, shouldAutoApprove, getLastArtifactPath } from '../utils/workflows';
 import { ensureTempImageDir } from '../utils/imageStorage';
 import { cleanupOldTempImages } from '../utils/imageCleanup';
 import { Layout } from './Layout';
 import { ListViewPage, getListViewHelp, NewAgentPage, getNewAgentHelp, DetailViewPage, getDetailViewHelp, ArtifactDetailPage, getArtifactDetailHelp, NewArtifactPage, getNewArtifactHelp } from '../pages';
+import { WorkflowSelectPage, getWorkflowSelectHelp } from '../pages/WorkflowSelectPage';
+import { WorkflowExecutionPage, getWorkflowExecutionHelp } from '../pages/WorkflowExecutionPage';
 import { QuitConfirmationPrompt } from './QuitConfirmationPrompt';
 import { DeleteConfirmationPrompt } from './DeleteConfirmationPrompt';
 import { ArtifactDeleteConfirmationPrompt } from './ArtifactDeleteConfirmationPrompt';
@@ -30,7 +33,7 @@ const commandExecutor = new CommandExecutor();
 
 export const App = () => {
   const { exit } = useApp();
-  const [state, dispatch] = useReducer(reducer, { agents: [], history: loadHistory(), artifacts: [], templates: [], agentTypes: [] });
+  const [state, dispatch] = useReducer(reducer, { agents: [], history: loadHistory(), artifacts: [], templates: [], agentTypes: [], workflows: [], workflowExecution: null });
   const [tab, setTab] = useState<'inbox' | 'history' | 'artifacts'>('inbox');
   const [inboxIdx, setInboxIdx] = useState(0);
   const [histIdx, setHistIdx] = useState(0);
@@ -51,6 +54,8 @@ export const App = () => {
   const [commandsLoading, setCommandsLoading] = useState(false);
   const [commandResult, setCommandResult] = useState<{ result: CommandResultType; commandName: string } | null>(null);
   const [showCommandPalette, setShowCommandPalette] = useState(false);
+  const [workflowSelectStep, setWorkflowSelectStep] = useState<'workflow' | 'prompt'>('workflow');
+  const [workflowAgentId, setWorkflowAgentId] = useState<string | null>(null);
 
   useEffect(() => {
     const loadArtifactsList = async () => {
@@ -77,6 +82,14 @@ export const App = () => {
       dispatch({ type: 'SET_AGENT_TYPES', agentTypes });
     };
     loadAgentTypesList();
+  }, []);
+
+  useEffect(() => {
+    const loadWorkflowsList = async () => {
+      const workflows = await listWorkflows();
+      dispatch({ type: 'SET_WORKFLOWS', workflows });
+    };
+    loadWorkflowsList();
   }, []);
 
   useEffect(() => {
@@ -174,6 +187,15 @@ export const App = () => {
       }
 
       dispatch({ type: 'UPDATE_AGENT', id, updates: { status: 'idle' } });
+
+      if (state.workflowExecution) {
+        const stageIdx = state.workflowExecution.stageStates.findIndex(s => s.agentId === id);
+        if (stageIdx >= 0 && state.workflowExecution.stageStates[stageIdx]?.status === 'running') {
+          dispatch({ type: 'UPDATE_STAGE_STATE', stageIndex: stageIdx, updates: { status: 'awaiting_approval' } });
+          dispatch({ type: 'UPDATE_WORKFLOW_EXECUTION', updates: { status: 'awaiting_approval' } });
+          process.stdout.write('\u0007');
+        }
+      }
     };
     const onDone = async (id: string, code: number) => {
       dispatch({ type: 'SET_PERMISSION', id, permission: undefined });
@@ -703,6 +725,131 @@ export const App = () => {
     setMode('normal');
   };
 
+  const handleStartWorkflow = async (workflow: Workflow, prompt: string) => {
+    const execution = createWorkflowExecution(workflow, prompt);
+    dispatch({ type: 'START_WORKFLOW', execution });
+    setMode('workflow-execution');
+
+    const firstStage = workflow.stages[0];
+    if (firstStage) {
+      const agentType = state.agentTypes.find(a => a.id === firstStage.agentType);
+      if (agentType) {
+        const id = genId();
+        setWorkflowAgentId(id);
+
+        const agent: Agent = {
+          id,
+          title: `[${workflow.name}] ${firstStage.name}`,
+          prompt,
+          status: 'working',
+          output: [],
+          workDir: process.cwd(),
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          agentType: 'normal',
+          permissionMode: 'default',
+          permissionQueue: [],
+          customAgentTypeId: agentType.id
+        };
+        dispatch({ type: 'ADD_AGENT', agent });
+        dispatch({ type: 'UPDATE_STAGE_STATE', stageIndex: 0, updates: { status: 'running', agentId: id, startedAt: new Date() } });
+        dispatch({ type: 'UPDATE_WORKFLOW_EXECUTION', updates: { status: 'running' } });
+
+        agentManager.spawn(id, prompt, process.cwd(), 'normal', undefined, agent.title, undefined, agentType);
+      }
+    }
+  };
+
+  const handleWorkflowApprove = async () => {
+    if (!state.workflowExecution) return;
+
+    const workflow = state.workflows.find(w => w.id === state.workflowExecution?.workflowId);
+    if (!workflow) return;
+
+    const currentIdx = state.workflowExecution.currentStageIndex;
+    dispatch({ type: 'UPDATE_STAGE_STATE', stageIndex: currentIdx, updates: { status: 'approved', completedAt: new Date() } });
+
+    const nextIdx = currentIdx + 1;
+    if (nextIdx >= workflow.stages.length) {
+      dispatch({ type: 'UPDATE_WORKFLOW_EXECUTION', updates: { status: 'completed', currentStageIndex: nextIdx } });
+      return;
+    }
+
+    dispatch({ type: 'UPDATE_WORKFLOW_EXECUTION', updates: { currentStageIndex: nextIdx } });
+
+    const nextStage = workflow.stages[nextIdx];
+    const agentType = state.agentTypes.find(a => a.id === nextStage.agentType);
+    if (agentType) {
+      const id = genId();
+      setWorkflowAgentId(id);
+
+      const lastArtifact = getLastArtifactPath(state.workflowExecution);
+      let prompt = state.workflowExecution.initialPrompt;
+      if (lastArtifact) {
+        prompt = `Previous stage artifact: ${lastArtifact}\n\n${prompt}`;
+      }
+      if (nextStage.promptAdditions) {
+        prompt = `${nextStage.promptAdditions}\n\n${prompt}`;
+      }
+
+      const agent: Agent = {
+        id,
+        title: `[${workflow.name}] ${nextStage.name}`,
+        prompt,
+        status: 'working',
+        output: [],
+        workDir: process.cwd(),
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        agentType: 'normal',
+        permissionMode: 'default',
+        permissionQueue: [],
+        customAgentTypeId: agentType.id
+      };
+      dispatch({ type: 'ADD_AGENT', agent });
+      dispatch({ type: 'UPDATE_STAGE_STATE', stageIndex: nextIdx, updates: { status: 'running', agentId: id, startedAt: new Date() } });
+
+      agentManager.spawn(id, prompt, process.cwd(), 'normal', undefined, agent.title, undefined, agentType);
+    }
+  };
+
+  const handleWorkflowReject = (feedback: string) => {
+    debug('Workflow stage rejected:', feedback);
+  };
+
+  const handleWorkflowSkip = () => {
+    if (!state.workflowExecution) return;
+
+    const workflow = state.workflows.find(w => w.id === state.workflowExecution?.workflowId);
+    if (!workflow) return;
+
+    const currentIdx = state.workflowExecution.currentStageIndex;
+    dispatch({ type: 'UPDATE_STAGE_STATE', stageIndex: currentIdx, updates: { status: 'skipped', completedAt: new Date() } });
+
+    const nextIdx = currentIdx + 1;
+    if (nextIdx >= workflow.stages.length) {
+      dispatch({ type: 'UPDATE_WORKFLOW_EXECUTION', updates: { status: 'completed', currentStageIndex: nextIdx } });
+      return;
+    }
+
+    dispatch({ type: 'UPDATE_WORKFLOW_EXECUTION', updates: { currentStageIndex: nextIdx } });
+    handleWorkflowApprove();
+  };
+
+  const handleWorkflowCancel = () => {
+    if (workflowAgentId) {
+      agentManager.kill(workflowAgentId);
+    }
+    dispatch({ type: 'CANCEL_WORKFLOW' });
+    setWorkflowAgentId(null);
+    setMode('normal');
+  };
+
+  const handleWorkflowSelectCancel = () => {
+    setMode('normal');
+    setWorkflowSelectStep('workflow');
+  };
+
   useInput((input, key) => {
     if (showQuitConfirmation) {
       if (input === 'y') {
@@ -731,7 +878,7 @@ export const App = () => {
       return;
     }
 
-    if (mode === 'detail' || mode === 'input' || mode === 'command-result' || mode === 'new-artifact' || showCommandPalette) return
+    if (mode === 'detail' || mode === 'input' || mode === 'command-result' || mode === 'new-artifact' || mode === 'workflow-select' || mode === 'workflow-execution' || showCommandPalette) return
 
     if (key.tab) {
       if (key.shift) {
@@ -743,6 +890,7 @@ export const App = () => {
     }
     if (input === 'q') { handleQuitRequest(); return; }
     if (input === 'n') { setMode('input'); return; }
+    if (input === 'w') { setMode('workflow-select'); return; }
     if (input === ':') { handleOpenCommandPalette(); return; }
 
     const list = tab === 'inbox' ? state.agents : tab === 'history' ? state.history : state.artifacts;
@@ -824,6 +972,47 @@ export const App = () => {
         ),
         help: null,
       };
+    }
+
+    if (mode === 'workflow-select') {
+      return {
+        content: (
+          <WorkflowSelectPage
+            workflows={state.workflows}
+            onStart={handleStartWorkflow}
+            onCancel={handleWorkflowSelectCancel}
+            onStateChange={({ step }) => setWorkflowSelectStep(step)}
+          />
+        ),
+        help: getWorkflowSelectHelp(workflowSelectStep),
+      };
+    }
+
+    if (mode === 'workflow-execution' && state.workflowExecution) {
+      const workflow = state.workflows.find(w => w.id === state.workflowExecution?.workflowId);
+      const currentAgent = workflowAgentId ? state.agents.find(a => a.id === workflowAgentId) : undefined;
+      const currentStage = workflow?.stages[state.workflowExecution.currentStageIndex];
+      const currentStageState = state.workflowExecution.stageStates[state.workflowExecution.currentStageIndex];
+      const isAwaitingApproval = currentStageState?.status === 'awaiting_approval';
+      const canSkip = currentStage && workflow ? canSkipStage(workflow, currentStage.id) : false;
+
+      if (workflow) {
+        return {
+          content: (
+            <WorkflowExecutionPage
+              workflow={workflow}
+              execution={state.workflowExecution}
+              currentAgent={currentAgent}
+              onApproveStage={handleWorkflowApprove}
+              onRejectStage={handleWorkflowReject}
+              onSkipStage={handleWorkflowSkip}
+              onCancelWorkflow={handleWorkflowCancel}
+              onQuestionResponse={handleQuestionResponse}
+            />
+          ),
+          help: getWorkflowExecutionHelp(isAwaitingApproval, canSkip, !!currentAgent?.pendingPermission, !!currentAgent?.pendingQuestion),
+        };
+      }
     }
 
     if (mode === 'detail' && detailArtifactPath) {

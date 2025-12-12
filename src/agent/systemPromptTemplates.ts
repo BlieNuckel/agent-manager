@@ -8,6 +8,16 @@ export interface WorktreeContext {
   branchName?: string;
 }
 
+export interface WorkflowContext {
+  workflowName: string;
+  stageName: string;
+  stageDescription?: string;
+  stageIndex: number;
+  totalStages: number;
+  previousArtifact?: string;
+  expectedOutput?: string;
+}
+
 export function buildWorktreeInstructions(context: WorktreeContext): string {
   if (!context.enabled || !context.worktreePath) {
     return '';
@@ -149,13 +159,56 @@ This shared directory helps maintain continuity across different agent sessions 
 `.trim();
 }
 
-export function buildSystemPrompt(worktreeContext?: WorktreeContext): string {
+function buildWorkflowInstructions(context: WorkflowContext): string {
+  const parts: string[] = [];
+
+  parts.push(`# Workflow Context`);
+  parts.push('');
+  parts.push(`You are executing stage ${context.stageIndex + 1} of ${context.totalStages} in the **${context.workflowName}** workflow.`);
+  parts.push('');
+  parts.push(`## Current Stage: ${context.stageName}`);
+
+  if (context.stageDescription) {
+    parts.push(context.stageDescription);
+  }
+
+  if (context.previousArtifact) {
+    parts.push('');
+    parts.push(`## Previous Stage Artifact`);
+    parts.push(`The previous stage produced an artifact that you should reference:`);
+    parts.push(`\`${context.previousArtifact}\``);
+    parts.push('');
+    parts.push(`Read this artifact to understand the context and findings from the previous stage.`);
+  }
+
+  if (context.expectedOutput) {
+    parts.push('');
+    parts.push(`## Expected Output`);
+    parts.push(`This stage should produce a **${context.expectedOutput}** artifact.`);
+    parts.push(`Save your output to \`~/.agent-manager/artifacts/\` using the appropriate template.`);
+  }
+
+  parts.push('');
+  parts.push(`## Workflow Guidelines`);
+  parts.push(`- Focus on the specific objectives of this stage`);
+  parts.push(`- Build upon the work from previous stages if applicable`);
+  parts.push(`- Produce clear, well-documented output for the next stage`);
+  parts.push(`- Signal completion when your stage objectives are met`);
+
+  return parts.join('\n');
+}
+
+export function buildSystemPrompt(worktreeContext?: WorktreeContext, workflowContext?: WorkflowContext): string {
   const parts: string[] = [];
 
   parts.push(buildArtifactsInstructions());
 
   if (worktreeContext?.enabled && worktreeContext.worktreePath) {
     parts.push(buildWorktreeInstructions(worktreeContext));
+  }
+
+  if (workflowContext) {
+    parts.push(buildWorkflowInstructions(workflowContext));
   }
 
   return parts.join('\n\n');
