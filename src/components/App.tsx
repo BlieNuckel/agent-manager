@@ -17,6 +17,7 @@ import { Layout } from './Layout';
 import { ListViewPage, getListViewHelp, NewAgentPage, getNewAgentHelp, DetailViewPage, getDetailViewHelp, ArtifactDetailPage, getArtifactDetailHelp, NewArtifactPage, getNewArtifactHelp } from '../pages';
 import { QuitConfirmationPrompt } from './QuitConfirmationPrompt';
 import { DeleteConfirmationPrompt } from './DeleteConfirmationPrompt';
+import { ArtifactDeleteConfirmationPrompt } from './ArtifactDeleteConfirmationPrompt';
 import { CommandPalette } from './CommandPalette';
 import { CommandResult } from './CommandResult';
 import { CommandLoader } from '../commands/loader';
@@ -44,6 +45,8 @@ export const App = () => {
   const [showQuitConfirmation, setShowQuitConfirmation] = useState(false);
   const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false);
   const [agentToDelete, setAgentToDelete] = useState<string | null>(null);
+  const [showArtifactDeleteConfirmation, setShowArtifactDeleteConfirmation] = useState(false);
+  const [artifactToDelete, setArtifactToDelete] = useState<string | null>(null);
   const [commands, setCommands] = useState<Command[]>([]);
   const [commandsLoading, setCommandsLoading] = useState(false);
   const [commandResult, setCommandResult] = useState<{ result: CommandResultType; commandName: string } | null>(null);
@@ -448,6 +451,31 @@ export const App = () => {
     setAgentToDelete(null);
   };
 
+  const handleArtifactDeleteRequest = (artifactPath: string) => {
+    setArtifactToDelete(artifactPath);
+    setShowArtifactDeleteConfirmation(true);
+  };
+
+  const handleArtifactDeleteConfirm = () => {
+    if (artifactToDelete) {
+      deleteArtifact(artifactToDelete).then(() => {
+        listArtifacts().then(artifacts => {
+          dispatch({ type: 'SET_ARTIFACTS', artifacts });
+          setArtifactsIdx(Math.min(artifactsIdx, artifacts.length - 1));
+        });
+      }).catch(err => {
+        debug('Failed to delete artifact:', err);
+      });
+    }
+    setShowArtifactDeleteConfirmation(false);
+    setArtifactToDelete(null);
+  };
+
+  const handleArtifactDeleteCancel = () => {
+    setShowArtifactDeleteConfirmation(false);
+    setArtifactToDelete(null);
+  };
+
   const handleMergeResponse = async (approved: boolean) => {
     if (!detailAgentId) return;
 
@@ -693,7 +721,16 @@ export const App = () => {
       return;
     }
 
-    if (mode === 'detail' || mode === 'input' || mode === 'command-result' || mode === 'new-artifact' || showCommandPalette) return;
+    if (showArtifactDeleteConfirmation) {
+      if (input === 'y') {
+        handleArtifactDeleteConfirm();
+      } else if (input === 'n' || key.escape) {
+        handleArtifactDeleteCancel();
+      }
+      return;
+    }
+
+    if (mode === 'detail' || mode === 'input' || mode === 'command-result' || mode === 'new-artifact' || showCommandPalette) return
 
     if (key.tab) {
       if (key.shift) {
@@ -759,15 +796,7 @@ export const App = () => {
       }
       if (state.artifacts[idx]) {
         if (input === 'd') {
-          const artifactToDelete = state.artifacts[idx];
-          deleteArtifact(artifactToDelete.path).then(() => {
-            listArtifacts().then(artifacts => {
-              dispatch({ type: 'SET_ARTIFACTS', artifacts });
-              setArtifactsIdx(Math.min(artifactsIdx, artifacts.length - 1));
-            });
-          }).catch(err => {
-            debug('Failed to delete artifact:', err);
-          });
+          handleArtifactDeleteRequest(state.artifacts[idx].path);
         }
         if (input === 's') {
           const selectedArtifact = state.artifacts[idx];
@@ -938,6 +967,15 @@ export const App = () => {
     />
   ) : undefined;
 
+  const artifactToDeleteData = artifactToDelete ? state.artifacts.find(a => a.path === artifactToDelete) : null;
+  const artifactDeletePromptEl = showArtifactDeleteConfirmation && artifactToDeleteData ? (
+    <ArtifactDeleteConfirmationPrompt
+      artifactName={artifactToDeleteData.name}
+      onConfirm={handleArtifactDeleteConfirm}
+      onCancel={handleArtifactDeleteCancel}
+    />
+  ) : undefined;
+
   const commandPaletteWindow = showCommandPalette ? (
     <CommandPalette
       commands={commands}
@@ -948,7 +986,7 @@ export const App = () => {
   ) : undefined;
 
   return (
-    <Layout activeCount={activeCount} waitingCount={waitingCount} helpContent={help} splitPanes={splitPanes} quitPrompt={quitPrompt} deletePrompt={deletePrompt} hoverWindows={commandPaletteWindow}>
+    <Layout activeCount={activeCount} waitingCount={waitingCount} helpContent={help} splitPanes={splitPanes} quitPrompt={quitPrompt} deletePrompt={deletePrompt} artifactDeletePrompt={artifactDeletePromptEl} hoverWindows={commandPaletteWindow}>
       {content}
     </Layout>
   );
