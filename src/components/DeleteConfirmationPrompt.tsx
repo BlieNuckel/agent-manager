@@ -5,13 +5,26 @@ import type { Status } from '../types';
 interface Props {
   agentTitle: string;
   agentStatus: Status;
+  hasPendingMerge?: boolean;
   onConfirm: () => void;
   onCancel: () => void;
 }
 
-export const DeleteConfirmationPrompt = ({ agentTitle, agentStatus, onConfirm, onCancel }: Props) => {
-  const statusColor = agentStatus === 'working' ? 'cyan' : agentStatus === 'waiting' ? 'yellow' : 'red';
-  const statusText = agentStatus === 'working' ? 'working' : agentStatus === 'waiting' ? 'waiting for permission' : 'in error state';
+export const DeleteConfirmationPrompt = ({ agentTitle, agentStatus, hasPendingMerge, onConfirm, onCancel }: Props) => {
+  const getStatusDisplay = () => {
+    if (hasPendingMerge) {
+      return { color: 'magenta', text: 'waiting for merge approval' };
+    }
+    if (agentStatus === 'working') {
+      return { color: 'cyan', text: 'working' };
+    }
+    if (agentStatus === 'waiting') {
+      return { color: 'yellow', text: 'waiting for permission' };
+    }
+    return { color: 'red', text: 'in error state' };
+  };
+
+  const { color: statusColor, text: statusText } = getStatusDisplay();
 
   return (
     <Box flexDirection="column" borderStyle="round" borderColor="yellow" padding={1} flexShrink={0}>

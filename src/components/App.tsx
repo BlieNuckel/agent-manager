@@ -426,7 +426,8 @@ export const App = () => {
     const agent = state.agents.find(a => a.id === agentId);
     if (!agent) return;
 
-    if (agent.status === 'idle' || agent.status === 'done') {
+    const hasPendingMerge = !!agent.pendingMerge && agent.pendingMerge.status !== 'pr-created';
+    if ((agent.status === 'idle' || agent.status === 'done') && !hasPendingMerge) {
       agentManager.kill(agentId);
       dispatch({ type: 'REMOVE_AGENT', id: agentId });
       setInboxIdx(Math.min(inboxIdx, state.agents.length - 2));
@@ -962,6 +963,7 @@ export const App = () => {
     <DeleteConfirmationPrompt
       agentTitle={agentToDeleteData.title}
       agentStatus={agentToDeleteData.status}
+      hasPendingMerge={!!agentToDeleteData.pendingMerge && agentToDeleteData.pendingMerge.status !== 'pr-created'}
       onConfirm={handleDeleteConfirm}
       onCancel={handleDeleteCancel}
     />
