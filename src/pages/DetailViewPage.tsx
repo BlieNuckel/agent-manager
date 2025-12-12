@@ -21,6 +21,8 @@ interface DetailViewPageProps {
   onToggleChatMode?: () => void;
 }
 
+export type OutputViewMode = 'verbose' | 'focused';
+
 export const DetailViewPage = ({
   agent,
   onQuestionResponse,
@@ -38,6 +40,7 @@ export const DetailViewPage = ({
   const [chatInput, setChatInput] = useState('');
   const [chatImages, setChatImages] = useState<Map<string, ImageAttachment>>(new Map());
   const [thinkingIndicator, setThinkingIndicator] = useState<{ show: boolean; duration: number } | null>(null);
+  const [viewMode, setViewMode] = useState<OutputViewMode>('verbose');
 
   const handleChatImagePasted = (id: string, path: string, base64: string, mediaType: string) => {
     const attachment: ImageAttachment = {
@@ -91,6 +94,17 @@ export const DetailViewPage = ({
   const visibleLines = Math.max(1, availableForContent - promptActualHeight);
   const outputBoxHeight = visibleLines + outputBoxOverhead;
 
+  const filterOutputForFocusedView = (lines: typeof agent.output) => {
+    return lines.filter(line => {
+      const text = line.text;
+      if (text.startsWith('[>] User:')) return true;
+      if (text.startsWith('[>]')) return false;
+      return true;
+    });
+  };
+
+  const filteredOutput = viewMode === 'focused' ? filterOutputForFocusedView(agent.output) : agent.output;
+
   useInput((input, key) => {
     if (chatMode) {
       if (key.escape && onToggleChatMode) {
@@ -134,10 +148,16 @@ export const DetailViewPage = ({
       return;
     }
 
+    if (input === 'v') {
+      setViewMode(m => m === 'verbose' ? 'focused' : 'verbose');
+      setScrollOffset(0);
+      return;
+    }
+
     if (key.upArrow || input === 'k') setScrollOffset(o => Math.max(0, o - 1));
-    if (key.downArrow || input === 'j') setScrollOffset(o => Math.min(Math.max(0, agent.output.length - visibleLines), o + 1));
+    if (key.downArrow || input === 'j') setScrollOffset(o => Math.min(Math.max(0, filteredOutput.length - visibleLines), o + 1));
     if (input === 'g') setScrollOffset(0);
-    if (input === 'G') setScrollOffset(Math.max(0, agent.output.length - visibleLines));
+    if (input === 'G') setScrollOffset(Math.max(0, filteredOutput.length - visibleLines));
     if (input === 'p') setPromptScrollOffset(o => Math.max(0, o - 1));
     if (input === 'P') setPromptScrollOffset(o => Math.min(Math.max(0, promptLines.length - maxPromptHeight), o + 1));
   });
@@ -157,21 +177,21 @@ export const DetailViewPage = ({
   };
 
   useEffect(() => {
-    const maxScroll = Math.max(0, agent.output.length - visibleLines);
+    const maxScroll = Math.max(0, filteredOutput.length - visibleLines);
     const atBottom = scrollOffset >= maxScroll - 2;
     if (atBottom || agent.status === 'working') {
       setScrollOffset(maxScroll);
     } else if (scrollOffset > maxScroll) {
       setScrollOffset(maxScroll);
     }
-  }, [agent.output.length, visibleLines, scrollOffset, agent.status]);
+  }, [filteredOutput.length, visibleLines, scrollOffset, agent.status]);
 
   useEffect(() => {
     if (agent.pendingPermission || agent.pendingQuestion) {
-      const maxScroll = Math.max(0, agent.output.length - visibleLines);
+      const maxScroll = Math.max(0, filteredOutput.length - visibleLines);
       setScrollOffset(maxScroll);
     }
-  }, [agent.pendingPermission, agent.pendingQuestion, agent.output.length, visibleLines]);
+  }, [agent.pendingPermission, agent.pendingQuestion, filteredOutput.length, visibleLines]);
 
   useEffect(() => {
     if (agent.status !== 'working') {
@@ -225,10 +245,11 @@ export const DetailViewPage = ({
     agent.output.length,
   ]);
 
-  const displayedLines = agent.output.slice(scrollOffset, scrollOffset + visibleLines);
+  const displayedLines = filteredOutput.slice(scrollOffset, scrollOffset + visibleLines);
   const displayedPromptLines = promptLines.slice(promptScrollOffset, promptScrollOffset + maxPromptHeight);
   const isPending = agent.title === 'Pending...';
   const promptNeedsScroll = promptLines.length > maxPromptHeight;
+  const viewModeLabel = viewMode === 'focused' ? 'focused' : 'all';
 
   return (
     <Box flexDirection="column" flexGrow={1} flexShrink={1} minHeight={0} overflow="hidden">
@@ -259,7 +280,9 @@ export const DetailViewPage = ({
 
       <Box flexDirection="column" flexShrink={1} flexGrow={1} minHeight={0} borderStyle="round" borderColor="gray" paddingX={1} overflow="hidden">
         <Box flexShrink={0} height={1}>
-          <Text dimColor wrap="truncate-end">Output ({agent.output.length} lines, scroll: {scrollOffset + 1}-{Math.min(scrollOffset + visibleLines, agent.output.length)} of {agent.output.length})</Text>
+          <Text dimColor wrap="truncate-end">
+            Output [{viewModeLabel}] ({filteredOutput.length}{viewMode === 'focused' ? `/${agent.output.length}` : ''} lines, scroll: {scrollOffset + 1}-{Math.min(scrollOffset + visibleLines, filteredOutput.length)} of {filteredOutput.length})
+          </Text>
         </Box>
         <Box flexDirection="column" flexShrink={1} flexGrow={1} minHeight={0} overflow="hidden">
           {displayedLines.length === 0 ? (
@@ -398,6 +421,7 @@ export const getDetailViewHelp = (promptNeedsScroll: boolean, canChat: boolean, 
       <>
         <Text color="cyan">↑↓/jk</Text>{' '}Scroll{'  '}
         <Text color="cyan">g/G</Text>{' '}Top/Bottom{'  '}
+        <Text color="cyan">v</Text>{' '}View{'  '}
         {promptNeedsScroll && <><Text color="cyan">p/P</Text>{' '}Prompt{'  '}</>}
         <Text color="cyan">q/Esc</Text>{' '}Close
       </>
@@ -408,6 +432,7 @@ export const getDetailViewHelp = (promptNeedsScroll: boolean, canChat: boolean, 
     <>
       <Text color="cyan">↑↓/jk</Text>{' '}Scroll{'  '}
       <Text color="cyan">g/G</Text>{' '}Top/Bottom{'  '}
+      <Text color="cyan">v</Text>{' '}View{'  '}
       {promptNeedsScroll && <><Text color="cyan">p/P</Text>{' '}Prompt{'  '}</>}
       {canChat && <><Text color="cyan">i</Text>{' '}Chat{'  '}</>}
       <Text color="cyan">q/Esc</Text>{' '}Close
