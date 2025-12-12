@@ -146,6 +146,12 @@ export class AgentSDKManager extends EventEmitter {
         return { behavior: 'allow' as const, updatedInput: toolInput };
       }
 
+      if (toolName === 'EnterPlanMode') {
+        debug('Auto-allowing EnterPlanMode for normal agent');
+        this.emit('output', id, `[+] Auto-allowed: ${toolName}`, isSubagentTool, options.agentID, subagentType, Date.now());
+        return { behavior: 'allow' as const, updatedInput: toolInput };
+      }
+
       if (agentState?.permissionMode === 'acceptEdits' && AUTO_ACCEPT_EDIT_TOOLS.includes(toolName)) {
         debug('Auto-accepting edit permission for tool:', toolName);
         this.emit('output', id, `[+] Auto-allowed: ${toolName}`, isSubagentTool, options.agentID, subagentType, Date.now());
