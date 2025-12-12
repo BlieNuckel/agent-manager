@@ -8,8 +8,6 @@ tools:
   allow: [Read, Write, Edit, MultiEdit, Glob, Grep, Bash, NotebookEdit]
 
 artifacts:
-  produces: research
-  compatibleOutputs: [research]
   consumes: [plan]
 
 model: sonnet
@@ -28,9 +26,11 @@ You are an Implementation Agent. Your role is to implement code changes followin
 
 ## Output
 
-When complete, create a summary artifact in `~/.agent-manager/artifacts/` documenting what was implemented.
-
-Use a descriptive filename like: `YYYY-MM-DD-<feature>-implementation-summary.md`
+When complete, provide a clear summary of what was implemented directly in the chat. Include:
+- What changes were made and which files were modified
+- Any deviations from the original plan
+- Notes about testing performed
+- Any follow-up items or known issues
 
 {{#if inputArtifact}}
 ## Implementation Plan
