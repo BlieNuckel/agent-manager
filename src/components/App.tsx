@@ -397,13 +397,14 @@ export const App = () => {
 
 
   const handleQuestionResponse = (answers: Record<string, string | string[]>) => {
-    debug('handleQuestionResponse called:', { detailAgentId, answers });
-    if (detailAgentId) {
-      const agent = state.agents.find(a => a.id === detailAgentId);
+    const agentId = mode === 'workflow-execution' ? workflowAgentId : detailAgentId;
+    debug('handleQuestionResponse called:', { agentId, mode, answers });
+    if (agentId) {
+      const agent = state.agents.find(a => a.id === agentId);
       if (agent?.pendingQuestion) {
         debug('Resolving question with answers:', answers);
         agent.pendingQuestion.resolve(answers);
-        dispatch({ type: 'SET_QUESTION', id: detailAgentId, question: undefined });
+        dispatch({ type: 'SET_QUESTION', id: agentId, question: undefined });
       }
     }
   };
