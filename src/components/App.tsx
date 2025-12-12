@@ -829,9 +829,15 @@ export const App = () => {
     const currentIdx = state.workflowExecution.currentStageIndex;
     dispatch({ type: 'UPDATE_STAGE_STATE', stageIndex: currentIdx, updates: { status: 'approved', completedAt: new Date() } });
 
+    if (workflowAgentId) {
+      agentManager.kill(workflowAgentId);
+      dispatch({ type: 'UPDATE_AGENT', id: workflowAgentId, updates: { status: 'done' } });
+    }
+
     const nextIdx = currentIdx + 1;
     if (nextIdx >= workflow.stages.length) {
       dispatch({ type: 'UPDATE_WORKFLOW_EXECUTION', updates: { status: 'completed', currentStageIndex: nextIdx } });
+      setWorkflowAgentId(null);
       return;
     }
 
@@ -893,9 +899,15 @@ export const App = () => {
     const currentIdx = state.workflowExecution.currentStageIndex;
     dispatch({ type: 'UPDATE_STAGE_STATE', stageIndex: currentIdx, updates: { status: 'skipped', completedAt: new Date() } });
 
+    if (workflowAgentId) {
+      agentManager.kill(workflowAgentId);
+      dispatch({ type: 'UPDATE_AGENT', id: workflowAgentId, updates: { status: 'done' } });
+    }
+
     const nextIdx = currentIdx + 1;
     if (nextIdx >= workflow.stages.length) {
       dispatch({ type: 'UPDATE_WORKFLOW_EXECUTION', updates: { status: 'completed', currentStageIndex: nextIdx } });
+      setWorkflowAgentId(null);
       return;
     }
 
