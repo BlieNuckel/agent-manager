@@ -171,7 +171,12 @@ export const NewAgentPage = ({ onSubmit, onCancel, onStateChange, initialHistory
         setStep('artifact');
         return;
       } else if (step === 'worktreeName') {
-        setStep('worktree');
+        const selectedCustomType = getSelectedCustomAgentType();
+        if (selectedCustomType?.worktree !== undefined) {
+          setStep('artifact');
+        } else {
+          setStep('worktree');
+        }
         return;
       }
     }
@@ -280,12 +285,23 @@ export const NewAgentPage = ({ onSubmit, onCancel, onStateChange, initialHistory
   };
 
   const handleArtifactReturn = () => {
-    if (gitRoot) {
+    const selectedCustomType = getSelectedCustomAgentType();
+
+    if (selectedCustomType?.worktree !== undefined) {
+      if (selectedCustomType.worktree) {
+        setUseWorktree(true);
+        setStep('worktreeName');
+      } else {
+        const finalPrompt = getFinalPrompt();
+        const imageAttachments = extractImagesFromPrompt(prompt);
+        onSubmit(title, finalPrompt, agentType, { enabled: false, name: '' }, imageAttachments, selectedCustomType);
+      }
+    } else if (gitRoot) {
       setStep('worktree');
     } else {
       const finalPrompt = getFinalPrompt();
       const imageAttachments = extractImagesFromPrompt(prompt);
-      onSubmit(title, finalPrompt, agentType, { enabled: false, name: '' }, imageAttachments, getSelectedCustomAgentType());
+      onSubmit(title, finalPrompt, agentType, { enabled: false, name: '' }, imageAttachments, selectedCustomType);
     }
   };
 

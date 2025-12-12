@@ -22,6 +22,7 @@ export interface CustomAgentType {
   tools?: AgentToolConfig;
   artifacts?: AgentArtifactConfig;
   model?: 'opus' | 'sonnet' | 'haiku';
+  worktree?: boolean;
 
   systemPrompt: string;
 }
@@ -34,4 +35,5 @@ export interface CustomAgentTypeFrontmatter {
   tools?: AgentToolConfig;
   artifacts?: AgentArtifactConfig;
   model?: 'opus' | 'sonnet' | 'haiku';
+  worktree?: boolean;
 }
