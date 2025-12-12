@@ -25,35 +25,36 @@ export const Layout = ({ activeCount, waitingCount, helpContent, children, split
   const height = stdout?.rows ?? 24;
 
   return (
-    <Box flexDirection="column" height={height}>
-      <Box flexShrink={0}>
-        <Header activeCount={activeCount} waitingCount={waitingCount} />
-      </Box>
+    <Box height={height}>
+      <Box flexDirection="column" height={height} width="100%">
+        <Box flexShrink={0}>
+          <Header activeCount={activeCount} waitingCount={waitingCount} />
+        </Box>
 
-      <Box flexDirection="column" flexGrow={1} minHeight={0} overflow="hidden">
-        {splitPanes ? (
-          <SplitPane panes={splitPanes} />
-        ) : (
-          children
+        <Box flexDirection="column" flexGrow={1} minHeight={0} overflow="hidden">
+          {splitPanes ? (
+            <SplitPane panes={splitPanes} />
+          ) : (
+            children
+          )}
+        </Box>
+
+        {quitPrompt && (
+          <Box flexShrink={0}>
+            {quitPrompt}
+          </Box>
         )}
-      </Box>
 
-      {quitPrompt && (
+        {deletePrompt && (
+          <Box flexShrink={0}>
+            {deletePrompt}
+          </Box>
+        )}
+
         <Box flexShrink={0}>
-          {quitPrompt}
+          <HelpBar>{helpContent}</HelpBar>
         </Box>
-      )}
-
-      {deletePrompt && (
-        <Box flexShrink={0}>
-          {deletePrompt}
-        </Box>
-      )}
-
-      <Box flexShrink={0}>
-        <HelpBar>{helpContent}</HelpBar>
       </Box>
-
       {hoverWindows}
     </Box>
   );
