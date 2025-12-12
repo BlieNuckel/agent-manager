@@ -82,8 +82,8 @@ describe('getContextHealth', () => {
 
   it('should calculate correct percentage', () => {
     const tokenUsage: TokenTracking = {
-      cumulativeInputTokens: 100000,
-      cumulativeOutputTokens: 50000,
+      cumulativeInputTokens: 60000,
+      cumulativeOutputTokens: 30000,
       cacheReadInputTokens: 0,
       cacheCreationInputTokens: 0,
       contextWindow: 200000,
@@ -93,7 +93,7 @@ describe('getContextHealth', () => {
     const agent = createMockAgent({ tokenUsage });
     const health = getContextHealth(agent);
 
-    expect(health.percentUsed).toBeCloseTo(75, 0);
+    expect(health.percentUsed).toBeCloseTo(45, 0);
     expect(health.status).toBe('critical');
   });
 
@@ -111,13 +111,13 @@ describe('getContextHealth', () => {
     const health = getContextHealth(agent);
 
     expect(health.status).toBe('healthy');
-    expect(health.percentUsed).toBeLessThan(50);
+    expect(health.percentUsed).toBeLessThan(30);
   });
 
   it('should return warning status for medium usage', () => {
     const tokenUsage: TokenTracking = {
-      cumulativeInputTokens: 80000,
-      cumulativeOutputTokens: 40000,
+      cumulativeInputTokens: 50000,
+      cumulativeOutputTokens: 20000,
       cacheReadInputTokens: 0,
       cacheCreationInputTokens: 0,
       contextWindow: 200000,
@@ -128,14 +128,14 @@ describe('getContextHealth', () => {
     const health = getContextHealth(agent);
 
     expect(health.status).toBe('warning');
-    expect(health.percentUsed).toBeGreaterThan(50);
-    expect(health.percentUsed).toBeLessThanOrEqual(75);
+    expect(health.percentUsed).toBeGreaterThan(30);
+    expect(health.percentUsed).toBeLessThanOrEqual(40);
   });
 
   it('should return critical status for high usage', () => {
     const tokenUsage: TokenTracking = {
-      cumulativeInputTokens: 140000,
-      cumulativeOutputTokens: 60000,
+      cumulativeInputTokens: 60000,
+      cumulativeOutputTokens: 30000,
       cacheReadInputTokens: 0,
       cacheCreationInputTokens: 0,
       contextWindow: 200000,
@@ -146,7 +146,7 @@ describe('getContextHealth', () => {
     const health = getContextHealth(agent);
 
     expect(health.status).toBe('critical');
-    expect(health.percentUsed).toBeGreaterThan(75);
+    expect(health.percentUsed).toBeGreaterThan(40);
   });
 
   it('should use correct context window', () => {
