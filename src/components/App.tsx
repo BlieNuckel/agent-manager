@@ -779,7 +779,7 @@ export const App = () => {
   const handleStartWorkflow = async (workflow: Workflow, prompt: string) => {
     const execution = createWorkflowExecution(workflow, prompt);
     dispatch({ type: 'START_WORKFLOW', execution });
-    setMode('workflow-execution');
+    setMode('normal');
 
     const firstStage = workflow.stages[0];
     if (firstStage) {
