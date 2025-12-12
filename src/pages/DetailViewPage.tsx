@@ -295,7 +295,10 @@ export const DetailViewPage = ({
               const actualIndex = scrollOffset + i;
               const isUserInput = line.startsWith('[>] User:');
               const isAgentMessage = !line.startsWith('[x]') && !line.startsWith('[+]') && !line.startsWith('[>]') && !line.startsWith('[-]') && !line.startsWith('[!]');
-              const needsBlankLineAbove = actualIndex > 0 && (isUserInput || isAgentMessage);
+              const prevLine = i > 0 ? displayedLines[i - 1] : (scrollOffset > 0 ? filteredOutput[scrollOffset - 1] : null);
+              const prevLineText = prevLine?.text ?? '';
+              const prevIsAgentMessage = prevLine && !prevLineText.startsWith('[x]') && !prevLineText.startsWith('[+]') && !prevLineText.startsWith('[>]') && !prevLineText.startsWith('[-]') && !prevLineText.startsWith('[!]');
+              const needsBlankLineAbove = actualIndex > 0 && (isUserInput || (isAgentMessage && !prevIsAgentMessage));
 
               return (
                 <React.Fragment key={scrollOffset + i}>
