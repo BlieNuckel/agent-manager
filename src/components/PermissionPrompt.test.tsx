@@ -4,10 +4,6 @@ import { render } from 'ink-testing-library';
 import { PermissionPrompt } from './PermissionPrompt';
 import type { PermissionRequest, PermissionSuggestion } from '../types';
 
-vi.mock('../agent/manager', () => ({
-  AUTO_ACCEPT_EDIT_TOOLS: ['Write', 'Edit', 'MultiEdit', 'NotebookEdit']
-}));
-
 vi.mock('../utils/permissions', () => ({
   getPermissionExplanation: (suggestions: PermissionSuggestion[] | undefined) => {
     if (!suggestions || suggestions.length === 0) return null;
@@ -17,7 +13,26 @@ vi.mock('../utils/permissions', () => ({
       futureBeha: 'Future Write operations will be auto-allowed'
     };
   },
-  getAlwaysAllowExplanation: () => 'Auto-accept all edit operations for this agent session'
+  getDestinationInfo: (destination: string) => {
+    switch (destination) {
+      case 'projectSettings':
+        return { shortcut: 'R', filePath: '.claude/settings.json' };
+      case 'localSettings':
+        return { shortcut: 'L', filePath: '.claude/settings.local.json' };
+      case 'userSettings':
+        return { shortcut: 'U', filePath: '~/.claude/settings.json' };
+      case 'session':
+        return { shortcut: 'S', filePath: 'session' };
+      default:
+        return { shortcut: '?', filePath: 'unknown' };
+    }
+  },
+  formatPermissionRule: (rule: any) => {
+    if (rule.toolName) {
+      return `${rule.toolName}(*)`;
+    }
+    return 'Unknown rule';
+  }
 }));
 
 vi.mock('../utils/helpers', () => ({
@@ -77,7 +92,7 @@ describe('PermissionPrompt', () => {
       expect(lastFrame()).toContain('+3 more pending');
     });
 
-    it('shows Yes and No options for non-edit tools', () => {
+    it('shows Yes and No options for all tools', () => {
       const permission = createPermission({ toolName: 'Bash' });
       const { lastFrame } = render(
         <PermissionPrompt
@@ -88,22 +103,9 @@ describe('PermissionPrompt', () => {
       );
       expect(lastFrame()).toContain('[Y]es');
       expect(lastFrame()).toContain('[N]o');
-      expect(lastFrame()).not.toContain('[A]lways');
     });
 
-    it('shows Always option for edit tools', () => {
-      const permission = createPermission({ toolName: 'Write' });
-      const { lastFrame } = render(
-        <PermissionPrompt
-          permission={permission}
-          onResponse={onResponse}
-          onAlwaysAllow={onAlwaysAllow}
-        />
-      );
-      expect(lastFrame()).toContain('[A]lways');
-    });
-
-    it('shows Repo option when suggestions are provided', () => {
+    it('shows Local option when suggestions are provided', () => {
       const permission = createPermission({
         suggestions: [createSuggestion({ destination: 'localSettings' })]
       });
@@ -115,12 +117,12 @@ describe('PermissionPrompt', () => {
           onAlwaysAllowInRepo={onAlwaysAllowInRepo}
         />
       );
-      expect(lastFrame()).toContain('[R]epo');
+      expect(lastFrame()).toContain('[L]ocal');
     });
 
-    it('shows User option when suggestion destination is globalSettings', () => {
+    it('shows User option when suggestion destination is userSettings', () => {
       const permission = createPermission({
-        suggestions: [createSuggestion({ destination: 'globalSettings' })]
+        suggestions: [createSuggestion({ destination: 'userSettings' })]
       });
       const { lastFrame } = render(
         <PermissionPrompt
@@ -133,7 +135,7 @@ describe('PermissionPrompt', () => {
       expect(lastFrame()).toContain('[U]ser');
     });
 
-    it('shows shortcut hints', () => {
+    it('shows basic shortcut hints without suggestions', () => {
       const permission = createPermission({ toolName: 'Write' });
       const { lastFrame } = render(
         <PermissionPrompt
@@ -142,10 +144,11 @@ describe('PermissionPrompt', () => {
           onAlwaysAllow={onAlwaysAllow}
         />
       );
-      expect(lastFrame()).toContain('y/n/a');
+      expect(lastFrame()).toContain('y/n');
+      expect(lastFrame()).not.toContain('y/n/l');
     });
 
-    it('shows repo shortcut hint when suggestions provided', () => {
+    it('shows local shortcut hint when suggestions provided', () => {
       const permission = createPermission({
         suggestions: [createSuggestion({ destination: 'localSettings' })]
       });
@@ -157,12 +160,12 @@ describe('PermissionPrompt', () => {
           onAlwaysAllowInRepo={onAlwaysAllowInRepo}
         />
       );
-      expect(lastFrame()).toContain('y/n/a/r');
+      expect(lastFrame()).toContain('y/n/l');
     });
 
-    it('shows user shortcut hint when globalSettings suggestion provided', () => {
+    it('shows user shortcut hint when userSettings suggestion provided', () => {
       const permission = createPermission({
-        suggestions: [createSuggestion({ destination: 'globalSettings' })]
+        suggestions: [createSuggestion({ destination: 'userSettings' })]
       });
       const { lastFrame } = render(
         <PermissionPrompt
@@ -172,35 +175,10 @@ describe('PermissionPrompt', () => {
           onAlwaysAllowInRepo={onAlwaysAllowInRepo}
         />
       );
-      expect(lastFrame()).toContain('y/n/a/u');
+      expect(lastFrame()).toContain('y/n/u');
     });
 
-    it('shows basic shortcut hints for non-edit tools', () => {
-      const permission = createPermission({ toolName: 'Bash' });
-      const { lastFrame } = render(
-        <PermissionPrompt
-          permission={permission}
-          onResponse={onResponse}
-          onAlwaysAllow={onAlwaysAllow}
-        />
-      );
-      expect(lastFrame()).toContain('y/n');
-      expect(lastFrame()).not.toContain('y/n/a');
-    });
-
-    it('shows Always explanation for edit tools', () => {
-      const permission = createPermission({ toolName: 'Edit' });
-      const { lastFrame } = render(
-        <PermissionPrompt
-          permission={permission}
-          onResponse={onResponse}
-          onAlwaysAllow={onAlwaysAllow}
-        />
-      );
-      expect(lastFrame()).toContain('Auto-accept all edit operations');
-    });
-
-    it('shows repo explanation when suggestions provided', () => {
+    it('shows local settings explanation when suggestions provided', () => {
       const permission = createPermission({
         suggestions: [createSuggestion()]
       });
@@ -212,12 +190,12 @@ describe('PermissionPrompt', () => {
           onAlwaysAllowInRepo={onAlwaysAllowInRepo}
         />
       );
-      expect(lastFrame()).toContain('repo settings');
+      expect(lastFrame()).toContain('.claude/settings.local.json');
     });
   });
 
   describe('option variants', () => {
-    it('renders only yes/no for non-edit tool without suggestions', () => {
+    it('renders only yes/no for tool without suggestions', () => {
       const permission = createPermission({ toolName: 'Bash' });
       const { lastFrame } = render(
         <PermissionPrompt
@@ -228,11 +206,10 @@ describe('PermissionPrompt', () => {
       );
       expect(lastFrame()).toContain('[Y]es');
       expect(lastFrame()).toContain('[N]o');
-      expect(lastFrame()).not.toContain('[A]lways');
-      expect(lastFrame()).not.toContain('[R]epo');
+      expect(lastFrame()).not.toContain('[L]ocal');
     });
 
-    it('renders yes/no/always for edit tool without suggestions', () => {
+    it('renders yes/no for edit tool without suggestions', () => {
       const permission = createPermission({ toolName: 'Write' });
       const { lastFrame } = render(
         <PermissionPrompt
@@ -243,14 +220,13 @@ describe('PermissionPrompt', () => {
       );
       expect(lastFrame()).toContain('[Y]es');
       expect(lastFrame()).toContain('[N]o');
-      expect(lastFrame()).toContain('[A]lways');
-      expect(lastFrame()).not.toContain('[R]epo');
+      expect(lastFrame()).not.toContain('[L]ocal');
     });
 
-    it('renders all four options for edit tool with suggestions', () => {
+    it('renders suggestion options when provided', () => {
       const permission = createPermission({
         toolName: 'Edit',
-        suggestions: [createSuggestion()]
+        suggestions: [createSuggestion({ destination: 'localSettings' })]
       });
       const { lastFrame } = render(
         <PermissionPrompt
@@ -262,8 +238,7 @@ describe('PermissionPrompt', () => {
       );
       expect(lastFrame()).toContain('[Y]es');
       expect(lastFrame()).toContain('[N]o');
-      expect(lastFrame()).toContain('[A]lways');
-      expect(lastFrame()).toContain('[R]epo');
+      expect(lastFrame()).toContain('[L]ocal');
     });
   });
 
@@ -343,10 +318,10 @@ describe('PermissionPrompt', () => {
       expect(lastFrame()).toMatchSnapshot();
     });
 
-    it('renders globalSettings suggestion correctly', () => {
+    it('renders userSettings suggestion correctly', () => {
       const permission = createPermission({
         toolName: 'Write',
-        suggestions: [createSuggestion({ destination: 'globalSettings' })]
+        suggestions: [createSuggestion({ destination: 'userSettings' })]
       });
       const { lastFrame } = render(
         <PermissionPrompt
