@@ -5,10 +5,12 @@ import type {
 } from '@anthropic-ai/claude-agent-sdk';
 import type { Template, TemplateFrontmatter } from './templates';
 import type { CustomAgentType, AgentToolConfig, AgentArtifactConfig } from './agentTypes';
+import type { Workflow, WorkflowExecutionState, StageExecutionState } from './workflows';
 
 export type { CustomAgentType, AgentToolConfig, AgentArtifactConfig };
+export type { Workflow, WorkflowExecutionState, StageExecutionState };
 export type Status = 'working' | 'waiting' | 'idle' | 'done' | 'error';
-export type Mode = 'normal' | 'input' | 'detail' | 'detail-chat' | 'command-result' | 'new-artifact';
+export type Mode = 'normal' | 'input' | 'detail' | 'detail-chat' | 'command-result' | 'new-artifact' | 'workflow-select' | 'workflow-execution';
 export type InputStep = 'title' | 'prompt' | 'agentType' | 'artifact' | 'worktree' | 'worktreeName';
 
 export type { Template, TemplateFrontmatter };
@@ -136,7 +138,12 @@ export type Action =
   | { type: 'SET_ARTIFACTS'; artifacts: ArtifactInfo[] }
   | { type: 'SET_TEMPLATES'; templates: Template[] }
   | { type: 'SET_AGENT_TYPES'; agentTypes: CustomAgentType[] }
-  | { type: 'UPDATE_TOKEN_USAGE'; id: string; tokenUsage: TokenTracking };
+  | { type: 'UPDATE_TOKEN_USAGE'; id: string; tokenUsage: TokenTracking }
+  | { type: 'SET_WORKFLOWS'; workflows: Workflow[] }
+  | { type: 'START_WORKFLOW'; execution: WorkflowExecutionState }
+  | { type: 'UPDATE_WORKFLOW_EXECUTION'; updates: Partial<WorkflowExecutionState> }
+  | { type: 'UPDATE_STAGE_STATE'; stageIndex: number; updates: Partial<StageExecutionState> }
+  | { type: 'CANCEL_WORKFLOW' };
 
 export interface ArtifactInfo {
   name: string;
@@ -153,4 +160,6 @@ export interface State {
   artifacts: ArtifactInfo[];
   templates: Template[];
   agentTypes: CustomAgentType[];
+  workflows: Workflow[];
+  workflowExecution: WorkflowExecutionState | null;
 }

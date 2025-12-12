@@ -112,6 +112,29 @@ export function reducer(state: State, action: Action): State {
             : a
         ),
       };
+    case 'SET_WORKFLOWS':
+      return { ...state, workflows: action.workflows };
+    case 'START_WORKFLOW':
+      return { ...state, workflowExecution: action.execution };
+    case 'UPDATE_WORKFLOW_EXECUTION':
+      if (!state.workflowExecution) return state;
+      return {
+        ...state,
+        workflowExecution: { ...state.workflowExecution, ...action.updates }
+      };
+    case 'UPDATE_STAGE_STATE':
+      if (!state.workflowExecution) return state;
+      return {
+        ...state,
+        workflowExecution: {
+          ...state.workflowExecution,
+          stageStates: state.workflowExecution.stageStates.map((stage, idx) =>
+            idx === action.stageIndex ? { ...stage, ...action.updates } : stage
+          )
+        }
+      };
+    case 'CANCEL_WORKFLOW':
+      return { ...state, workflowExecution: null };
     default:
       return state;
   }
