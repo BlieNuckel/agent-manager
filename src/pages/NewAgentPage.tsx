@@ -161,7 +161,11 @@ export const NewAgentPage = ({ onSubmit, onCancel, onStateChange, initialHistory
         setStep('prompt');
         return;
       } else if (step === 'artifact') {
-        setStep('agentType');
+        if (customAgentTypes.length > 0) {
+          setStep('agentType');
+        } else {
+          setStep('prompt');
+        }
         return;
       } else if (step === 'worktree') {
         setStep('artifact');
@@ -186,31 +190,22 @@ export const NewAgentPage = ({ onSubmit, onCancel, onStateChange, initialHistory
     }
 
     if (step === 'agentType') {
-      if (input === '1') { setAgentType('normal'); setSelectedCustomTypeIndex(-1); return; }
-      if (input === '2') { setAgentType('planning'); setSelectedCustomTypeIndex(-1); return; }
-      if (input === '3') { setAgentType('auto-accept'); setSelectedCustomTypeIndex(-1); return; }
-      const customIdx = parseInt(input) - 4;
+      if (input === '0') { setSelectedCustomTypeIndex(-1); return; }
+      const customIdx = parseInt(input) - 1;
       if (!isNaN(customIdx) && customIdx >= 0 && customIdx < customAgentTypes.length) {
         setSelectedCustomTypeIndex(customIdx);
-        setAgentType('normal');
         return;
       }
       if (key.upArrow || key.downArrow) {
-        const totalOptions = 3 + customAgentTypes.length;
-        const currentIdx = selectedCustomTypeIndex >= 0 ? selectedCustomTypeIndex + 3 : ['normal', 'planning', 'auto-accept'].indexOf(agentType);
+        const totalOptions = 1 + customAgentTypes.length;
+        const currentIdx = selectedCustomTypeIndex + 1;
         let newIdx: number;
         if (key.upArrow) {
           newIdx = currentIdx <= 0 ? totalOptions - 1 : currentIdx - 1;
         } else {
           newIdx = currentIdx >= totalOptions - 1 ? 0 : currentIdx + 1;
         }
-        if (newIdx < 3) {
-          setAgentType(['normal', 'planning', 'auto-accept'][newIdx] as AgentType);
-          setSelectedCustomTypeIndex(-1);
-        } else {
-          setSelectedCustomTypeIndex(newIdx - 3);
-          setAgentType('normal');
-        }
+        setSelectedCustomTypeIndex(newIdx - 1);
         return;
       }
     }
@@ -245,7 +240,11 @@ export const NewAgentPage = ({ onSubmit, onCancel, onStateChange, initialHistory
 
   const handlePromptSubmit = (value: string) => {
     if (value.trim()) {
-      setStep('agentType');
+      if (customAgentTypes.length > 0) {
+        setStep('agentType');
+      } else {
+        setStep('artifact');
+      }
     }
   };
 
@@ -371,34 +370,29 @@ export const NewAgentPage = ({ onSubmit, onCancel, onStateChange, initialHistory
           )}
         </Box>
 
-        <Box marginTop={1} flexDirection="column">
-          <Text color={step === 'agentType' ? 'cyan' : step === 'title' || step === 'prompt' ? 'gray' : 'green'}>
-            {step === 'title' || step === 'prompt' ? '○' : step === 'agentType' ? '▸' : '✓'} Agent Type:{' '}
-          </Text>
-          {step === 'agentType' ? (
-            <Box flexDirection="column" marginLeft={2}>
-              <Text>[<Text color={agentType === 'normal' && selectedCustomTypeIndex === -1 ? 'cyan' : 'white'} bold={agentType === 'normal' && selectedCustomTypeIndex === -1}>1</Text>] Normal (ask for permissions)</Text>
-              <Text>[<Text color={agentType === 'planning' && selectedCustomTypeIndex === -1 ? 'cyan' : 'white'} bold={agentType === 'planning' && selectedCustomTypeIndex === -1}>2</Text>] Planning (plan before executing)</Text>
-              <Text>[<Text color={agentType === 'auto-accept' && selectedCustomTypeIndex === -1 ? 'cyan' : 'white'} bold={agentType === 'auto-accept' && selectedCustomTypeIndex === -1}>3</Text>] Auto-accept edits (no permission prompts)</Text>
-              {customAgentTypes.length > 0 && (
-                <>
-                  <Text dimColor>─ Custom Agent Types ─</Text>
-                  {customAgentTypes.map((cat, i) => (
-                    <Text key={cat.id}>
-                      [<Text color={selectedCustomTypeIndex === i ? 'cyan' : 'white'} bold={selectedCustomTypeIndex === i}>{i + 4}</Text>] {cat.name} <Text dimColor>({cat.description})</Text>
-                    </Text>
-                  ))}
-                </>
-              )}
-            </Box>
-          ) : (
-            <Box marginLeft={2}>
-              <Text dimColor={step === 'title' || step === 'prompt'}>
-                {selectedCustomTypeIndex >= 0 ? customAgentTypes[selectedCustomTypeIndex].name : agentType === 'normal' ? 'Normal' : agentType === 'planning' ? 'Planning' : 'Auto-accept edits'}
-              </Text>
-            </Box>
-          )}
-        </Box>
+        {customAgentTypes.length > 0 && (
+          <Box marginTop={1} flexDirection="column">
+            <Text color={step === 'agentType' ? 'cyan' : step === 'title' || step === 'prompt' ? 'gray' : 'green'}>
+              {step === 'title' || step === 'prompt' ? '○' : step === 'agentType' ? '▸' : '✓'} Custom Agent Type:{' '}
+            </Text>
+            {step === 'agentType' ? (
+              <Box flexDirection="column" marginLeft={2}>
+                <Text>[<Text color={selectedCustomTypeIndex === -1 ? 'cyan' : 'white'} bold={selectedCustomTypeIndex === -1}>0</Text>] None (standard agent)</Text>
+                {customAgentTypes.map((cat, i) => (
+                  <Text key={cat.id}>
+                    [<Text color={selectedCustomTypeIndex === i ? 'cyan' : 'white'} bold={selectedCustomTypeIndex === i}>{i + 1}</Text>] {cat.name} <Text dimColor>({cat.description})</Text>
+                  </Text>
+                ))}
+              </Box>
+            ) : (
+              <Box marginLeft={2}>
+                <Text dimColor={step === 'title' || step === 'prompt'}>
+                  {selectedCustomTypeIndex >= 0 ? customAgentTypes[selectedCustomTypeIndex].name : 'None'}
+                </Text>
+              </Box>
+            )}
+          </Box>
+        )}
 
         <Box marginTop={1} flexDirection="column">
           <Text color={step === 'artifact' ? 'cyan' : step === 'title' || step === 'prompt' || step === 'agentType' ? 'gray' : 'green'}>
@@ -522,7 +516,7 @@ export const getNewAgentHelp = (inputStep?: InputStep, showSlashMenu?: boolean) 
     return (
       <>
         <Text color="cyan">↑↓</Text> Navigate{' '}
-        <Text color="cyan">1-9</Text> Select{' '}
+        <Text color="cyan">0-9</Text> Select{' '}
         <Text color="cyan">Enter</Text> Continue{' '}
         <Text color="cyan">←</Text> Back{' '}
         <Text color="cyan">Esc</Text> Cancel
