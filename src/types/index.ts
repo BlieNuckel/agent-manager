@@ -4,7 +4,9 @@ import type {
   PermissionBehavior,
 } from '@anthropic-ai/claude-agent-sdk';
 import type { Template, TemplateFrontmatter } from './templates';
+import type { CustomAgentType, AgentToolConfig, AgentArtifactConfig } from './agentTypes';
 
+export type { CustomAgentType, AgentToolConfig, AgentArtifactConfig };
 export type Status = 'working' | 'waiting' | 'idle' | 'done' | 'error';
 export type Mode = 'normal' | 'input' | 'detail' | 'detail-chat' | 'command-result' | 'new-artifact';
 export type InputStep = 'title' | 'prompt' | 'agentType' | 'artifact' | 'worktree' | 'worktreeName';
@@ -102,6 +104,7 @@ export interface Agent {
   permissionMode: PermissionMode;
   images?: ImageAttachment[];
   tokenUsage?: TokenTracking;
+  customAgentTypeId?: string;
 }
 
 export interface HistoryEntry {
@@ -132,6 +135,7 @@ export type Action =
   | { type: 'UPDATE_HISTORY_TITLE'; id: string; title: string }
   | { type: 'SET_ARTIFACTS'; artifacts: ArtifactInfo[] }
   | { type: 'SET_TEMPLATES'; templates: Template[] }
+  | { type: 'SET_AGENT_TYPES'; agentTypes: CustomAgentType[] }
   | { type: 'UPDATE_TOKEN_USAGE'; id: string; tokenUsage: TokenTracking };
 
 export interface ArtifactInfo {
@@ -148,4 +152,5 @@ export interface State {
   history: HistoryEntry[];
   artifacts: ArtifactInfo[];
   templates: Template[];
+  agentTypes: CustomAgentType[];
 }

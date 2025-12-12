@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useReducer } from 'react';
 import { useInput, useApp } from 'ink';
-import type { Agent, AgentType, HistoryEntry, Mode, PermissionRequest, QuestionRequest, InputStep, PermissionMode, ImageAttachment, TokenTracking } from '../types';
+import type { Agent, AgentType, HistoryEntry, Mode, PermissionRequest, QuestionRequest, InputStep, PermissionMode, ImageAttachment, TokenTracking, CustomAgentType } from '../types';
 import { reducer } from '../state/reducer';
 import { loadHistory, saveHistory } from '../state/history';
 import { AgentSDKManager } from '../agent/manager';
@@ -10,6 +10,7 @@ import { genId } from '../utils/helpers';
 import { debug } from '../utils/logger';
 import { listArtifacts, deleteArtifact } from '../utils/artifacts';
 import { listTemplates } from '../utils/templates';
+import { listAgentTypes } from '../utils/agentTypes';
 import { ensureTempImageDir } from '../utils/imageStorage';
 import { cleanupOldTempImages } from '../utils/imageCleanup';
 import { Layout } from './Layout';
@@ -28,7 +29,7 @@ const commandExecutor = new CommandExecutor();
 
 export const App = () => {
   const { exit } = useApp();
-  const [state, dispatch] = useReducer(reducer, { agents: [], history: loadHistory(), artifacts: [], templates: [] });
+  const [state, dispatch] = useReducer(reducer, { agents: [], history: loadHistory(), artifacts: [], templates: [], agentTypes: [] });
   const [tab, setTab] = useState<'inbox' | 'history' | 'artifacts'>('inbox');
   const [inboxIdx, setInboxIdx] = useState(0);
   const [histIdx, setHistIdx] = useState(0);
@@ -65,6 +66,14 @@ export const App = () => {
       dispatch({ type: 'SET_TEMPLATES', templates });
     };
     loadTemplatesList();
+  }, []);
+
+  useEffect(() => {
+    const loadAgentTypesList = async () => {
+      const agentTypes = await listAgentTypes();
+      dispatch({ type: 'SET_AGENT_TYPES', agentTypes });
+    };
+    loadAgentTypesList();
   }, []);
 
   useEffect(() => {
@@ -246,7 +255,7 @@ export const App = () => {
     };
   }, [state.history, mode, detailAgentId, state.agents]);
 
-  const createAgent = async (title: string, prompt: string, agentType: AgentType, worktree: { enabled: boolean; name: string }, images?: ImageAttachment[]) => {
+  const createAgent = async (title: string, prompt: string, agentType: AgentType, worktree: { enabled: boolean; name: string }, images?: ImageAttachment[], customAgentType?: CustomAgentType) => {
     const id = genId();
     const workDir = process.cwd();
     let worktreeContext: WorktreeContext | undefined;
@@ -340,8 +349,8 @@ export const App = () => {
       dispatch({ type: 'ADD_AGENT', agent: placeholderAgent });
     }
 
-    debug('Spawning agent:', { id, effectiveWorkDir, agentType, hasWorktreeContext: !!worktreeContext, imageCount: images?.length || 0 });
-    agentManager.spawn(id, prompt, effectiveWorkDir, agentType, worktreeContext, title, images);
+    debug('Spawning agent:', { id, effectiveWorkDir, agentType, hasWorktreeContext: !!worktreeContext, imageCount: images?.length || 0, customAgentTypeId: customAgentType?.id });
+    agentManager.spawn(id, prompt, effectiveWorkDir, agentType, worktreeContext, title, images, customAgentType);
 
     const entry: HistoryEntry = {
       id,
@@ -862,11 +871,12 @@ export const App = () => {
       return {
         content: (
           <NewAgentPage
-            onSubmit={(t, p, at, wt) => { createAgent(t, p, at, wt); setMode('normal'); setTab('inbox'); setInboxIdx(state.agents.length); setEditingHistoryEntry(null); setPreSelectedArtifactPath(null); }}
+            onSubmit={(t, p, at, wt, imgs, cat) => { createAgent(t, p, at, wt, imgs, cat); setMode('normal'); setTab('inbox'); setInboxIdx(state.agents.length); setEditingHistoryEntry(null); setPreSelectedArtifactPath(null); }}
             onCancel={() => { setMode('normal'); setEditingHistoryEntry(null); setPreSelectedArtifactPath(null); }}
             onStateChange={setInputState}
             initialHistoryEntry={editingHistoryEntry}
             initialArtifactPath={preSelectedArtifactPath}
+            customAgentTypes={state.agentTypes}
           />
         ),
         help: getNewAgentHelp(inputState.step, inputState.showSlashMenu),

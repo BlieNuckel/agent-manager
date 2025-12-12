@@ -101,6 +101,8 @@ export function reducer(state: State, action: Action): State {
       return { ...state, artifacts: action.artifacts };
     case 'SET_TEMPLATES':
       return { ...state, templates: action.templates };
+    case 'SET_AGENT_TYPES':
+      return { ...state, agentTypes: action.agentTypes };
     case 'UPDATE_TOKEN_USAGE':
       return {
         ...state,
