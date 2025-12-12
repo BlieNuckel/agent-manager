@@ -23,6 +23,7 @@ import { DeleteConfirmationPrompt } from './DeleteConfirmationPrompt';
 import { ArtifactDeleteConfirmationPrompt } from './ArtifactDeleteConfirmationPrompt';
 import { CommandPalette } from './CommandPalette';
 import { CommandResult } from './CommandResult';
+import { HoverWindow } from './HoverWindow';
 import { CommandLoader } from '../commands/loader';
 import { CommandExecutor } from '../commands/executor';
 import type { Command, CommandResult as CommandResultType } from '../commands/types';
@@ -1168,12 +1169,23 @@ export const App = () => {
   ) : undefined;
 
   const commandPaletteWindow = showCommandPalette ? (
-    <CommandPalette
-      commands={commands}
-      onExecute={handleExecuteCommand}
-      onCancel={handleCommandCancel}
-      loading={commandsLoading}
-    />
+    <HoverWindow
+      width={80}
+      height={22}
+      position="center"
+      showBorder={true}
+      borderColor="cyan"
+      borderStyle="round"
+      dimBackground={true}
+      padding={1}
+    >
+      <CommandPalette
+        commands={commands}
+        onExecute={handleExecuteCommand}
+        onCancel={handleCommandCancel}
+        loading={commandsLoading}
+      />
+    </HoverWindow>
   ) : undefined;
 
   return (
