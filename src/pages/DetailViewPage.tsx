@@ -292,21 +292,28 @@ export const DetailViewPage = ({
               const line = outputLine.text;
               const prefix = outputLine.isSubagent ? '  → ' : '';
               const subagentLabel = outputLine.isSubagent && outputLine.subagentType ? `[${outputLine.subagentType}] ` : '';
+              const actualIndex = scrollOffset + i;
+              const isUserInput = line.startsWith('[>] User:');
+              const isAgentMessage = !line.startsWith('[x]') && !line.startsWith('[+]') && !line.startsWith('[>]') && !line.startsWith('[-]') && !line.startsWith('[!]');
+              const needsBlankLineAbove = actualIndex > 0 && (isUserInput || isAgentMessage);
 
               return (
-                <Box key={scrollOffset + i}>
-                  <Text wrap="wrap">
-                    {outputLine.isSubagent && <Text dimColor>{prefix}</Text>}
-                    {subagentLabel && <Text color="magenta" dimColor>{subagentLabel}</Text>}
-                    {line.startsWith('[x]') ? <Text color="red">{line}</Text> :
-                      line.startsWith('[+]') ? <Text color="green">{line}</Text> :
-                        line.startsWith('[>] User:') ? <Text color="blue">{line}</Text> :
-                          line.startsWith('[>]') ? <Text dimColor>{line}</Text> :
-                            line.startsWith('[-]') ? <Text color="yellow">{line}</Text> :
-                              line.startsWith('[!]') ? <Text color="yellow">{line}</Text> :
-                                line}
-                  </Text>
-                </Box>
+                <React.Fragment key={scrollOffset + i}>
+                  {needsBlankLineAbove && <Box><Text> </Text></Box>}
+                  <Box>
+                    <Text wrap="wrap">
+                      {outputLine.isSubagent && <Text dimColor>{prefix}</Text>}
+                      {subagentLabel && <Text color="magenta" dimColor>{subagentLabel}</Text>}
+                      {line.startsWith('[x]') ? <Text color="red">{line}</Text> :
+                        line.startsWith('[+]') ? <Text color="green">{line}</Text> :
+                          isUserInput ? <Text color="blue">{line}</Text> :
+                            line.startsWith('[>]') ? <Text dimColor>{line}</Text> :
+                              line.startsWith('[-]') ? <Text color="yellow">{line}</Text> :
+                                line.startsWith('[!]') ? <Text color="yellow">{line}</Text> :
+                                  line}
+                    </Text>
+                  </Box>
+                </React.Fragment>
               );
             })
           )}
