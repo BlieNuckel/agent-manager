@@ -35,7 +35,7 @@ export function getContextHealth(agent: Agent): ContextHealth {
       actualTokens: total,
       estimatedTokens: total,
       percentUsed,
-      status: percentUsed > 75 ? 'critical' : percentUsed > 50 ? 'warning' : 'healthy',
+      status: percentUsed > 40 ? 'critical' : percentUsed > 30 ? 'warning' : 'healthy',
       isEstimate: false,
       contextWindow
     };
@@ -48,7 +48,7 @@ export function getContextHealth(agent: Agent): ContextHealth {
   return {
     estimatedTokens,
     percentUsed,
-    status: percentUsed > 75 ? 'critical' : percentUsed > 50 ? 'warning' : 'healthy',
+    status: percentUsed > 40 ? 'critical' : percentUsed > 30 ? 'warning' : 'healthy',
     isEstimate: true,
     contextWindow
   };

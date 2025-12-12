@@ -17,7 +17,7 @@ export const ContextHealthIndicator = ({ agent, compact = false }: ContextHealth
 
   const color = health.status === 'critical' ? 'red'
               : health.status === 'warning' ? 'yellow'
-              : 'green';
+              : 'white';
 
   const percentDisplay = Math.round(health.percentUsed);
   const prefix = health.isEstimate ? '~' : '';
