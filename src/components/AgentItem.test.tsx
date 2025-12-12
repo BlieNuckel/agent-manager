@@ -112,6 +112,69 @@ describe('AgentItem', () => {
     });
   });
 
+  describe('question indicator', () => {
+    it('renders question pending indicator with headers', () => {
+      const agent = createMockAgent({
+        pendingQuestion: {
+          questions: [
+            {
+              question: 'Which auth method should we use?',
+              header: 'Auth method',
+              options: [
+                { label: 'OAuth', description: 'Use OAuth 2.0' },
+                { label: 'JWT', description: 'Use JWT tokens' }
+              ],
+              multiSelect: false
+            }
+          ],
+          resolve: () => {}
+        }
+      });
+      const { lastFrame } = render(<AgentItem agent={agent} selected={false} />);
+      expect(lastFrame()).toMatchSnapshot();
+      expect(lastFrame()).toContain('[?]');
+      expect(lastFrame()).toContain('Auth method');
+    });
+
+    it('renders multiple question headers', () => {
+      const agent = createMockAgent({
+        pendingQuestion: {
+          questions: [
+            {
+              question: 'Which auth method?',
+              header: 'Auth method',
+              options: [
+                { label: 'OAuth', description: 'Use OAuth' },
+                { label: 'JWT', description: 'Use JWT' }
+              ],
+              multiSelect: false
+            },
+            {
+              question: 'Which library?',
+              header: 'Library',
+              options: [
+                { label: 'Express', description: 'Use Express' },
+                { label: 'Fastify', description: 'Use Fastify' }
+              ],
+              multiSelect: false
+            }
+          ],
+          resolve: () => {}
+        }
+      });
+      const { lastFrame } = render(<AgentItem agent={agent} selected={false} />);
+      expect(lastFrame()).toMatchSnapshot();
+      expect(lastFrame()).toContain('[?]');
+      expect(lastFrame()).toContain('Auth method, Library');
+    });
+
+    it('does not show question indicator when no question pending', () => {
+      const agent = createMockAgent();
+      const { lastFrame } = render(<AgentItem agent={agent} selected={false} />);
+      expect(lastFrame()).not.toContain('Auth method');
+    });
+  });
+
   describe('merge state indicators', () => {
     it('renders merge ready indicator', () => {
       const agent = createMockAgent({
