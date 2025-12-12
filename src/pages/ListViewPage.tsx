@@ -28,7 +28,7 @@ export const ListViewPage = ({ tab, agents, history, artifacts, inboxIdx, histId
       <Box flexDirection="column" flexGrow={1} minHeight={0}>
         {tab === 'inbox' ? (
           agents.length === 0 ? (
-            <Text dimColor>No active agents. Press 'n' to create one.</Text>
+            <Text dimColor>No active agents. Press 'n' to create one, or 'w' for a workflow.</Text>
           ) : (
             agents.map((a, i) => (
               <AgentItem key={a.id} agent={a} selected={i === inboxIdx} />
