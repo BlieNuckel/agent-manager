@@ -8,11 +8,11 @@ exports[`PermissionPrompt > snapshots > renders Bash permission correctly 1`] = 
 │ Tool: Bash                                                                                       │
 │ Input: {"command":"npm test"}                                                                    │
 │                                                                                                  │
-│ ┏━━━━━━━━━┓  ┌────────┐                                                                          │
-│ ┃  [Y]es  ┃  │  [N]o  │                                                                          │
-│ ┗━━━━━━━━━┛  └────────┘                                                                          │
+│ Available Actions:                                                                               │
+│ [Y]es - Allow once                                                                               │
+│ [N]o - Deny                                                                                      │
 │                                                                                                  │
-│ ←/→ to select • y/n or Enter to confirm                                                          │
+│ y/n to choose                                                                                    │
 │                                                                                                  │
 ╰──────────────────────────────────────────────────────────────────────────────────────────────────╯"
 `;
@@ -25,44 +25,11 @@ exports[`PermissionPrompt > snapshots > renders Write permission correctly 1`] =
 │ Tool: Write                                                                                      │
 │ Input: {"file_path":"/test.ts"}                                                                  │
 │                                                                                                  │
-│ ┏━━━━━━━━━┓  ┌────────┐  ┌────────────┐                                                          │
-│ ┃  [Y]es  ┃  │  [N]o  │  │  [A]lways  │                                                          │
-│ ┗━━━━━━━━━┛  └────────┘  └────────────┘                                                          │
+│ Available Actions:                                                                               │
+│ [Y]es - Allow once                                                                               │
+│ [N]o - Deny                                                                                      │
 │                                                                                                  │
-│ ←/→ to select • y/n/a or Enter to confirm                                                        │
-│                                                                                                  │
-│ ┌──────────────────────────────────────────────────────────────────────────────────────────────┐ │
-│ │ [A]lways:                                                                                    │ │
-│ │ Auto-accept all edit operations for this agent session                                       │ │
-│ └──────────────────────────────────────────────────────────────────────────────────────────────┘ │
-│                                                                                                  │
-╰──────────────────────────────────────────────────────────────────────────────────────────────────╯"
-`;
-
-exports[`PermissionPrompt > snapshots > renders globalSettings suggestion correctly 1`] = `
-"╭──────────────────────────────────────────────────────────────────────────────────────────────────╮
-│                                                                                                  │
-│ [!] Permission Request                                                                           │
-│                                                                                                  │
-│ Tool: Write                                                                                      │
-│ Input: {"file_path":"/test/file.ts","content":"test conte                                        │
-│                                                                                                  │
-│ ┏━━━━━━━━━┓  ┌────────┐  ┌────────────┐  ┌──────────┐                                            │
-│ ┃  [Y]es  ┃  │  [N]o  │  │  [A]lways  │  │  [U]ser  │                                            │
-│ ┗━━━━━━━━━┛  └────────┘  └────────────┘  └──────────┘                                            │
-│                                                                                                  │
-│ ←/→ to select • y/n/a/u or Enter to confirm                                                      │
-│                                                                                                  │
-│ ┌──────────────────────────────────────────────────────────────────────────────────────────────┐ │
-│ │ [A]lways:                                                                                    │ │
-│ │ Auto-accept all edit operations for this agent session                                       │ │
-│ └──────────────────────────────────────────────────────────────────────────────────────────────┘ │
-│                                                                                                  │
-│ ┌──────────────────────────────────────────────────────────────────────────────────────────────┐ │
-│ │ [U]ser: Save to repo settings (.claude/settings.json)                                        │ │
-│ │ • Rule: Write(*)                                                                             │ │
-│ │ • Future Write operations will be auto-allowed                                               │ │
-│ └──────────────────────────────────────────────────────────────────────────────────────────────┘ │
+│ y/n to choose                                                                                    │
 │                                                                                                  │
 ╰──────────────────────────────────────────────────────────────────────────────────────────────────╯"
 `;
@@ -75,16 +42,11 @@ exports[`PermissionPrompt > snapshots > renders permission with queue count corr
 │ Tool: Edit                                                                                       │
 │ Input: {"file_path":"/test/file.ts","content":"test conte                                        │
 │                                                                                                  │
-│ ┏━━━━━━━━━┓  ┌────────┐  ┌────────────┐                                                          │
-│ ┃  [Y]es  ┃  │  [N]o  │  │  [A]lways  │                                                          │
-│ ┗━━━━━━━━━┛  └────────┘  └────────────┘                                                          │
+│ Available Actions:                                                                               │
+│ [Y]es - Allow once                                                                               │
+│ [N]o - Deny                                                                                      │
 │                                                                                                  │
-│ ←/→ to select • y/n/a or Enter to confirm                                                        │
-│                                                                                                  │
-│ ┌──────────────────────────────────────────────────────────────────────────────────────────────┐ │
-│ │ [A]lways:                                                                                    │ │
-│ │ Auto-accept all edit operations for this agent session                                       │ │
-│ └──────────────────────────────────────────────────────────────────────────────────────────────┘ │
+│ y/n to choose                                                                                    │
 │                                                                                                  │
 ╰──────────────────────────────────────────────────────────────────────────────────────────────────╯"
 `;
@@ -97,22 +59,48 @@ exports[`PermissionPrompt > snapshots > renders permission with suggestions corr
 │ Tool: Write                                                                                      │
 │ Input: {"file_path":"/test/file.ts","content":"test conte                                        │
 │                                                                                                  │
-│ ┏━━━━━━━━━┓  ┌────────┐  ┌────────────┐  ┌──────────┐                                            │
-│ ┃  [Y]es  ┃  │  [N]o  │  │  [A]lways  │  │  [R]epo  │                                            │
-│ ┗━━━━━━━━━┛  └────────┘  └────────────┘  └──────────┘                                            │
+│ Available Actions:                                                                               │
+│ [Y]es - Allow once                                                                               │
+│ [N]o - Deny                                                                                      │
 │                                                                                                  │
-│ ←/→ to select • y/n/a/r or Enter to confirm                                                      │
-│                                                                                                  │
-│ ┌──────────────────────────────────────────────────────────────────────────────────────────────┐ │
-│ │ [A]lways:                                                                                    │ │
-│ │ Auto-accept all edit operations for this agent session                                       │ │
-│ └──────────────────────────────────────────────────────────────────────────────────────────────┘ │
+│ Save for future (always allow):                                                                  │
 │                                                                                                  │
 │ ┌──────────────────────────────────────────────────────────────────────────────────────────────┐ │
-│ │ [R]epo: Save to repo settings (.claude/settings.json)                                        │ │
-│ │ • Rule: Write(*)                                                                             │ │
-│ │ • Future Write operations will be auto-allowed                                               │ │
+│ │ [L]ocal (.claude/settings.local.json):                                                       │ │
+│ │ This will be saved to: .claude/settings.local.json                                           │ │
+│ │                                                                                              │ │
+│ │ 1. Add allow rule:                                                                           │ │
+│ │    • Write(*)                                                                                │ │
 │ └──────────────────────────────────────────────────────────────────────────────────────────────┘ │
+│                                                                                                  │
+│ y/n/l to choose                                                                                  │
+│                                                                                                  │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────╯"
+`;
+
+exports[`PermissionPrompt > snapshots > renders userSettings suggestion correctly 1`] = `
+"╭──────────────────────────────────────────────────────────────────────────────────────────────────╮
+│                                                                                                  │
+│ [!] Permission Request                                                                           │
+│                                                                                                  │
+│ Tool: Write                                                                                      │
+│ Input: {"file_path":"/test/file.ts","content":"test conte                                        │
+│                                                                                                  │
+│ Available Actions:                                                                               │
+│ [Y]es - Allow once                                                                               │
+│ [N]o - Deny                                                                                      │
+│                                                                                                  │
+│ Save for future (always allow):                                                                  │
+│                                                                                                  │
+│ ┌──────────────────────────────────────────────────────────────────────────────────────────────┐ │
+│ │ [U]ser (~/.claude/settings.json):                                                            │ │
+│ │ This will be saved to: ~/.claude/settings.json                                               │ │
+│ │                                                                                              │ │
+│ │ 1. Add allow rule:                                                                           │ │
+│ │    • Write(*)                                                                                │ │
+│ └──────────────────────────────────────────────────────────────────────────────────────────────┘ │
+│                                                                                                  │
+│ y/n/u to choose                                                                                  │
 │                                                                                                  │
 ╰──────────────────────────────────────────────────────────────────────────────────────────────────╯"
 `;

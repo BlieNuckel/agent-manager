@@ -2,8 +2,7 @@ import React, { useMemo, useCallback } from 'react';
 import { Box, Text, useInput } from 'ink';
 import type { PermissionRequest, PermissionSuggestion, PermissionDestination } from '../types';
 import { formatToolInput } from '../utils/helpers';
-import { AUTO_ACCEPT_EDIT_TOOLS } from '../agent/manager';
-import { getAlwaysAllowExplanation, getDestinationInfo } from '../utils/permissions';
+import { getDestinationInfo } from '../utils/permissions';
 import { SuggestionList } from './SuggestionList';
 
 function validateSuggestions(suggestions: unknown[]): PermissionSuggestion[] {
@@ -47,8 +46,6 @@ export const PermissionPrompt = ({
   permission: PermissionRequest;
   queueCount?: number;
 }) => {
-  const isEditTool = AUTO_ACCEPT_EDIT_TOOLS.includes(permission.toolName);
-
   const groupedSuggestions = useMemo(() => {
     if (!permission.suggestions || permission.suggestions.length === 0) {
       return {};
@@ -74,8 +71,6 @@ export const PermissionPrompt = ({
   const hasSessionSuggestions = 'session' in groupedSuggestions;
   const hasSuggestions = Object.keys(groupedSuggestions).length > 0;
 
-  const alwaysExplanation = getAlwaysAllowExplanation(permission.toolName);
-
   const handleInput = useCallback(
     (input: string, key: any) => {
       if (input === 'y' || input === 'Y') {
@@ -85,11 +80,6 @@ export const PermissionPrompt = ({
 
       if (input === 'n' || input === 'N') {
         permission.resolve({ allowed: false });
-        return;
-      }
-
-      if (isEditTool && (input === 'a' || input === 'A')) {
-        permission.resolve({ allowed: true });
         return;
       }
 
@@ -127,7 +117,6 @@ export const PermissionPrompt = ({
     },
     [
       permission,
-      isEditTool,
       hasRepoSuggestions,
       hasLocalSuggestions,
       hasUserSuggestions,
@@ -140,7 +129,6 @@ export const PermissionPrompt = ({
 
   const getShortcutHint = () => {
     const shortcuts = ['y/n'];
-    if (isEditTool) shortcuts.push('a');
     if (hasRepoSuggestions) shortcuts.push('r');
     if (hasLocalSuggestions) shortcuts.push('l');
     if (hasUserSuggestions) shortcuts.push('u');
@@ -177,15 +165,6 @@ export const PermissionPrompt = ({
           <Text color="red">[N]</Text>o - Deny
         </Text>
       </Box>
-
-      {isEditTool && (
-        <Box marginTop={1} flexDirection="column" borderStyle="single" borderColor="gray" paddingX={1}>
-          <Text color="yellow" bold>
-            [A]lways (session):
-          </Text>
-          <Text dimColor>{alwaysExplanation}</Text>
-        </Box>
-      )}
 
       {hasSuggestions && (
         <Box marginTop={1} flexDirection="column">
