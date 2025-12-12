@@ -32,10 +32,4 @@ When complete, provide a clear summary of what was implemented directly in the c
 - Notes about testing performed
 - Any follow-up items or known issues
 
-{{#if inputArtifact}}
-## Implementation Plan
-
-Follow this plan for your implementation:
-
-{{{inputArtifact}}}
-{{/if}}
+If you have been given a previous stage artifact reference (like `<artifact:filename.md>`), read that artifact first and follow the implementation plan it contains.

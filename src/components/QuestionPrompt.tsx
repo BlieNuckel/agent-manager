@@ -39,17 +39,22 @@ export const QuestionPrompt = ({ questionRequest, onResponse }: {
     }
 
     if (key.return || input === 'n') {
-      const hasAnswer = currentAnswers.size > 0;
-      if (!hasAnswer && !currentQuestion.multiSelect) {
-        const newAnswers = new Set<number>();
-        newAnswers.add(selectedOptionIdx);
-        setAnswers({ ...answers, [currentQuestionIdx]: newAnswers });
+      let currentQuestionAnswer = currentAnswers;
+      if (!currentQuestion.multiSelect && currentQuestionAnswer.size === 0) {
+        currentQuestionAnswer = new Set([selectedOptionIdx]);
+      }
+
+      if (currentQuestionAnswer !== currentAnswers) {
+        setAnswers({ ...answers, [currentQuestionIdx]: currentQuestionAnswer });
       }
 
       if (isLastQuestion) {
         const finalAnswers: Record<string, string | string[]> = {};
         questionRequest.questions.forEach((q, idx) => {
-          const selectedIndices = Array.from(answers[idx] || new Set([0]));
+          const answerSet = idx === currentQuestionIdx
+            ? currentQuestionAnswer
+            : (answers[idx] || new Set([0]));
+          const selectedIndices = Array.from(answerSet);
           if (q.multiSelect) {
             finalAnswers[q.header] = selectedIndices.map(i => q.options[i].label);
           } else {

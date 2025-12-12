@@ -51,12 +51,4 @@ Use a descriptive filename like: `YYYY-MM-DD-<feature>-implementation-plan.md`
 
 Include phases with status tracking in the frontmatter.
 
-{{#if inputArtifact}}
-## Analysis Input
-
-You have been given the following analysis artifact with a recommended approach:
-
-{{{inputArtifact}}}
-
-Create your implementation plan based on the recommendation. If the analysis includes multiple approaches, plan for the recommended one unless the user indicates otherwise.
-{{/if}}
+If you have been given a previous stage artifact reference (like `<artifact:filename.md>`), read that artifact first. Create your implementation plan based on the recommendation in the analysis. If the analysis includes multiple approaches, plan for the recommended one unless the user indicates otherwise.

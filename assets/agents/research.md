@@ -57,11 +57,3 @@ When complete, create an artifact in `~/.agent-manager/artifacts/` using the `{{
 Use a descriptive filename like: `YYYY-MM-DD-<topic>-research.md`
 
 Your research artifact should provide a clear factual foundation that an Analysis Agent can use to propose solutions.
-
-{{#if inputArtifact}}
-## Context from Previous Stage
-
-You have been given the following artifact from a previous agent:
-
-{{{inputArtifact}}}
-{{/if}}

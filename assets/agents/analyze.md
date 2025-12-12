@@ -57,12 +57,4 @@ Use a descriptive filename like: `YYYY-MM-DD-<topic>-analysis.md`
 
 Your analysis artifact should provide a clear recommendation that a Planning Agent can turn into actionable implementation steps.
 
-{{#if inputArtifact}}
-## Research Input
-
-You have been given the following research artifact describing the current codebase state:
-
-{{{inputArtifact}}}
-
-Use this as your foundation — do not re-research what's already documented. Focus on proposing solutions.
-{{/if}}
+If you have been given a previous stage artifact reference (like `<artifact:filename.md>`), read that artifact first and use it as your foundation — do not re-research what's already documented. Focus on proposing solutions.

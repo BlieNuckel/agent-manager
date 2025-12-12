@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useReducer } from 'react';
 import { useInput, useApp } from 'ink';
+import path from 'path';
 import type { Agent, AgentType, HistoryEntry, Mode, PermissionRequest, QuestionRequest, InputStep, PermissionMode, ImageAttachment, TokenTracking, CustomAgentType, Workflow, WorkflowExecutionState } from '../types';
 import { reducer } from '../state/reducer';
 import { loadHistory, saveHistory } from '../state/history';
@@ -8,7 +9,7 @@ import { getGitRoot, getCurrentBranch, getRepoName, generateUniqueBranchName, cr
 import type { WorktreeContext } from '../agent/systemPromptTemplates';
 import { genId } from '../utils/helpers';
 import { debug } from '../utils/logger';
-import { listArtifacts, deleteArtifact } from '../utils/artifacts';
+import { listArtifacts, deleteArtifact, formatArtifactReference } from '../utils/artifacts';
 import { listTemplates } from '../utils/templates';
 import { listAgentTypes } from '../utils/agentTypes';
 import { listWorkflows, createWorkflowExecution, canSkipStage, shouldAutoApprove, getLastArtifactPath } from '../utils/workflows';
@@ -784,10 +785,11 @@ export const App = () => {
       const id = genId();
       setWorkflowAgentId(id);
 
-      const lastArtifact = getLastArtifactPath(state.workflowExecution);
+      const lastArtifactPath = getLastArtifactPath(state.workflowExecution);
       let prompt = state.workflowExecution.initialPrompt;
-      if (lastArtifact) {
-        prompt = `Previous stage artifact: ${lastArtifact}\n\n${prompt}`;
+      if (lastArtifactPath) {
+        const artifactRef = formatArtifactReference(path.basename(lastArtifactPath));
+        prompt = `Previous stage artifact: ${artifactRef}\n\n${prompt}`;
       }
       if (nextStage.promptAdditions) {
         prompt = `${nextStage.promptAdditions}\n\n${prompt}`;
