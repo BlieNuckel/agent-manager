@@ -5,8 +5,19 @@ import { StatusBadge } from './StatusBadge';
 import { ContextHealthIndicator } from './ContextHealthIndicator';
 import { formatTime } from '../utils/helpers';
 
+const getAgentTypeLabel = (agent: Agent): string | null => {
+  if (agent.customAgentTypeId) {
+    return agent.customAgentTypeId;
+  }
+  if (agent.agentType !== 'normal') {
+    return agent.agentType;
+  }
+  return null;
+};
+
 export const AgentItem = ({ agent, selected }: { agent: Agent; selected: boolean }) => {
   const isPending = agent.title === 'Pending...';
+  const typeLabel = getAgentTypeLabel(agent);
   return (
     <Box flexDirection="column" marginBottom={1}>
       <Box>
@@ -14,6 +25,7 @@ export const AgentItem = ({ agent, selected }: { agent: Agent; selected: boolean
         <StatusBadge status={agent.status} />
         <Text bold={selected} color={selected ? 'cyan' : 'white'} dimColor={isPending} italic={isPending}> {agent.title}</Text>
         <Text dimColor> ({formatTime(agent.updatedAt)})</Text>
+        {typeLabel && <Text color="blue"> [{typeLabel}]</Text>}
         {agent.pendingPermission && <Text color="yellow"> [!] Permission needed</Text>}
         {agent.pendingQuestion && (
           <Text color="magenta"> [?] {agent.pendingQuestion.questions.map(q => q.header).join(', ')}</Text>
