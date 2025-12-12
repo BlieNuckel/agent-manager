@@ -9,10 +9,11 @@ import type { WorktreeContext } from '../agent/systemPromptTemplates';
 import { genId } from '../utils/helpers';
 import { debug } from '../utils/logger';
 import { listArtifacts, deleteArtifact } from '../utils/artifacts';
+import { listTemplates } from '../utils/templates';
 import { ensureTempImageDir } from '../utils/imageStorage';
 import { cleanupOldTempImages } from '../utils/imageCleanup';
 import { Layout } from './Layout';
-import { ListViewPage, getListViewHelp, NewAgentPage, getNewAgentHelp, DetailViewPage, getDetailViewHelp, ArtifactDetailPage, getArtifactDetailHelp } from '../pages';
+import { ListViewPage, getListViewHelp, NewAgentPage, getNewAgentHelp, DetailViewPage, getDetailViewHelp, ArtifactDetailPage, getArtifactDetailHelp, NewArtifactPage, getNewArtifactHelp } from '../pages';
 import { QuitConfirmationPrompt } from './QuitConfirmationPrompt';
 import { DeleteConfirmationPrompt } from './DeleteConfirmationPrompt';
 import { CommandPalette } from './CommandPalette';
@@ -27,7 +28,7 @@ const commandExecutor = new CommandExecutor();
 
 export const App = () => {
   const { exit } = useApp();
-  const [state, dispatch] = useReducer(reducer, { agents: [], history: loadHistory(), artifacts: [] });
+  const [state, dispatch] = useReducer(reducer, { agents: [], history: loadHistory(), artifacts: [], templates: [] });
   const [tab, setTab] = useState<'inbox' | 'history' | 'artifacts'>('inbox');
   const [inboxIdx, setInboxIdx] = useState(0);
   const [histIdx, setHistIdx] = useState(0);
@@ -56,6 +57,14 @@ export const App = () => {
 
     const interval = setInterval(loadArtifactsList, 5000);
     return () => clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    const loadTemplatesList = async () => {
+      const templates = await listTemplates();
+      dispatch({ type: 'SET_TEMPLATES', templates });
+    };
+    loadTemplatesList();
   }, []);
 
   useEffect(() => {
@@ -675,7 +684,7 @@ export const App = () => {
       return;
     }
 
-    if (mode === 'detail' || mode === 'input' || mode === 'command-result' || showCommandPalette) return;
+    if (mode === 'detail' || mode === 'input' || mode === 'command-result' || mode === 'new-artifact' || showCommandPalette) return;
 
     if (key.tab) {
       if (key.shift) {
@@ -734,22 +743,28 @@ export const App = () => {
       }
     }
 
-    if (tab === 'artifacts' && state.artifacts[idx]) {
-      if (input === 'd') {
-        const artifactToDelete = state.artifacts[idx];
-        deleteArtifact(artifactToDelete.path).then(() => {
-          listArtifacts().then(artifacts => {
-            dispatch({ type: 'SET_ARTIFACTS', artifacts });
-            setArtifactsIdx(Math.min(artifactsIdx, artifacts.length - 1));
-          });
-        }).catch(err => {
-          debug('Failed to delete artifact:', err);
-        });
+    if (tab === 'artifacts') {
+      if (input === 'a') {
+        setMode('new-artifact');
+        return;
       }
-      if (input === 's') {
-        const selectedArtifact = state.artifacts[idx];
-        setPreSelectedArtifactPath(selectedArtifact.path);
-        setMode('input');
+      if (state.artifacts[idx]) {
+        if (input === 'd') {
+          const artifactToDelete = state.artifacts[idx];
+          deleteArtifact(artifactToDelete.path).then(() => {
+            listArtifacts().then(artifacts => {
+              dispatch({ type: 'SET_ARTIFACTS', artifacts });
+              setArtifactsIdx(Math.min(artifactsIdx, artifacts.length - 1));
+            });
+          }).catch(err => {
+            debug('Failed to delete artifact:', err);
+          });
+        }
+        if (input === 's') {
+          const selectedArtifact = state.artifacts[idx];
+          setPreSelectedArtifactPath(selectedArtifact.path);
+          setMode('input');
+        }
       }
     }
   });
@@ -855,6 +870,25 @@ export const App = () => {
           />
         ),
         help: getNewAgentHelp(inputState.step, inputState.showSlashMenu),
+      };
+    }
+
+    if (mode === 'new-artifact') {
+      return {
+        content: (
+          <NewArtifactPage
+            templates={state.templates}
+            onComplete={async (artifactPath) => {
+              const artifacts = await listArtifacts();
+              dispatch({ type: 'SET_ARTIFACTS', artifacts });
+              setMode('normal');
+              setDetailArtifactPath(artifactPath);
+              setMode('detail');
+            }}
+            onCancel={() => { setMode('normal'); }}
+          />
+        ),
+        help: getNewArtifactHelp('template'),
       };
     }
 

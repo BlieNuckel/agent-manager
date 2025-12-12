@@ -1,6 +1,9 @@
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
+import { parseFrontmatter, hasFrontmatter } from './frontmatter';
+import { getTemplate, validateArtifactAgainstTemplate, instantiateTemplate, type TemplateValues } from './templates';
+import type { TemplateFrontmatter, TemplatedArtifact, Template } from '../types/templates';
 
 export function getArtifactsDir(): string {
   return path.join(os.homedir(), '.agent-manager', 'artifacts');
@@ -10,6 +13,9 @@ export interface ArtifactInfo {
   name: string;
   path: string;
   modifiedAt: Date;
+  frontmatter?: TemplateFrontmatter;
+  templateId?: string;
+  templateValid?: boolean;
 }
 
 export async function listArtifacts(): Promise<ArtifactInfo[]> {
@@ -26,17 +32,53 @@ export async function listArtifacts(): Promise<ArtifactInfo[]> {
       const stats = await fs.promises.stat(fullPath);
 
       if (stats.isFile()) {
-        artifacts.push({
+        const artifact: ArtifactInfo = {
           name: file,
           path: fullPath,
           modifiedAt: stats.mtime
-        });
+        };
+
+        if (file.endsWith('.md')) {
+          try {
+            const content = await fs.promises.readFile(fullPath, 'utf-8');
+            if (hasFrontmatter(content)) {
+              const parsed = parseFrontmatter(content);
+              const data = parsed.data as TemplateFrontmatter;
+              if (data.template) {
+                artifact.frontmatter = data;
+                artifact.templateId = data.template;
+
+                const template = await getTemplate(data.template);
+                if (template?.schema) {
+                  artifact.templateValid = validateArtifactAgainstTemplate(data, template.schema);
+                }
+              }
+            }
+          } catch {
+            // Could not parse frontmatter
+          }
+        }
+
+        artifacts.push(artifact);
       }
     }
 
     return artifacts.sort((a, b) => b.modifiedAt.getTime() - a.modifiedAt.getTime());
-  } catch (err) {
+  } catch {
     return [];
+  }
+}
+
+export async function getArtifactFrontmatter(artifactPath: string): Promise<TemplateFrontmatter | undefined> {
+  try {
+    const content = await fs.promises.readFile(artifactPath, 'utf-8');
+    if (!hasFrontmatter(content)) return undefined;
+
+    const parsed = parseFrontmatter(content);
+    const data = parsed.data as TemplateFrontmatter;
+    return data.template ? data : undefined;
+  } catch {
+    return undefined;
   }
 }
 
@@ -49,5 +91,41 @@ export async function deleteArtifact(artifactPath: string): Promise<void> {
     await fs.promises.unlink(artifactPath);
   } catch (err) {
     throw new Error(`Failed to delete artifact: ${err}`);
+  }
+}
+
+export async function createArtifactFromTemplate(
+  template: Template,
+  values: TemplateValues,
+  filename?: string
+): Promise<string> {
+  const artifactsDir = getArtifactsDir();
+
+  try {
+    await fs.promises.mkdir(artifactsDir, { recursive: true });
+  } catch {
+    // Directory may already exist
+  }
+
+  const date = new Date().toISOString().split('T')[0];
+  const title = values.title || 'untitled';
+  const safeName = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+  const defaultFilename = `${date}-${safeName}.md`;
+  const finalFilename = filename || defaultFilename;
+
+  const content = instantiateTemplate(template, values);
+  const fullPath = path.join(artifactsDir, finalFilename);
+
+  await fs.promises.writeFile(fullPath, content, 'utf-8');
+
+  return fullPath;
+}
+
+export async function ensureArtifactsDir(): Promise<void> {
+  const artifactsDir = getArtifactsDir();
+  try {
+    await fs.promises.mkdir(artifactsDir, { recursive: true });
+  } catch {
+    // Directory may already exist
   }
 }
