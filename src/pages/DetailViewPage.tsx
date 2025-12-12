@@ -40,7 +40,7 @@ export const DetailViewPage = ({
   const [chatInput, setChatInput] = useState('');
   const [chatImages, setChatImages] = useState<Map<string, ImageAttachment>>(new Map());
   const [thinkingIndicator, setThinkingIndicator] = useState<{ show: boolean; duration: number } | null>(null);
-  const [viewMode, setViewMode] = useState<OutputViewMode>('verbose');
+  const [viewMode, setViewMode] = useState<OutputViewMode>('focused');
 
   const handleChatImagePasted = (id: string, path: string, base64: string, mediaType: string) => {
     const attachment: ImageAttachment = {
