@@ -45,6 +45,7 @@ export const App = () => {
   const [commands, setCommands] = useState<Command[]>([]);
   const [commandsLoading, setCommandsLoading] = useState(false);
   const [commandResult, setCommandResult] = useState<{ result: CommandResultType; commandName: string } | null>(null);
+  const [showCommandPalette, setShowCommandPalette] = useState(false);
 
   useEffect(() => {
     const loadArtifactsList = async () => {
@@ -616,7 +617,7 @@ export const App = () => {
 
   const handleOpenCommandPalette = async () => {
     setCommandsLoading(true);
-    setMode('command');
+    setShowCommandPalette(true);
     try {
       const loadedCommands = await commandLoader.loadCommands();
       setCommands(loadedCommands);
@@ -630,7 +631,7 @@ export const App = () => {
 
   const handleExecuteCommand = async (command: Command) => {
     debug('Executing command:', command.id);
-    setMode('normal');
+    setShowCommandPalette(false);
 
     try {
       const result = await commandExecutor.execute(command);
@@ -647,7 +648,7 @@ export const App = () => {
   };
 
   const handleCommandCancel = () => {
-    setMode('normal');
+    setShowCommandPalette(false);
   };
 
   const handleResultDismiss = () => {
@@ -674,7 +675,7 @@ export const App = () => {
       return;
     }
 
-    if (mode === 'detail' || mode === 'input' || mode === 'command' || mode === 'command-result') return;
+    if (mode === 'detail' || mode === 'input' || mode === 'command-result' || showCommandPalette) return;
 
     if (key.tab) {
       if (key.shift) {
@@ -758,20 +759,6 @@ export const App = () => {
   const waitingCount = state.agents.filter(a => a.status === 'waiting').length;
 
   const renderPage = () => {
-    if (mode === 'command') {
-      return {
-        content: (
-          <CommandPalette
-            commands={commands}
-            onExecute={handleExecuteCommand}
-            onCancel={handleCommandCancel}
-            loading={commandsLoading}
-          />
-        ),
-        help: null,
-      };
-    }
-
     if (mode === 'command-result' && commandResult) {
       return {
         content: (
@@ -907,8 +894,17 @@ export const App = () => {
     />
   ) : undefined;
 
+  const commandPaletteWindow = showCommandPalette ? (
+    <CommandPalette
+      commands={commands}
+      onExecute={handleExecuteCommand}
+      onCancel={handleCommandCancel}
+      loading={commandsLoading}
+    />
+  ) : undefined;
+
   return (
-    <Layout activeCount={activeCount} waitingCount={waitingCount} helpContent={help} splitPanes={splitPanes} quitPrompt={quitPrompt} deletePrompt={deletePrompt}>
+    <Layout activeCount={activeCount} waitingCount={waitingCount} helpContent={help} splitPanes={splitPanes} quitPrompt={quitPrompt} deletePrompt={deletePrompt} hoverWindows={commandPaletteWindow}>
       {content}
     </Layout>
   );

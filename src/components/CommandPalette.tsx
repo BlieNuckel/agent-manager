@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Box, Text, useInput, useStdout } from 'ink';
+import { Box, Text, useInput } from 'ink';
 import TextInput from 'ink-text-input';
 import type { Command } from '../commands/types';
 import { HoverWindow } from './HoverWindow';
@@ -15,8 +15,6 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ commands, onExec
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [inputMode, setInputMode] = useState(true);
-  const { stdout } = useStdout();
-  const terminalWidth = stdout?.columns ?? 80;
 
   const filteredCommands = commands
     .filter(cmd => !cmd.hidden)
@@ -65,13 +63,10 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ commands, onExec
   const visibleCommands = filteredCommands.slice(0, maxHeight);
   const hasMore = filteredCommands.length > maxHeight;
 
-  const windowWidth = 80;
-  const windowLeft = Math.max(0, Math.floor((terminalWidth - windowWidth) / 2));
-
   return (
     <HoverWindow
-      width={windowWidth}
-      position={{ top: 2, left: windowLeft }}
+      width={80}
+      position="center"
       showBorder={true}
       borderColor="cyan"
       borderStyle="round"
