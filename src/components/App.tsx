@@ -445,7 +445,7 @@ export const App = () => {
 
 
   const handleQuestionResponse = (answers: Record<string, string | string[]>) => {
-    const agentId = mode === 'workflow-execution' ? workflowAgentId : detailAgentId;
+    const agentId = (mode === 'workflow-execution' || mode === 'workflow-detail') ? workflowAgentId : detailAgentId;
     debug('handleQuestionResponse called:', { agentId, mode, answers });
     if (agentId) {
       const agent = state.agents.find(a => a.id === agentId);
