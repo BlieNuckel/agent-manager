@@ -4,6 +4,8 @@ import {
   getCurrentBranch,
   getRepoName,
   generateBranchName,
+  branchExists,
+  generateUniqueBranchName,
 } from "./worktree";
 import { execSync } from "child_process";
 
@@ -259,5 +261,121 @@ describe("generateBranchName", () => {
     expect(generateBranchName("Investigate #456 performance issue")).toBe(
       "456-investigate-performance-issue",
     );
+  });
+
+  it("respects maxKeywords parameter", () => {
+    expect(generateBranchName("Fix the broken pagination on dashboard", 2)).toBe(
+      "fix/pagination-dashboard",
+    );
+  });
+
+  it("returns single keyword when maxKeywords is 1", () => {
+    expect(generateBranchName("Fix the broken pagination on dashboard", 1)).toBe(
+      "fix/pagination",
+    );
+  });
+
+  it("handles maxKeywords larger than available words", () => {
+    expect(generateBranchName("Fix auth", 10)).toBe("fix/auth");
+  });
+});
+
+describe("branchExists", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("returns true when branch exists", () => {
+    vi.mocked(execSync).mockReturnValue("");
+
+    const result = branchExists("/path/to/repo", "feature-branch");
+
+    expect(result).toBe(true);
+    expect(execSync).toHaveBeenCalledWith(
+      "git show-ref --verify --quiet refs/heads/feature-branch",
+      {
+        cwd: "/path/to/repo",
+        encoding: "utf8",
+        stdio: ["pipe", "pipe", "pipe"],
+      },
+    );
+  });
+
+  it("returns false when branch does not exist", () => {
+    vi.mocked(execSync).mockImplementation(() => {
+      throw new Error("fatal: not a valid ref");
+    });
+
+    const result = branchExists("/path/to/repo", "nonexistent-branch");
+
+    expect(result).toBe(false);
+  });
+
+  it("handles branch names with slashes", () => {
+    vi.mocked(execSync).mockReturnValue("");
+
+    const result = branchExists("/path/to/repo", "fix/auth-bug");
+
+    expect(result).toBe(true);
+    expect(execSync).toHaveBeenCalledWith(
+      "git show-ref --verify --quiet refs/heads/fix/auth-bug",
+      expect.any(Object),
+    );
+  });
+});
+
+describe("generateUniqueBranchName", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("returns first generated name when it does not exist", () => {
+    vi.mocked(execSync).mockImplementation(() => {
+      throw new Error("not found");
+    });
+
+    const result = generateUniqueBranchName(
+      "Fix the broken pagination on dashboard",
+      "/path/to/repo",
+    );
+
+    expect(result).toBe("fix/broken-pagination-dashboard");
+  });
+
+  it("tries fewer keywords when branch name exists", () => {
+    let callCount = 0;
+    vi.mocked(execSync).mockImplementation((cmd: string) => {
+      if (cmd.includes("show-ref")) {
+        callCount++;
+        if (callCount <= 2) {
+          return "";
+        }
+        throw new Error("not found");
+      }
+      return "";
+    });
+
+    const result = generateUniqueBranchName(
+      "Fix the broken pagination on dashboard",
+      "/path/to/repo",
+    );
+
+    expect(result).toBe("fix/pagination-dashboard");
+  });
+
+  it("adds timestamp suffix when all variations exist", () => {
+    vi.mocked(execSync).mockImplementation((cmd: string) => {
+      if (cmd.includes("show-ref")) {
+        return "";
+      }
+      return "";
+    });
+
+    const result = generateUniqueBranchName(
+      "Fix the broken pagination on dashboard",
+      "/path/to/repo",
+    );
+
+    expect(result).toMatch(/^fix\/pagination-dashboard-[a-z0-9]+$/);
   });
 });

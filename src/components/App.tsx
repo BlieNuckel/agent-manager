@@ -4,7 +4,7 @@ import type { Agent, AgentType, HistoryEntry, Mode, PermissionRequest, QuestionR
 import { reducer } from '../state/reducer';
 import { loadHistory, saveHistory } from '../state/history';
 import { AgentSDKManager } from '../agent/manager';
-import { getGitRoot, getCurrentBranch, getRepoName, generateBranchName, createWorktree, testMerge, performMerge, cleanupWorktree } from '../git/worktree';
+import { getGitRoot, getCurrentBranch, getRepoName, generateUniqueBranchName, createWorktree, testMerge, performMerge, cleanupWorktree } from '../git/worktree';
 import type { WorktreeContext } from '../agent/systemPromptTemplates';
 import { genId } from '../utils/helpers';
 import { debug } from '../utils/logger';
@@ -250,7 +250,7 @@ export const App = () => {
       if (gitRoot) {
         const currentBranch = getCurrentBranch();
         const repoName = getRepoName(gitRoot);
-        const branchName = worktree.name || generateBranchName(prompt);
+        const branchName = worktree.name || generateUniqueBranchName(prompt, gitRoot);
 
         const placeholderAgent: Agent = {
           id,

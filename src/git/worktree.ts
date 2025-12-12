@@ -19,6 +19,19 @@ export function getCurrentBranch(): string {
   }
 }
 
+export function branchExists(gitRoot: string, branchName: string): boolean {
+  try {
+    execSync(`git show-ref --verify --quiet refs/heads/${branchName}`, {
+      cwd: gitRoot,
+      encoding: 'utf8',
+      stdio: ['pipe', 'pipe', 'pipe']
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export function getRepoName(gitRoot: string): string {
   return path.basename(gitRoot);
 }
@@ -117,7 +130,7 @@ function scoreWord(word: string, position: number): number {
   return score;
 }
 
-export function generateBranchName(taskDescription: string): string {
+export function generateBranchName(taskDescription: string, maxKeywords?: number): string {
   if (!taskDescription?.trim()) {
     return `task-${Date.now().toString(36)}`;
   }
@@ -145,8 +158,11 @@ export function generateBranchName(taskDescription: string): string {
 
   scoredWords.sort((a, b) => b.score - a.score);
 
+  const defaultMaxKeywords = prefix ? 3 : 4;
+  const keywordLimit = maxKeywords !== undefined ? maxKeywords : defaultMaxKeywords;
+
   const keywords = scoredWords
-    .slice(0, prefix ? 3 : 4)
+    .slice(0, keywordLimit)
     .sort((a, b) => wordsToScore.indexOf(a.word) - wordsToScore.indexOf(b.word))
     .map(s => s.word);
 
@@ -164,6 +180,18 @@ export function generateBranchName(taskDescription: string): string {
   }
 
   return branchName || `task-${Date.now().toString(36)}`;
+}
+
+export function generateUniqueBranchName(taskDescription: string, gitRoot: string): string {
+  for (let maxKeywords = 4; maxKeywords >= 1; maxKeywords--) {
+    const branchName = generateBranchName(taskDescription, maxKeywords);
+    if (!branchExists(gitRoot, branchName)) {
+      return branchName;
+    }
+  }
+
+  const baseName = generateBranchName(taskDescription, 2);
+  return `${baseName}-${Date.now().toString(36)}`;
 }
 
 export async function createWorktree(
