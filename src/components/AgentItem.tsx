@@ -15,13 +15,21 @@ const getAgentTypeLabel = (agent: Agent): string | null => {
   return null;
 };
 
-export const AgentItem = ({ agent, selected }: { agent: Agent; selected: boolean }) => {
+interface AgentItemProps {
+  agent: Agent;
+  selected: boolean;
+  isWorkflowChild?: boolean;
+}
+
+export const AgentItem = ({ agent, selected, isWorkflowChild = false }: AgentItemProps) => {
   const isPending = agent.title === 'Pending...';
   const typeLabel = getAgentTypeLabel(agent);
   return (
     <Box flexDirection="column" marginBottom={1}>
       <Box>
+        {isWorkflowChild && <Text dimColor>  </Text>}
         <Text color={selected ? 'cyan' : 'white'} bold={selected}>{selected ? '> ' : '  '}</Text>
+        {isWorkflowChild && <Text dimColor>└─ </Text>}
         <StatusBadge status={agent.status} />
         <Text bold={selected} color={selected ? 'cyan' : 'white'} dimColor={isPending} italic={isPending}> {agent.title}</Text>
         <Text dimColor> ({formatTime(agent.updatedAt)})</Text>

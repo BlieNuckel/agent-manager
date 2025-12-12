@@ -7,6 +7,7 @@ interface WorkflowProgressProps {
   workflow: Workflow;
   stageStates: StageExecutionState[];
   currentStageIndex: number;
+  compact?: boolean;
 }
 
 function getStageIcon(status: StageExecutionState['status']): string {
@@ -44,7 +45,7 @@ function getStageColor(status: StageExecutionState['status']): string {
   }
 }
 
-export const WorkflowProgress = ({ workflow, stageStates, currentStageIndex }: WorkflowProgressProps) => {
+export const WorkflowProgress = ({ workflow, stageStates, currentStageIndex, compact = false }: WorkflowProgressProps) => {
   return (
     <Box flexDirection="row" flexWrap="wrap">
       {workflow.stages.map((stage, i) => {
@@ -56,9 +57,9 @@ export const WorkflowProgress = ({ workflow, stageStates, currentStageIndex }: W
         return (
           <Box key={stage.id}>
             <Text color={color}>
-              [{icon}] {stage.id}
+              [{icon}]{compact ? '' : ` ${stage.id}`}
             </Text>
-            {!isLast && <Text dimColor> → </Text>}
+            {!isLast && <Text dimColor>{compact ? '→' : ' → '}</Text>}
           </Box>
         );
       })}

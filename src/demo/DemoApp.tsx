@@ -1,6 +1,6 @@
-import React, { useState, useReducer, useEffect } from 'react';
+import React, { useState, useReducer, useEffect, useMemo } from 'react';
 import { useInput, useApp } from 'ink';
-import type { Mode, InputStep } from '../types';
+import type { Mode, InputStep, InboxItem } from '../types';
 import { reducer } from '../state/reducer';
 import { mockAgents, mockHistory } from './mockData';
 import { Layout } from '../components/Layout';
@@ -8,7 +8,7 @@ import { ListViewPage, getListViewHelp, NewAgentPage, getNewAgentHelp, DetailVie
 
 export const DemoApp = () => {
   const { exit } = useApp();
-  const [state, dispatch] = useReducer(reducer, { agents: mockAgents, history: mockHistory, artifacts: [] });
+  const [state, dispatch] = useReducer(reducer, { agents: mockAgents, history: mockHistory, artifacts: [], templates: [], agentTypes: [], workflows: [], workflowExecution: null });
   const [tab, setTab] = useState<'inbox' | 'history' | 'artifacts'>('inbox');
   const [inboxIdx, setInboxIdx] = useState(0);
   const [histIdx, setHistIdx] = useState(0);
@@ -18,6 +18,11 @@ export const DemoApp = () => {
   const [inputState, setInputState] = useState<{ step: InputStep; showSlashMenu: boolean }>({ step: 'title', showSlashMenu: false });
   const [demoMode, setDemoMode] = useState<'list' | 'detail' | 'input' | 'cycling'>('list');
   const [cycleState, setCycleState] = useState(0);
+  const [expandedWorkflows] = useState<Set<string>>(new Set());
+
+  const inboxItems = useMemo((): InboxItem[] => {
+    return state.agents.map(agent => ({ type: 'agent' as const, agent }));
+  }, [state.agents]);
 
   useEffect(() => {
     state.agents.forEach(agent => {
@@ -167,12 +172,13 @@ export const DemoApp = () => {
       const listContent = (
         <ListViewPage
           tab={tab}
-          agents={state.agents}
+          inboxItems={inboxItems}
           history={state.history}
           artifacts={state.artifacts}
           inboxIdx={inboxIdx}
           histIdx={histIdx}
           artifactsIdx={artifactsIdx}
+          expandedWorkflows={expandedWorkflows}
         />
       );
 
@@ -210,12 +216,13 @@ export const DemoApp = () => {
       content: (
         <ListViewPage
           tab={tab}
-          agents={state.agents}
+          inboxItems={inboxItems}
           history={state.history}
           artifacts={state.artifacts}
           inboxIdx={inboxIdx}
           histIdx={histIdx}
           artifactsIdx={artifactsIdx}
+          expandedWorkflows={expandedWorkflows}
         />
       ),
       help: getListViewHelp(tab),

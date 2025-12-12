@@ -1,7 +1,7 @@
-import React, { useState, useEffect, useReducer } from 'react';
+import React, { useState, useEffect, useReducer, useMemo } from 'react';
 import { useInput, useApp } from 'ink';
 import path from 'path';
-import type { Agent, AgentType, HistoryEntry, Mode, PermissionRequest, QuestionRequest, InputStep, PermissionMode, ImageAttachment, TokenTracking, CustomAgentType, Workflow, WorkflowExecutionState } from '../types';
+import type { Agent, AgentType, HistoryEntry, Mode, PermissionRequest, QuestionRequest, InputStep, PermissionMode, ImageAttachment, TokenTracking, CustomAgentType, Workflow, WorkflowExecutionState, InboxItem } from '../types';
 import { reducer } from '../state/reducer';
 import { loadHistory, saveHistory } from '../state/history';
 import { AgentSDKManager } from '../agent/manager';
@@ -16,7 +16,7 @@ import { listWorkflows, createWorkflowExecution, canSkipStage, shouldAutoApprove
 import { ensureTempImageDir } from '../utils/imageStorage';
 import { cleanupOldTempImages } from '../utils/imageCleanup';
 import { Layout } from './Layout';
-import { ListViewPage, getListViewHelp, NewAgentPage, getNewAgentHelp, DetailViewPage, getDetailViewHelp, ArtifactDetailPage, getArtifactDetailHelp, NewArtifactPage, getNewArtifactHelp } from '../pages';
+import { ListViewPage, getListViewHelp, NewAgentPage, getNewAgentHelp, DetailViewPage, getDetailViewHelp, ArtifactDetailPage, getArtifactDetailHelp, NewArtifactPage, getNewArtifactHelp, WorkflowDetailPage, getWorkflowDetailHelp } from '../pages';
 import { WorkflowSelectPage, getWorkflowSelectHelp } from '../pages/WorkflowSelectPage';
 import { WorkflowExecutionPage, getWorkflowExecutionHelp } from '../pages/WorkflowExecutionPage';
 import { QuitConfirmationPrompt } from './QuitConfirmationPrompt';
@@ -58,6 +58,54 @@ export const App = () => {
   const [showCommandPalette, setShowCommandPalette] = useState(false);
   const [workflowSelectStep, setWorkflowSelectStep] = useState<'workflow' | 'prompt'>('workflow');
   const [workflowAgentId, setWorkflowAgentId] = useState<string | null>(null);
+  const [expandedWorkflows, setExpandedWorkflows] = useState<Set<string>>(new Set());
+
+  const buildInboxItems = useMemo(() => {
+    const items: InboxItem[] = [];
+
+    const workflowAgentIds = new Set<string>();
+    if (state.workflowExecution) {
+      for (const stageState of state.workflowExecution.stageStates) {
+        if (stageState.agentId) {
+          workflowAgentIds.add(stageState.agentId);
+        }
+      }
+    }
+
+    if (state.workflowExecution) {
+      const wf = state.workflows.find(w => w.id === state.workflowExecution?.workflowId);
+      if (wf) {
+        items.push({
+          type: 'workflow',
+          workflow: wf,
+          execution: state.workflowExecution
+        });
+
+        if (expandedWorkflows.has(state.workflowExecution.workflowId)) {
+          for (const stageState of state.workflowExecution.stageStates) {
+            if (stageState.agentId) {
+              const agent = state.agents.find(a => a.id === stageState.agentId);
+              if (agent) {
+                items.push({
+                  type: 'agent',
+                  agent,
+                  isWorkflowChild: true
+                });
+              }
+            }
+          }
+        }
+      }
+    }
+
+    for (const agent of state.agents) {
+      if (!workflowAgentIds.has(agent.id)) {
+        items.push({ type: 'agent', agent });
+      }
+    }
+
+    return items;
+  }, [state.agents, state.workflowExecution, state.workflows, expandedWorkflows]);
 
   useEffect(() => {
     const loadArtifactsList = async () => {
@@ -897,7 +945,7 @@ export const App = () => {
       return;
     }
 
-    if (mode === 'detail' || mode === 'input' || mode === 'command-result' || mode === 'new-artifact' || mode === 'workflow-select' || mode === 'workflow-execution' || showCommandPalette) return
+    if (mode === 'detail' || mode === 'input' || mode === 'command-result' || mode === 'new-artifact' || mode === 'workflow-select' || mode === 'workflow-execution' || mode === 'workflow-detail' || showCommandPalette) return
 
     if (key.tab) {
       if (key.shift) {
@@ -912,17 +960,39 @@ export const App = () => {
     if (input === 'w') { setMode('workflow-select'); return; }
     if (input === ':') { handleOpenCommandPalette(); return; }
 
-    const list = tab === 'inbox' ? state.agents : tab === 'history' ? state.history : state.artifacts;
+    const list = tab === 'inbox' ? buildInboxItems : tab === 'history' ? state.history : state.artifacts;
     const idx = tab === 'inbox' ? inboxIdx : tab === 'history' ? histIdx : artifactsIdx;
     const setIdx = tab === 'inbox' ? setInboxIdx : tab === 'history' ? setHistIdx : setArtifactsIdx;
 
     if ((key.upArrow || input === 'k') && idx > 0) setIdx(idx - 1);
     if ((key.downArrow || input === 'j') && idx < list.length - 1) setIdx(idx + 1);
 
+    if (tab === 'inbox' && input === ' ') {
+      const item = buildInboxItems[inboxIdx];
+      if (item?.type === 'workflow') {
+        setExpandedWorkflows(prev => {
+          const next = new Set(prev);
+          if (next.has(item.execution.workflowId)) {
+            next.delete(item.execution.workflowId);
+          } else {
+            next.add(item.execution.workflowId);
+          }
+          return next;
+        });
+        return;
+      }
+    }
+
     if (key.return && list[idx]) {
       if (tab === 'inbox') {
-        setDetailAgentId(state.agents[idx].id);
-        setMode('detail');
+        const item = buildInboxItems[inboxIdx];
+        if (item?.type === 'workflow') {
+          setMode('workflow-detail');
+          return;
+        } else if (item?.type === 'agent') {
+          setDetailAgentId(item.agent.id);
+          setMode('detail');
+        }
       } else if (tab === 'history') {
         const entry = state.history[idx] as HistoryEntry;
         createAgent(entry.title, entry.prompt, 'normal', { enabled: false, name: '' });
@@ -933,13 +1003,16 @@ export const App = () => {
       }
     }
 
-    if (tab === 'inbox' && state.agents[idx]) {
-      if (input === 'x') {
-        agentManager.kill(state.agents[idx].id);
-        dispatch({ type: 'UPDATE_AGENT', id: state.agents[idx].id, updates: { status: 'done' } });
-      }
-      if (input === 'd') {
-        handleDeleteRequest(state.agents[idx].id);
+    if (tab === 'inbox') {
+      const item = buildInboxItems[inboxIdx];
+      if (item?.type === 'agent') {
+        if (input === 'x') {
+          agentManager.kill(item.agent.id);
+          dispatch({ type: 'UPDATE_AGENT', id: item.agent.id, updates: { status: 'done' } });
+        }
+        if (input === 'd') {
+          handleDeleteRequest(item.agent.id);
+        }
       }
     }
 
@@ -1034,18 +1107,74 @@ export const App = () => {
       }
     }
 
+    if (mode === 'workflow-detail' && state.workflowExecution) {
+      const workflow = state.workflows.find(w => w.id === state.workflowExecution?.workflowId);
+      const currentStageState = state.workflowExecution.stageStates[state.workflowExecution.currentStageIndex];
+      const currentAgent = currentStageState?.agentId
+        ? state.agents.find(a => a.id === currentStageState.agentId)
+        : undefined;
+      const currentStage = workflow?.stages[state.workflowExecution.currentStageIndex];
+      const isAwaitingApproval = currentStageState?.status === 'awaiting_approval';
+      const canSkip = currentStage && workflow ? canSkipStage(workflow, currentStage.id) : false;
+
+      if (workflow) {
+        const listContent = (
+          <ListViewPage
+            tab={tab}
+            inboxItems={buildInboxItems}
+            history={state.history}
+            artifacts={state.artifacts}
+            inboxIdx={inboxIdx}
+            histIdx={histIdx}
+            artifactsIdx={artifactsIdx}
+            expandedWorkflows={expandedWorkflows}
+          />
+        );
+
+        const handlePermissionResponse = (allowed: boolean) => {
+          if (currentAgent?.pendingPermission) {
+            currentAgent.pendingPermission.resolve({ allowed });
+          }
+        };
+
+        const detailContent = (
+          <WorkflowDetailPage
+            workflow={workflow}
+            execution={state.workflowExecution}
+            currentAgent={currentAgent}
+            onApproveStage={handleWorkflowApprove}
+            onRejectStage={handleWorkflowReject}
+            onSkipStage={handleWorkflowSkip}
+            onCancelWorkflow={handleWorkflowCancel}
+            onQuestionResponse={handleQuestionResponse}
+            onPermissionResponse={handlePermissionResponse}
+            onClose={() => setMode('normal')}
+          />
+        );
+
+        return {
+          splitPanes: [
+            { content: listContent, widthPercent: 40 },
+            { content: detailContent, widthPercent: 60 }
+          ],
+          help: getWorkflowDetailHelp(isAwaitingApproval, canSkip, !!currentAgent?.pendingPermission, !!currentAgent?.pendingQuestion),
+        };
+      }
+    }
+
     if (mode === 'detail' && detailArtifactPath) {
       const artifact = state.artifacts.find(a => a.path === detailArtifactPath);
       if (artifact) {
         const listContent = (
           <ListViewPage
             tab={tab}
-            agents={state.agents}
+            inboxItems={buildInboxItems}
             history={state.history}
             artifacts={state.artifacts}
             inboxIdx={inboxIdx}
             histIdx={histIdx}
             artifactsIdx={artifactsIdx}
+            expandedWorkflows={expandedWorkflows}
           />
         );
 
@@ -1073,12 +1202,13 @@ export const App = () => {
       const listContent = (
         <ListViewPage
           tab={tab}
-          agents={state.agents}
+          inboxItems={buildInboxItems}
           history={state.history}
           artifacts={state.artifacts}
           inboxIdx={inboxIdx}
           histIdx={histIdx}
           artifactsIdx={artifactsIdx}
+          expandedWorkflows={expandedWorkflows}
         />
       );
 
@@ -1144,12 +1274,13 @@ export const App = () => {
       content: (
         <ListViewPage
           tab={tab}
-          agents={state.agents}
+          inboxItems={buildInboxItems}
           history={state.history}
           artifacts={state.artifacts}
           inboxIdx={inboxIdx}
           histIdx={histIdx}
           artifactsIdx={artifactsIdx}
+          expandedWorkflows={expandedWorkflows}
         />
       ),
       help: getListViewHelp(tab),
