@@ -36,6 +36,18 @@ exports[`AgentItem > prompt truncation > truncates long prompts to 60 characters
 "
 `;
 
+exports[`AgentItem > question indicator > renders multiple question headers 1`] = `
+"  [*] Working  Test Agent (12:00) [?] Auth method, Library ░░░░░ ~1%
+              This is a test prompt for the agent to work on
+"
+`;
+
+exports[`AgentItem > question indicator > renders question pending indicator with headers 1`] = `
+"  [*] Working  Test Agent (12:00) [?] Auth method ░░░░░ ~1%
+              This is a test prompt for the agent to work on
+"
+`;
+
 exports[`AgentItem > selection state > renders selected agent correctly 1`] = `
 "> [*] Working  Test Agent (12:00)
               This is a test prompt for the agent to work on
