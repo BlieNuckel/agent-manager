@@ -7,7 +7,7 @@ import { resolve, normalize } from 'path';
 import type { AgentType, Question, PermissionMode, ImageAttachment, TokenTracking, CustomAgentType, AgentToolConfig } from '../types';
 import { debug } from '../utils/logger';
 import { generateTitle } from '../utils/titleGenerator';
-import type { WorktreeContext } from './systemPromptTemplates';
+import type { WorktreeContext, WorkflowContext } from './systemPromptTemplates';
 import { buildSystemPrompt } from './systemPromptTemplates';
 import { isToolAllowed, buildAgentSystemPrompt } from '../utils/agentTypes';
 
@@ -256,12 +256,12 @@ export class AgentSDKManager extends EventEmitter {
     });
   }
 
-  async spawn(id: string, prompt: string, workDir: string, agentType: AgentType, worktreeContext?: WorktreeContext, title?: string, images?: ImageAttachment[], customAgentType?: CustomAgentType): Promise<void> {
+  async spawn(id: string, prompt: string, workDir: string, agentType: AgentType, worktreeContext?: WorktreeContext, title?: string, images?: ImageAttachment[], customAgentType?: CustomAgentType, workflowContext?: WorkflowContext): Promise<void> {
     const abortController = new AbortController();
     const permissionMode = this.getPermissionModeForAgentType(agentType);
     this.agentStates.set(id, { agentType, hasTitle: true, permissionMode, toolConfig: customAgentType?.tools });
 
-    let systemPromptAppend = buildSystemPrompt(worktreeContext);
+    let systemPromptAppend = buildSystemPrompt(worktreeContext, workflowContext);
 
     if (customAgentType) {
       const customSystemPrompt = buildAgentSystemPrompt(customAgentType, {

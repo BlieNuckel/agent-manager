@@ -6,13 +6,13 @@ import { reducer } from '../state/reducer';
 import { loadHistory, saveHistory } from '../state/history';
 import { AgentSDKManager } from '../agent/manager';
 import { getGitRoot, getCurrentBranch, getRepoName, generateUniqueBranchName, createWorktree, testMerge, performMerge, cleanupWorktree } from '../git/worktree';
-import type { WorktreeContext } from '../agent/systemPromptTemplates';
+import type { WorktreeContext, WorkflowContext } from '../agent/systemPromptTemplates';
 import { genId } from '../utils/helpers';
 import { debug } from '../utils/logger';
 import { listArtifacts, deleteArtifact, formatArtifactReference } from '../utils/artifacts';
 import { listTemplates } from '../utils/templates';
 import { listAgentTypes } from '../utils/agentTypes';
-import { listWorkflows, createWorkflowExecution, canSkipStage, shouldAutoApprove, getLastArtifactPath } from '../utils/workflows';
+import { listWorkflows, createWorkflowExecution, canSkipStage, shouldAutoApprove, getLastArtifactPath, getStageArtifactTemplate } from '../utils/workflows';
 import { ensureTempImageDir } from '../utils/imageStorage';
 import { cleanupOldTempImages } from '../utils/imageCleanup';
 import { Layout } from './Layout';
@@ -758,7 +758,16 @@ export const App = () => {
         dispatch({ type: 'UPDATE_STAGE_STATE', stageIndex: 0, updates: { status: 'running', agentId: id, startedAt: new Date() } });
         dispatch({ type: 'UPDATE_WORKFLOW_EXECUTION', updates: { status: 'running' } });
 
-        agentManager.spawn(id, prompt, process.cwd(), 'normal', undefined, agent.title, undefined, agentType);
+        const workflowContext: WorkflowContext = {
+          workflowName: workflow.name,
+          stageName: firstStage.name,
+          stageDescription: firstStage.description,
+          stageIndex: 0,
+          totalStages: workflow.stages.length,
+          expectedOutput: getStageArtifactTemplate(firstStage, state.agentTypes)
+        };
+
+        agentManager.spawn(id, prompt, process.cwd(), 'normal', undefined, agent.title, undefined, agentType, workflowContext);
       }
     }
   };
@@ -813,7 +822,17 @@ export const App = () => {
       dispatch({ type: 'ADD_AGENT', agent });
       dispatch({ type: 'UPDATE_STAGE_STATE', stageIndex: nextIdx, updates: { status: 'running', agentId: id, startedAt: new Date() } });
 
-      agentManager.spawn(id, prompt, process.cwd(), 'normal', undefined, agent.title, undefined, agentType);
+      const workflowContext: WorkflowContext = {
+        workflowName: workflow.name,
+        stageName: nextStage.name,
+        stageDescription: nextStage.description,
+        stageIndex: nextIdx,
+        totalStages: workflow.stages.length,
+        previousArtifact: lastArtifactPath,
+        expectedOutput: getStageArtifactTemplate(nextStage, state.agentTypes)
+      };
+
+      agentManager.spawn(id, prompt, process.cwd(), 'normal', undefined, agent.title, undefined, agentType, workflowContext);
     }
   };
 

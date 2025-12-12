@@ -106,9 +106,12 @@ title: Authentication Implementation
 created: 2024-03-15
 agent: auth-agent-001
 phases:
-  - name: Research, status: completed
-  - name: Design, status: in_progress
-  - name: Implementation, status: pending
+  - name: Research
+    status: completed
+  - name: Design
+    status: in_progress
+  - name: Implementation
+    status: pending
 ---
 
 # Authentication Implementation
@@ -141,8 +144,10 @@ title: User Authentication Implementation
 created: 2024-03-15
 agent: auth-agent
 phases:
-  - name: Research, status: completed
-  - name: Implementation, status: pending
+  - name: Research
+    status: completed
+  - name: Implementation
+    status: pending
 ---
 
 # User Authentication Implementation
