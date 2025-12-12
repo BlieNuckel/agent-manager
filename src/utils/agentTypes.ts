@@ -52,6 +52,7 @@ async function loadAgentTypesFromDir(dir: string, source: 'system' | 'user'): Pr
         tools: data.tools as AgentToolConfig | undefined,
         artifacts: data.artifacts as AgentArtifactConfig | undefined,
         model: data.model as 'opus' | 'sonnet' | 'haiku' | undefined,
+        worktree: data.worktree as boolean | undefined,
         systemPrompt: parsed.content.trim()
       });
     }
