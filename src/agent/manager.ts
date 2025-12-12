@@ -411,7 +411,6 @@ export class AgentSDKManager extends EventEmitter {
         }
 
         if (hasThinking && !wasThinking) {
-          this.emit('output', id, '[•] thinking...', isSubagent, subagentInfo.subagentId, subagentInfo.subagentType, Date.now());
           this.thinkingStates.set(id, true);
         }
 
