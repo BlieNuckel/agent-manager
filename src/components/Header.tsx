@@ -9,7 +9,7 @@ interface HeaderProps {
 export const Header = ({ activeCount, waitingCount }: HeaderProps) => {
   return (
     <Box>
-      <Text bold color="cyan">🤖 Agent Manager</Text>
+      <Text bold color="cyan">🤖 Clank Manager</Text>
       <Text dimColor> v2 (SDK)</Text>
       <Text dimColor> • {activeCount} active</Text>
       {waitingCount > 0 && (
