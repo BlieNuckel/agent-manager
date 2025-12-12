@@ -102,6 +102,33 @@ describe('DeleteConfirmationPrompt', () => {
       );
       expect(lastFrame()).toContain('in error state');
     });
+
+    it('displays "waiting for merge approval" when hasPendingMerge is true', () => {
+      const { lastFrame } = render(
+        <DeleteConfirmationPrompt
+          agentTitle="Test Agent"
+          agentStatus="idle"
+          hasPendingMerge={true}
+          onConfirm={onConfirm}
+          onCancel={onCancel}
+        />
+      );
+      expect(lastFrame()).toContain('waiting for merge approval');
+    });
+
+    it('prioritizes pending merge over status', () => {
+      const { lastFrame } = render(
+        <DeleteConfirmationPrompt
+          agentTitle="Test Agent"
+          agentStatus="working"
+          hasPendingMerge={true}
+          onConfirm={onConfirm}
+          onCancel={onCancel}
+        />
+      );
+      expect(lastFrame()).toContain('waiting for merge approval');
+      expect(lastFrame()).not.toContain('currently working');
+    });
   });
 
   describe('snapshots', () => {
@@ -124,6 +151,19 @@ describe('DeleteConfirmationPrompt', () => {
         <DeleteConfirmationPrompt
           agentTitle="A Very Long Agent Title That Might Wrap"
           agentStatus="working"
+          onConfirm={onConfirm}
+          onCancel={onCancel}
+        />
+      );
+      expect(lastFrame()).toMatchSnapshot();
+    });
+
+    it('renders with pending merge correctly', () => {
+      const { lastFrame } = render(
+        <DeleteConfirmationPrompt
+          agentTitle="Test Agent"
+          agentStatus="idle"
+          hasPendingMerge={true}
           onConfirm={onConfirm}
           onCancel={onCancel}
         />
