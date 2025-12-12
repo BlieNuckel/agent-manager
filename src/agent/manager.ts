@@ -4,11 +4,12 @@ import { query, type Query, type SDKMessage, type SlashCommand, createSdkMcpServ
 import { z } from 'zod';
 import { homedir } from 'os';
 import { resolve, normalize } from 'path';
-import type { AgentType, Question, PermissionMode, ImageAttachment, TokenTracking } from '../types';
+import type { AgentType, Question, PermissionMode, ImageAttachment, TokenTracking, CustomAgentType, AgentToolConfig } from '../types';
 import { debug } from '../utils/logger';
 import { generateTitle } from '../utils/titleGenerator';
 import type { WorktreeContext } from './systemPromptTemplates';
 import { buildSystemPrompt } from './systemPromptTemplates';
+import { isToolAllowed, buildAgentSystemPrompt } from '../utils/agentTypes';
 
 const PERMISSION_REQUIRED_TOOLS = ['Write', 'Edit', 'MultiEdit', 'Bash', 'NotebookEdit', 'KillBash'];
 export const AUTO_ACCEPT_EDIT_TOOLS = ['Write', 'Edit', 'MultiEdit', 'NotebookEdit'];
@@ -60,7 +61,7 @@ interface QueryEntry {
 
 export class AgentSDKManager extends EventEmitter {
   private queries: Map<string, QueryEntry> = new Map();
-  private agentStates: Map<string, { agentType: AgentType; hasTitle: boolean; permissionMode: PermissionMode }> = new Map();
+  private agentStates: Map<string, { agentType: AgentType; hasTitle: boolean; permissionMode: PermissionMode; toolConfig?: AgentToolConfig }> = new Map();
   private thinkingStates: Map<string, boolean> = new Map();
   private tokenTracking: Map<string, TokenTracking> = new Map();
   private static commandsCache: SlashCommand[] | null = null;
@@ -164,6 +165,15 @@ export class AgentSDKManager extends EventEmitter {
         return { behavior: 'allow' as const, updatedInput: toolInput };
       }
 
+      if (agentState?.toolConfig) {
+        const bashCommand = toolName === 'Bash' ? String(toolInput.command || '') : undefined;
+        if (!isToolAllowed(toolName, agentState.toolConfig, bashCommand)) {
+          debug('Tool denied by agent type config:', { toolName, bashCommand });
+          this.emit('output', id, `[-] Denied by agent type: ${toolName}`, isSubagentTool, options.agentID, subagentType, Date.now());
+          return { behavior: 'deny' as const, message: 'Tool not allowed for this agent type' };
+        }
+      }
+
       debug('Requesting permission for tool:', toolName);
       this.emit('output', id, `[!] Permission required for: ${toolName}`, isSubagentTool, options.agentID, subagentType, Date.now());
 
@@ -246,12 +256,22 @@ export class AgentSDKManager extends EventEmitter {
     });
   }
 
-  async spawn(id: string, prompt: string, workDir: string, agentType: AgentType, worktreeContext?: WorktreeContext, title?: string, images?: ImageAttachment[]): Promise<void> {
+  async spawn(id: string, prompt: string, workDir: string, agentType: AgentType, worktreeContext?: WorktreeContext, title?: string, images?: ImageAttachment[], customAgentType?: CustomAgentType): Promise<void> {
     const abortController = new AbortController();
     const permissionMode = this.getPermissionModeForAgentType(agentType);
-    this.agentStates.set(id, { agentType, hasTitle: true, permissionMode });
+    this.agentStates.set(id, { agentType, hasTitle: true, permissionMode, toolConfig: customAgentType?.tools });
 
-    const systemPromptAppend = buildSystemPrompt(worktreeContext);
+    let systemPromptAppend = buildSystemPrompt(worktreeContext);
+
+    if (customAgentType) {
+      const customSystemPrompt = buildAgentSystemPrompt(customAgentType, {
+        workingDirectory: worktreeContext?.worktreePath || workDir,
+        agentName: title
+      });
+      systemPromptAppend = systemPromptAppend
+        ? `${systemPromptAppend}\n\n# Agent Type Instructions\n\n${customSystemPrompt}`
+        : `# Agent Type Instructions\n\n${customSystemPrompt}`;
+    }
 
     const effectiveCwd = worktreeContext?.worktreePath || workDir;
 
