@@ -231,4 +231,37 @@ describe('AgentItem', () => {
       expect(lastFrame()).not.toMatch(/^\s+\* \w/m);
     });
   });
+
+  describe('agent type indicator', () => {
+    it('shows planning type', () => {
+      const agent = createMockAgent({ agentType: 'planning' });
+      const { lastFrame } = render(<AgentItem agent={agent} selected={false} />);
+      expect(lastFrame()).toContain('[planning]');
+    });
+
+    it('shows auto-accept type', () => {
+      const agent = createMockAgent({ agentType: 'auto-accept' });
+      const { lastFrame } = render(<AgentItem agent={agent} selected={false} />);
+      expect(lastFrame()).toContain('[auto-accept]');
+    });
+
+    it('does not show normal type', () => {
+      const agent = createMockAgent({ agentType: 'normal' });
+      const { lastFrame } = render(<AgentItem agent={agent} selected={false} />);
+      expect(lastFrame()).not.toContain('[normal]');
+    });
+
+    it('shows custom agent type id when present', () => {
+      const agent = createMockAgent({ customAgentTypeId: 'research-agent' });
+      const { lastFrame } = render(<AgentItem agent={agent} selected={false} />);
+      expect(lastFrame()).toContain('[research-agent]');
+    });
+
+    it('prefers custom agent type over built-in type', () => {
+      const agent = createMockAgent({ agentType: 'planning', customAgentTypeId: 'custom-planner' });
+      const { lastFrame } = render(<AgentItem agent={agent} selected={false} />);
+      expect(lastFrame()).toContain('[custom-planner]');
+      expect(lastFrame()).not.toContain('[planning]');
+    });
+  });
 });
