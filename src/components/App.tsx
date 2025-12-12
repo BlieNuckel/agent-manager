@@ -9,7 +9,7 @@ import { getGitRoot, getCurrentBranch, getRepoName, generateUniqueBranchName, cr
 import type { WorktreeContext, WorkflowContext } from '../agent/systemPromptTemplates';
 import { genId } from '../utils/helpers';
 import { debug } from '../utils/logger';
-import { listArtifacts, deleteArtifact, formatArtifactReference } from '../utils/artifacts';
+import { listArtifacts, deleteArtifact } from '../utils/artifacts';
 import { listTemplates } from '../utils/templates';
 import { listAgentTypes } from '../utils/agentTypes';
 import { listWorkflows, createWorkflowExecution, canSkipStage, shouldAutoApprove, getLastArtifactPath, getStageArtifactTemplate } from '../utils/workflows';
@@ -797,10 +797,6 @@ export const App = () => {
 
       const lastArtifactPath = getLastArtifactPath(state.workflowExecution);
       let prompt = state.workflowExecution.initialPrompt;
-      if (lastArtifactPath) {
-        const artifactRef = formatArtifactReference(path.basename(lastArtifactPath));
-        prompt = `Previous stage artifact: ${artifactRef}\n\n${prompt}`;
-      }
       if (nextStage.promptAdditions) {
         prompt = `${nextStage.promptAdditions}\n\n${prompt}`;
       }

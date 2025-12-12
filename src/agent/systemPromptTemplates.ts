@@ -179,11 +179,19 @@ function buildWorkflowInstructions(context: WorkflowContext): string {
 
   if (context.previousArtifact) {
     parts.push('');
-    parts.push(`## Previous Stage Artifact`);
-    parts.push(`The previous stage produced an artifact that you should reference:`);
-    parts.push(`\`${context.previousArtifact}\``);
+    parts.push(`## CRITICAL: Previous Stage Artifact`);
     parts.push('');
-    parts.push(`Read this artifact to understand the context and findings from the previous stage.`);
+    parts.push(`**IMPORTANT: The previous stage has already completed work that you MUST build upon.**`);
+    parts.push('');
+    parts.push(`Before doing ANY exploration or research, you MUST first read the artifact from the previous stage:`);
+    parts.push('');
+    parts.push(`\`\`\`bash`);
+    parts.push(`cat "${context.previousArtifact}"`);
+    parts.push(`\`\`\``);
+    parts.push('');
+    parts.push(`This artifact contains findings, analysis, or plans from the previous stage that are ESSENTIAL context for your work.`);
+    parts.push(`Do NOT start from scratch. Do NOT re-explore what has already been researched.`);
+    parts.push(`Read the artifact FIRST, then continue from where the previous stage left off.`);
   }
 
   if (context.expectedOutput) {
@@ -195,10 +203,12 @@ function buildWorkflowInstructions(context: WorkflowContext): string {
 
   parts.push('');
   parts.push(`## Workflow Guidelines`);
+  if (context.previousArtifact) {
+    parts.push(`- **READ THE PREVIOUS ARTIFACT FIRST** - this is mandatory`);
+  }
+  parts.push(`- Build upon work from previous stages - do not duplicate effort`);
   parts.push(`- Focus on the specific objectives of this stage`);
-  parts.push(`- Build upon the work from previous stages if applicable`);
   parts.push(`- Produce clear, well-documented output for the next stage`);
-  parts.push(`- Signal completion when your stage objectives are met`);
 
   return parts.join('\n');
 }
