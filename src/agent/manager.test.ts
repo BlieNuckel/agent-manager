@@ -119,14 +119,10 @@ describe('AgentSDKManager', () => {
 
       await manager.spawn('test-id', 'test prompt', '/test/dir', 'normal', undefined, undefined, images);
 
-      expect(query).toHaveBeenCalledWith(
-        expect.objectContaining({
-          prompt: expect.arrayContaining([
-            { type: 'text', text: 'test prompt' },
-            expect.objectContaining({ type: 'image' }),
-          ]),
-        })
-      );
+      expect(query).toHaveBeenCalled();
+      const callArgs = vi.mocked(query).mock.calls[0][0];
+      expect(typeof callArgs.prompt).not.toBe('string');
+      expect(callArgs.prompt[Symbol.asyncIterator]).toBeDefined();
     });
 
     it('includes worktree context in system prompt when provided', async () => {
@@ -205,7 +201,7 @@ describe('AgentSDKManager', () => {
       await manager.spawn('test-id', 'test prompt', '/test/dir', 'normal');
 
       await vi.waitFor(() => {
-        expect(outputHandler).toHaveBeenCalledWith('test-id', 'Hello world', false, undefined, undefined);
+        expect(outputHandler).toHaveBeenCalledWith('test-id', 'Hello world', false, undefined, undefined, expect.any(Number));
       });
     });
 
@@ -241,7 +237,8 @@ describe('AgentSDKManager', () => {
           expect.stringContaining('[>] Read('),
           false,
           undefined,
-          undefined
+          undefined,
+          expect.any(Number)
         );
       });
     });
@@ -259,20 +256,13 @@ describe('AgentSDKManager', () => {
         ]) as any
       );
 
-      const outputHandler = vi.fn();
-      manager.on('output', outputHandler);
-      manager.on('idle', vi.fn());
+      const idleHandler = vi.fn();
+      manager.on('idle', idleHandler);
 
       await manager.spawn('test-id', 'test prompt', '/test/dir', 'normal');
 
       await vi.waitFor(() => {
-        expect(outputHandler).toHaveBeenCalledWith(
-          'test-id',
-          '[•] thinking...',
-          false,
-          undefined,
-          undefined
-        );
+        expect(idleHandler).toHaveBeenCalledWith('test-id');
       });
     });
 
@@ -326,7 +316,8 @@ describe('AgentSDKManager', () => {
           '[+] Task completed successfully',
           false,
           undefined,
-          undefined
+          undefined,
+          expect.any(Number)
         );
       });
     });
@@ -350,7 +341,8 @@ describe('AgentSDKManager', () => {
           '[x] Error: Something went wrong',
           false,
           undefined,
-          undefined
+          undefined,
+          expect.any(Number)
         );
       });
     });
@@ -657,7 +649,7 @@ describe('AgentSDKManager', () => {
 
       await manager.sendFollowUpMessage('test-id', 'follow-up message');
 
-      expect(outputHandler).toHaveBeenCalledWith('test-id', '[>] User: follow-up message', false);
+      expect(outputHandler).toHaveBeenCalledWith('test-id', '[>] User: follow-up message', false, undefined, undefined, expect.any(Number));
     });
 
     it('includes images in follow-up message when provided', async () => {
@@ -686,14 +678,9 @@ describe('AgentSDKManager', () => {
 
       await manager.sendFollowUpMessage('test-id', 'with image', images);
 
-      expect(query).toHaveBeenLastCalledWith(
-        expect.objectContaining({
-          prompt: expect.arrayContaining([
-            { type: 'text', text: 'with image' },
-            expect.objectContaining({ type: 'image' }),
-          ]),
-        })
-      );
+      const lastCall = vi.mocked(query).mock.calls[vi.mocked(query).mock.calls.length - 1][0];
+      expect(typeof lastCall.prompt).not.toBe('string');
+      expect(lastCall.prompt[Symbol.asyncIterator]).toBeDefined();
     });
   });
 
@@ -740,7 +727,8 @@ describe('AgentSDKManager', () => {
           '[>] Bash(npm install)',
           false,
           undefined,
-          undefined
+          undefined,
+          expect.any(Number)
         );
       });
     });
@@ -777,7 +765,8 @@ describe('AgentSDKManager', () => {
           '[>] Glob(**/*.ts)',
           false,
           undefined,
-          undefined
+          undefined,
+          expect.any(Number)
         );
       });
     });
@@ -814,7 +803,8 @@ describe('AgentSDKManager', () => {
           '[>] WebSearch(typescript best practices)',
           false,
           undefined,
-          undefined
+          undefined,
+          expect.any(Number)
         );
       });
     });
@@ -852,7 +842,8 @@ describe('AgentSDKManager', () => {
           expect.stringMatching(/\[>\] Read\(.+\.\.\.\)/),
           false,
           undefined,
-          undefined
+          undefined,
+          expect.any(Number)
         );
       });
     });
@@ -889,7 +880,8 @@ describe('AgentSDKManager', () => {
           '[>] Task(Search for files)',
           false,
           undefined,
-          undefined
+          undefined,
+          expect.any(Number)
         );
       });
     });

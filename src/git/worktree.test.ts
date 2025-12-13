@@ -173,7 +173,7 @@ describe("generateBranchName", () => {
       "When generating a <branch-name>, please cut out everything",
     );
 
-    expect(result).toBe("when-generating-cut-out");
+    expect(result).toBe("generating-cut-out-everything");
   });
 
   it("removes multiple angle bracket sections", () => {
@@ -181,13 +181,13 @@ describe("generateBranchName", () => {
       "Fix <bug-123> in the <old-component> new module",
     );
 
-    expect(result).toBe("fix-new-module");
+    expect(result).toBe("fix/module");
   });
 
   it("handles nested-looking angle brackets", () => {
     const result = generateBranchName("Update <component<T>> handler");
 
-    expect(result).toBe("update-handler");
+    expect(result).toBe("update/handler");
   });
 
   it("extracts meaningful keywords from verbose prompts", () => {

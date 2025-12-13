@@ -8,7 +8,7 @@ describe('Header', () => {
     it('renders header with app title', () => {
       const { lastFrame } = render(<Header activeCount={0} waitingCount={0} />);
       expect(lastFrame()).toMatchSnapshot();
-      expect(lastFrame()).toContain('Agent Manager');
+      expect(lastFrame()).toContain('Clank Manager');
       expect(lastFrame()).toContain('v2');
     });
   });
