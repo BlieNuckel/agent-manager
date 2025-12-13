@@ -60,7 +60,7 @@ export const App = () => {
   const [commandsLoading, setCommandsLoading] = useState(false);
   const [commandResult, setCommandResult] = useState<{ result: CommandResultType; commandName: string } | null>(null);
   const [showCommandPalette, setShowCommandPalette] = useState(false);
-  const [workflowSelectStep, setWorkflowSelectStep] = useState<'workflow' | 'prompt'>('workflow');
+  const [workflowSelectStep, setWorkflowSelectStep] = useState<'workflow' | 'prompt' | 'branchName'>('workflow');
   const [workflowAgentId, setWorkflowAgentId] = useState<string | null>(null);
   const [expandedWorkflows, setExpandedWorkflows] = useState<Set<string>>(new Set());
 
@@ -830,7 +830,7 @@ export const App = () => {
     setMode('normal');
   };
 
-  const handleStartWorkflow = async (workflow: Workflow, prompt: string) => {
+  const handleStartWorkflow = async (workflow: Workflow, prompt: string, worktree?: { enabled: boolean; name: string }) => {
     const execution = createWorkflowExecution(workflow, prompt);
     dispatch({ type: 'START_WORKFLOW', execution });
     setCurrentExecutionId(execution.executionId);
@@ -843,24 +843,102 @@ export const App = () => {
         const id = genId();
         setWorkflowAgentId(id);
 
-        const agent: Agent = {
-          id,
-          title: `[${workflow.name}] ${firstStage.name}`,
-          prompt,
-          status: 'working',
-          output: [],
-          workDir: process.cwd(),
-          createdAt: new Date(),
-          updatedAt: new Date(),
-          agentType: 'normal',
-          permissionMode: 'default',
-          permissionQueue: [],
-          customAgentTypeId: agentType.id
-        };
-        dispatch({ type: 'ADD_AGENT', agent });
-        dispatch({ type: 'UPDATE_STAGE_STATE', executionId: execution.executionId, stageIndex: 0, updates: { status: 'running', agentId: id, startedAt: new Date() } });
-        dispatch({ type: 'UPDATE_WORKFLOW_EXECUTION', executionId: execution.executionId, updates: { status: 'running' } });
+        let worktreeContext: WorktreeContext | undefined;
+        let effectiveWorkDir = process.cwd();
 
+        if (worktree?.enabled && worktree.name) {
+          const gitRoot = getGitRoot();
+          if (gitRoot) {
+            const currentBranch = getCurrentBranch();
+            const repoName = getRepoName(gitRoot);
+            const branchName = worktree.name;
+
+            const placeholderAgent: Agent = {
+              id,
+              title: `[${workflow.name}] ${firstStage.name}`,
+              prompt,
+              status: 'working',
+              output: [{ text: '[i] Setting up git worktree...', isSubagent: false }],
+              workDir: process.cwd(),
+              worktreeName: branchName,
+              createdAt: new Date(),
+              updatedAt: new Date(),
+              agentType: 'normal',
+              permissionMode: 'default',
+              permissionQueue: [],
+              customAgentTypeId: agentType.id
+            };
+            dispatch({ type: 'ADD_AGENT', agent: placeholderAgent });
+            dispatch({ type: 'UPDATE_STAGE_STATE', executionId: execution.executionId, stageIndex: 0, updates: { status: 'running', agentId: id, startedAt: new Date() } });
+            dispatch({ type: 'UPDATE_WORKFLOW_EXECUTION', executionId: execution.executionId, updates: { status: 'running' } });
+
+            const result = await createWorktree(gitRoot, branchName, currentBranch);
+
+            if (!result.success) {
+              dispatch({
+                type: 'APPEND_OUTPUT',
+                id,
+                line: { text: `[x] Failed to create worktree: ${result.error}`, isSubagent: false }
+              });
+              dispatch({ type: 'UPDATE_AGENT', id, updates: { status: 'error' } });
+              dispatch({ type: 'UPDATE_STAGE_STATE', executionId: execution.executionId, stageIndex: 0, updates: { status: 'rejected' } });
+              dispatch({ type: 'UPDATE_WORKFLOW_EXECUTION', executionId: execution.executionId, updates: { status: 'cancelled' } });
+              return;
+            }
+
+            dispatch({
+              type: 'APPEND_OUTPUT',
+              id,
+              line: { text: `[+] Worktree created at: ${result.worktreePath}`, isSubagent: false }
+            });
+
+            worktreeContext = {
+              enabled: true,
+              suggestedName: branchName,
+              gitRoot,
+              currentBranch,
+              repoName,
+              worktreePath: result.worktreePath,
+              branchName: result.branchName,
+            };
+
+            effectiveWorkDir = result.worktreePath!;
+
+            dispatch({
+              type: 'UPDATE_AGENT',
+              id,
+              updates: {
+                workDir: effectiveWorkDir,
+                worktreePath: result.worktreePath,
+                worktreeName: result.branchName
+              }
+            });
+
+            debug('Worktree context created for workflow:', worktreeContext);
+          }
+        }
+
+        if (!worktree?.enabled) {
+          const agent: Agent = {
+            id,
+            title: `[${workflow.name}] ${firstStage.name}`,
+            prompt,
+            status: 'working',
+            output: [],
+            workDir: process.cwd(),
+            createdAt: new Date(),
+            updatedAt: new Date(),
+            agentType: 'normal',
+            permissionMode: 'default',
+            permissionQueue: [],
+            customAgentTypeId: agentType.id
+          };
+          dispatch({ type: 'ADD_AGENT', agent });
+          dispatch({ type: 'UPDATE_STAGE_STATE', executionId: execution.executionId, stageIndex: 0, updates: { status: 'running', agentId: id, startedAt: new Date() } });
+          dispatch({ type: 'UPDATE_WORKFLOW_EXECUTION', executionId: execution.executionId, updates: { status: 'running' } });
+        }
+
+        const agentTitle = `[${workflow.name}] ${firstStage.name}`;
         const workflowContext: WorkflowContext = {
           workflowName: workflow.name,
           stageName: firstStage.name,
@@ -870,7 +948,7 @@ export const App = () => {
           expectedOutput: getStageArtifactTemplate(firstStage, state.agentTypes)
         };
 
-        agentManager.spawn(id, prompt, process.cwd(), 'normal', undefined, agent.title, undefined, agentType, workflowContext);
+        agentManager.spawn(id, prompt, effectiveWorkDir, 'normal', worktreeContext, agentTitle, undefined, agentType, workflowContext);
       }
     }
   };
@@ -1175,6 +1253,7 @@ export const App = () => {
         content: (
           <WorkflowSelectPage
             workflows={state.workflows}
+            agentTypes={state.agentTypes}
             onStart={handleStartWorkflow}
             onCancel={handleWorkflowSelectCancel}
             onStateChange={({ step }) => setWorkflowSelectStep(step)}

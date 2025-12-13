@@ -1,26 +1,44 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Box, Text, useInput } from 'ink';
 import TextInput from 'ink-text-input';
 import type { Workflow } from '../types/workflows';
+import type { CustomAgentType } from '../types/agentTypes';
 import { formatStageSummary } from '../utils/workflows';
+import { getGitRoot, generateUniqueBranchName } from '../git/worktree';
 
-type WorkflowSelectStep = 'workflow' | 'prompt';
+type WorkflowSelectStep = 'workflow' | 'prompt' | 'branchName';
 
 interface WorkflowSelectPageProps {
   workflows: Workflow[];
-  onStart: (workflow: Workflow, prompt: string) => void;
+  agentTypes: CustomAgentType[];
+  onStart: (workflow: Workflow, prompt: string, worktree?: { enabled: boolean; name: string }) => void;
   onCancel: () => void;
   onStateChange?: (state: { step: WorkflowSelectStep }) => void;
 }
 
-export const WorkflowSelectPage = ({ workflows, onStart, onCancel, onStateChange }: WorkflowSelectPageProps) => {
+export const WorkflowSelectPage = ({ workflows, agentTypes, onStart, onCancel, onStateChange }: WorkflowSelectPageProps) => {
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [step, setStep] = useState<WorkflowSelectStep>('workflow');
   const [prompt, setPrompt] = useState('');
+  const [branchName, setBranchName] = useState('');
+  const [gitRoot] = useState(() => getGitRoot());
+
+  const selectedWorkflowNeedsWorktree = useMemo(() => {
+    const workflow = workflows[selectedIndex];
+    if (!workflow) return false;
+
+    return workflow.stages.some(stage => {
+      const agentType = agentTypes.find(a => a.id === stage.agentType);
+      return agentType?.worktree === true;
+    });
+  }, [workflows, selectedIndex, agentTypes]);
 
   useInput((input, key) => {
     if (key.escape) {
-      if (step === 'prompt') {
+      if (step === 'branchName') {
+        setStep('prompt');
+        onStateChange?.({ step: 'prompt' });
+      } else if (step === 'prompt') {
         setStep('workflow');
         onStateChange?.({ step: 'workflow' });
       } else {
@@ -50,7 +68,20 @@ export const WorkflowSelectPage = ({ workflows, onStart, onCancel, onStateChange
 
   const handlePromptSubmit = (value: string) => {
     if (value.trim() && workflows[selectedIndex]) {
-      onStart(workflows[selectedIndex], value.trim());
+      if (selectedWorkflowNeedsWorktree && gitRoot) {
+        const suggestedName = generateUniqueBranchName(value.trim(), gitRoot);
+        setBranchName(suggestedName);
+        setStep('branchName');
+        onStateChange?.({ step: 'branchName' });
+      } else {
+        onStart(workflows[selectedIndex], value.trim());
+      }
+    }
+  };
+
+  const handleBranchNameSubmit = (value: string) => {
+    if (value.trim() && workflows[selectedIndex]) {
+      onStart(workflows[selectedIndex], prompt.trim(), { enabled: true, name: value.trim() });
     }
   };
 
@@ -70,9 +101,11 @@ export const WorkflowSelectPage = ({ workflows, onStart, onCancel, onStateChange
                 {i === selectedIndex ? '▸ ' : '  '}{workflow.name}
                 {workflow.source === 'user' && <Text dimColor> (custom)</Text>}
               </Text>
-              <Text dimColor marginLeft={2}>
-                {formatStageSummary(workflow)}
-              </Text>
+              <Box marginLeft={2}>
+                <Text dimColor>
+                  {formatStageSummary(workflow)}
+                </Text>
+              </Box>
             </Box>
           ))
         )}
@@ -106,15 +139,41 @@ export const WorkflowSelectPage = ({ workflows, onStart, onCancel, onStateChange
           </Box>
         </Box>
       )}
+
+      {step === 'branchName' && (
+        <Box marginTop={1} flexDirection="column">
+          <Text color="green">+ Task: <Text dimColor>{prompt}</Text></Text>
+          <Box marginTop={1} flexDirection="column">
+            <Text color="magenta">Branch name (worktree):</Text>
+            <Box marginLeft={2}>
+              <TextInput
+                value={branchName}
+                onChange={setBranchName}
+                onSubmit={handleBranchNameSubmit}
+                placeholder="Enter branch name..."
+              />
+            </Box>
+          </Box>
+        </Box>
+      )}
     </Box>
   );
 };
 
 export const getWorkflowSelectHelp = (step?: WorkflowSelectStep) => {
-  if (step === 'prompt') {
+  if (step === 'branchName') {
     return (
       <>
         <Text color="cyan">Enter</Text> Start workflow{' '}
+        <Text color="cyan">Esc</Text> Back
+      </>
+    );
+  }
+
+  if (step === 'prompt') {
+    return (
+      <>
+        <Text color="cyan">Enter</Text> Continue{' '}
         <Text color="cyan">Esc</Text> Back
       </>
     );
