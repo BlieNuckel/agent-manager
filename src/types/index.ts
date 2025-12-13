@@ -141,9 +141,9 @@ export type Action =
   | { type: 'UPDATE_TOKEN_USAGE'; id: string; tokenUsage: TokenTracking }
   | { type: 'SET_WORKFLOWS'; workflows: Workflow[] }
   | { type: 'START_WORKFLOW'; execution: WorkflowExecutionState }
-  | { type: 'UPDATE_WORKFLOW_EXECUTION'; updates: Partial<WorkflowExecutionState> }
-  | { type: 'UPDATE_STAGE_STATE'; stageIndex: number; updates: Partial<StageExecutionState> }
-  | { type: 'CANCEL_WORKFLOW' };
+  | { type: 'UPDATE_WORKFLOW_EXECUTION'; executionId: string; updates: Partial<WorkflowExecutionState> }
+  | { type: 'UPDATE_STAGE_STATE'; executionId: string; stageIndex: number; updates: Partial<StageExecutionState> }
+  | { type: 'CANCEL_WORKFLOW'; executionId: string };
 
 export interface ArtifactInfo {
   name: string;
@@ -161,7 +161,7 @@ export interface State {
   templates: Template[];
   agentTypes: CustomAgentType[];
   workflows: Workflow[];
-  workflowExecution: WorkflowExecutionState | null;
+  workflowExecutions: WorkflowExecutionState[];
 }
 
 export type InboxItem =

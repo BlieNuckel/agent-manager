@@ -49,6 +49,7 @@ export interface StageExecutionState {
 export type WorkflowExecutionStatus = 'pending' | 'running' | 'awaiting_approval' | 'completed' | 'cancelled';
 
 export interface WorkflowExecutionState {
+  executionId: string;
   workflowId: string;
   currentStageIndex: number;
   status: WorkflowExecutionStatus;

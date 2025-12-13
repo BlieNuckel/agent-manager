@@ -35,7 +35,8 @@ const commandExecutor = new CommandExecutor();
 
 export const App = () => {
   const { exit } = useApp();
-  const [state, dispatch] = useReducer(reducer, { agents: [], history: loadHistory(), artifacts: [], templates: [], agentTypes: [], workflows: [], workflowExecution: null });
+  const [state, dispatch] = useReducer(reducer, { agents: [], history: loadHistory(), artifacts: [], templates: [], agentTypes: [], workflows: [], workflowExecutions: [] });
+  const [currentExecutionId, setCurrentExecutionId] = useState<string | null>(null);
   const [tab, setTab] = useState<'inbox' | 'history' | 'artifacts'>('inbox');
   const [inboxIdx, setInboxIdx] = useState(0);
   const [histIdx, setHistIdx] = useState(0);
@@ -64,25 +65,25 @@ export const App = () => {
     const items: InboxItem[] = [];
 
     const workflowAgentIds = new Set<string>();
-    if (state.workflowExecution) {
-      for (const stageState of state.workflowExecution.stageStates) {
+    for (const execution of state.workflowExecutions) {
+      for (const stageState of execution.stageStates) {
         if (stageState.agentId) {
           workflowAgentIds.add(stageState.agentId);
         }
       }
     }
 
-    if (state.workflowExecution) {
-      const wf = state.workflows.find(w => w.id === state.workflowExecution?.workflowId);
+    for (const execution of state.workflowExecutions) {
+      const wf = state.workflows.find(w => w.id === execution.workflowId);
       if (wf) {
         items.push({
           type: 'workflow',
           workflow: wf,
-          execution: state.workflowExecution
+          execution
         });
 
-        if (expandedWorkflows.has(state.workflowExecution.workflowId)) {
-          for (const stageState of state.workflowExecution.stageStates) {
+        if (expandedWorkflows.has(execution.executionId)) {
+          for (const stageState of execution.stageStates) {
             if (stageState.agentId) {
               const agent = state.agents.find(a => a.id === stageState.agentId);
               if (agent) {
@@ -105,7 +106,7 @@ export const App = () => {
     }
 
     return items;
-  }, [state.agents, state.workflowExecution, state.workflows, expandedWorkflows]);
+  }, [state.agents, state.workflowExecutions, state.workflows, expandedWorkflows]);
 
   useEffect(() => {
     const loadArtifactsList = async () => {
@@ -238,12 +239,13 @@ export const App = () => {
 
       dispatch({ type: 'UPDATE_AGENT', id, updates: { status: 'idle' } });
 
-      if (state.workflowExecution) {
-        const stageIdx = state.workflowExecution.stageStates.findIndex(s => s.agentId === id);
-        if (stageIdx >= 0 && state.workflowExecution.stageStates[stageIdx]?.status === 'running') {
-          dispatch({ type: 'UPDATE_STAGE_STATE', stageIndex: stageIdx, updates: { status: 'awaiting_approval' } });
-          dispatch({ type: 'UPDATE_WORKFLOW_EXECUTION', updates: { status: 'awaiting_approval' } });
+      for (const execution of state.workflowExecutions) {
+        const stageIdx = execution.stageStates.findIndex(s => s.agentId === id);
+        if (stageIdx >= 0 && execution.stageStates[stageIdx]?.status === 'running') {
+          dispatch({ type: 'UPDATE_STAGE_STATE', executionId: execution.executionId, stageIndex: stageIdx, updates: { status: 'awaiting_approval' } });
+          dispatch({ type: 'UPDATE_WORKFLOW_EXECUTION', executionId: execution.executionId, updates: { status: 'awaiting_approval' } });
           process.stdout.write('\u0007');
+          break;
         }
       }
     };
@@ -779,6 +781,7 @@ export const App = () => {
   const handleStartWorkflow = async (workflow: Workflow, prompt: string) => {
     const execution = createWorkflowExecution(workflow, prompt);
     dispatch({ type: 'START_WORKFLOW', execution });
+    setCurrentExecutionId(execution.executionId);
     setMode('normal');
 
     const firstStage = workflow.stages[0];
@@ -803,8 +806,8 @@ export const App = () => {
           customAgentTypeId: agentType.id
         };
         dispatch({ type: 'ADD_AGENT', agent });
-        dispatch({ type: 'UPDATE_STAGE_STATE', stageIndex: 0, updates: { status: 'running', agentId: id, startedAt: new Date() } });
-        dispatch({ type: 'UPDATE_WORKFLOW_EXECUTION', updates: { status: 'running' } });
+        dispatch({ type: 'UPDATE_STAGE_STATE', executionId: execution.executionId, stageIndex: 0, updates: { status: 'running', agentId: id, startedAt: new Date() } });
+        dispatch({ type: 'UPDATE_WORKFLOW_EXECUTION', executionId: execution.executionId, updates: { status: 'running' } });
 
         const workflowContext: WorkflowContext = {
           workflowName: workflow.name,
@@ -821,13 +824,16 @@ export const App = () => {
   };
 
   const handleWorkflowApprove = async () => {
-    if (!state.workflowExecution) return;
+    if (!currentExecutionId) return;
 
-    const workflow = state.workflows.find(w => w.id === state.workflowExecution?.workflowId);
+    const execution = state.workflowExecutions.find(e => e.executionId === currentExecutionId);
+    if (!execution) return;
+
+    const workflow = state.workflows.find(w => w.id === execution.workflowId);
     if (!workflow) return;
 
-    const currentIdx = state.workflowExecution.currentStageIndex;
-    dispatch({ type: 'UPDATE_STAGE_STATE', stageIndex: currentIdx, updates: { status: 'approved', completedAt: new Date() } });
+    const currentIdx = execution.currentStageIndex;
+    dispatch({ type: 'UPDATE_STAGE_STATE', executionId: currentExecutionId, stageIndex: currentIdx, updates: { status: 'approved', completedAt: new Date() } });
 
     if (workflowAgentId) {
       agentManager.kill(workflowAgentId);
@@ -836,12 +842,12 @@ export const App = () => {
 
     const nextIdx = currentIdx + 1;
     if (nextIdx >= workflow.stages.length) {
-      dispatch({ type: 'UPDATE_WORKFLOW_EXECUTION', updates: { status: 'completed', currentStageIndex: nextIdx } });
+      dispatch({ type: 'UPDATE_WORKFLOW_EXECUTION', executionId: currentExecutionId, updates: { status: 'completed', currentStageIndex: nextIdx } });
       setWorkflowAgentId(null);
       return;
     }
 
-    dispatch({ type: 'UPDATE_WORKFLOW_EXECUTION', updates: { currentStageIndex: nextIdx, status: 'running' } });
+    dispatch({ type: 'UPDATE_WORKFLOW_EXECUTION', executionId: currentExecutionId, updates: { currentStageIndex: nextIdx, status: 'running' } });
 
     const nextStage = workflow.stages[nextIdx];
     const agentType = state.agentTypes.find(a => a.id === nextStage.agentType);
@@ -849,8 +855,8 @@ export const App = () => {
       const id = genId();
       setWorkflowAgentId(id);
 
-      const lastArtifactPath = getLastArtifactPath(state.workflowExecution);
-      let prompt = state.workflowExecution.initialPrompt;
+      const lastArtifactPath = getLastArtifactPath(execution);
+      let prompt = execution.initialPrompt;
       if (nextStage.promptAdditions) {
         prompt = `${nextStage.promptAdditions}\n\n${prompt}`;
       }
@@ -870,7 +876,7 @@ export const App = () => {
         customAgentTypeId: agentType.id
       };
       dispatch({ type: 'ADD_AGENT', agent });
-      dispatch({ type: 'UPDATE_STAGE_STATE', stageIndex: nextIdx, updates: { status: 'running', agentId: id, startedAt: new Date() } });
+      dispatch({ type: 'UPDATE_STAGE_STATE', executionId: currentExecutionId, stageIndex: nextIdx, updates: { status: 'running', agentId: id, startedAt: new Date() } });
 
       const workflowContext: WorkflowContext = {
         workflowName: workflow.name,
@@ -891,13 +897,16 @@ export const App = () => {
   };
 
   const handleWorkflowSkip = () => {
-    if (!state.workflowExecution) return;
+    if (!currentExecutionId) return;
 
-    const workflow = state.workflows.find(w => w.id === state.workflowExecution?.workflowId);
+    const execution = state.workflowExecutions.find(e => e.executionId === currentExecutionId);
+    if (!execution) return;
+
+    const workflow = state.workflows.find(w => w.id === execution.workflowId);
     if (!workflow) return;
 
-    const currentIdx = state.workflowExecution.currentStageIndex;
-    dispatch({ type: 'UPDATE_STAGE_STATE', stageIndex: currentIdx, updates: { status: 'skipped', completedAt: new Date() } });
+    const currentIdx = execution.currentStageIndex;
+    dispatch({ type: 'UPDATE_STAGE_STATE', executionId: currentExecutionId, stageIndex: currentIdx, updates: { status: 'skipped', completedAt: new Date() } });
 
     if (workflowAgentId) {
       agentManager.kill(workflowAgentId);
@@ -906,12 +915,12 @@ export const App = () => {
 
     const nextIdx = currentIdx + 1;
     if (nextIdx >= workflow.stages.length) {
-      dispatch({ type: 'UPDATE_WORKFLOW_EXECUTION', updates: { status: 'completed', currentStageIndex: nextIdx } });
+      dispatch({ type: 'UPDATE_WORKFLOW_EXECUTION', executionId: currentExecutionId, updates: { status: 'completed', currentStageIndex: nextIdx } });
       setWorkflowAgentId(null);
       return;
     }
 
-    dispatch({ type: 'UPDATE_WORKFLOW_EXECUTION', updates: { currentStageIndex: nextIdx, status: 'running' } });
+    dispatch({ type: 'UPDATE_WORKFLOW_EXECUTION', executionId: currentExecutionId, updates: { currentStageIndex: nextIdx, status: 'running' } });
     handleWorkflowApprove();
   };
 
@@ -919,8 +928,11 @@ export const App = () => {
     if (workflowAgentId) {
       agentManager.kill(workflowAgentId);
     }
-    dispatch({ type: 'CANCEL_WORKFLOW' });
+    if (currentExecutionId) {
+      dispatch({ type: 'CANCEL_WORKFLOW', executionId: currentExecutionId });
+    }
     setWorkflowAgentId(null);
+    setCurrentExecutionId(null);
     setMode('normal');
   };
 
@@ -984,10 +996,10 @@ export const App = () => {
       if (item?.type === 'workflow') {
         setExpandedWorkflows(prev => {
           const next = new Set(prev);
-          if (next.has(item.execution.workflowId)) {
-            next.delete(item.execution.workflowId);
+          if (next.has(item.execution.executionId)) {
+            next.delete(item.execution.executionId);
           } else {
-            next.add(item.execution.workflowId);
+            next.add(item.execution.executionId);
           }
           return next;
         });
@@ -999,6 +1011,11 @@ export const App = () => {
       if (tab === 'inbox') {
         const item = buildInboxItems[inboxIdx];
         if (item?.type === 'workflow') {
+          setCurrentExecutionId(item.execution.executionId);
+          const currentStageState = item.execution.stageStates[item.execution.currentStageIndex];
+          if (currentStageState?.agentId) {
+            setWorkflowAgentId(currentStageState.agentId);
+          }
           setMode('workflow-detail');
           return;
         } else if (item?.type === 'agent') {
@@ -1092,85 +1109,91 @@ export const App = () => {
       };
     }
 
-    if (mode === 'workflow-execution' && state.workflowExecution) {
-      const workflow = state.workflows.find(w => w.id === state.workflowExecution?.workflowId);
-      const currentAgent = workflowAgentId ? state.agents.find(a => a.id === workflowAgentId) : undefined;
-      const currentStage = workflow?.stages[state.workflowExecution.currentStageIndex];
-      const currentStageState = state.workflowExecution.stageStates[state.workflowExecution.currentStageIndex];
-      const isAwaitingApproval = currentStageState?.status === 'awaiting_approval';
-      const canSkip = currentStage && workflow ? canSkipStage(workflow, currentStage.id) : false;
+    if (mode === 'workflow-execution' && currentExecutionId) {
+      const execution = state.workflowExecutions.find(e => e.executionId === currentExecutionId);
+      if (execution) {
+        const workflow = state.workflows.find(w => w.id === execution.workflowId);
+        const currentAgent = workflowAgentId ? state.agents.find(a => a.id === workflowAgentId) : undefined;
+        const currentStage = workflow?.stages[execution.currentStageIndex];
+        const currentStageState = execution.stageStates[execution.currentStageIndex];
+        const isAwaitingApproval = currentStageState?.status === 'awaiting_approval';
+        const canSkip = currentStage && workflow ? canSkipStage(workflow, currentStage.id) : false;
 
-      if (workflow) {
-        return {
-          content: (
-            <WorkflowExecutionPage
+        if (workflow) {
+          return {
+            content: (
+              <WorkflowExecutionPage
+                workflow={workflow}
+                execution={execution}
+                currentAgent={currentAgent}
+                onApproveStage={handleWorkflowApprove}
+                onRejectStage={handleWorkflowReject}
+                onSkipStage={handleWorkflowSkip}
+                onCancelWorkflow={handleWorkflowCancel}
+                onQuestionResponse={handleQuestionResponse}
+              />
+            ),
+            help: getWorkflowExecutionHelp(isAwaitingApproval, canSkip, !!currentAgent?.pendingPermission, !!currentAgent?.pendingQuestion),
+          };
+        }
+      }
+    }
+
+    if (mode === 'workflow-detail' && currentExecutionId) {
+      const execution = state.workflowExecutions.find(e => e.executionId === currentExecutionId);
+      if (execution) {
+        const workflow = state.workflows.find(w => w.id === execution.workflowId);
+        const currentStageState = execution.stageStates[execution.currentStageIndex];
+        const currentAgent = currentStageState?.agentId
+          ? state.agents.find(a => a.id === currentStageState.agentId)
+          : undefined;
+        const currentStage = workflow?.stages[execution.currentStageIndex];
+        const isAwaitingApproval = currentStageState?.status === 'awaiting_approval';
+        const canSkip = currentStage && workflow ? canSkipStage(workflow, currentStage.id) : false;
+
+        if (workflow) {
+          const listContent = (
+            <ListViewPage
+              tab={tab}
+              inboxItems={buildInboxItems}
+              history={state.history}
+              artifacts={state.artifacts}
+              inboxIdx={inboxIdx}
+              histIdx={histIdx}
+              artifactsIdx={artifactsIdx}
+              expandedWorkflows={expandedWorkflows}
+            />
+          );
+
+          const handlePermissionResponse = (allowed: boolean) => {
+            if (currentAgent?.pendingPermission) {
+              currentAgent.pendingPermission.resolve({ allowed });
+            }
+          };
+
+          const detailContent = (
+            <WorkflowDetailPage
               workflow={workflow}
-              execution={state.workflowExecution}
+              execution={execution}
               currentAgent={currentAgent}
               onApproveStage={handleWorkflowApprove}
               onRejectStage={handleWorkflowReject}
               onSkipStage={handleWorkflowSkip}
               onCancelWorkflow={handleWorkflowCancel}
               onQuestionResponse={handleQuestionResponse}
+              onPermissionResponse={handlePermissionResponse}
+              onClose={() => setMode('normal')}
             />
-          ),
-          help: getWorkflowExecutionHelp(isAwaitingApproval, canSkip, !!currentAgent?.pendingPermission, !!currentAgent?.pendingQuestion),
-        };
-      }
-    }
+          );
 
-    if (mode === 'workflow-detail' && state.workflowExecution) {
-      const workflow = state.workflows.find(w => w.id === state.workflowExecution?.workflowId);
-      const currentStageState = state.workflowExecution.stageStates[state.workflowExecution.currentStageIndex];
-      const currentAgent = currentStageState?.agentId
-        ? state.agents.find(a => a.id === currentStageState.agentId)
-        : undefined;
-      const currentStage = workflow?.stages[state.workflowExecution.currentStageIndex];
-      const isAwaitingApproval = currentStageState?.status === 'awaiting_approval';
-      const canSkip = currentStage && workflow ? canSkipStage(workflow, currentStage.id) : false;
-
-      if (workflow) {
-        const listContent = (
-          <ListViewPage
-            tab={tab}
-            inboxItems={buildInboxItems}
-            history={state.history}
-            artifacts={state.artifacts}
-            inboxIdx={inboxIdx}
-            histIdx={histIdx}
-            artifactsIdx={artifactsIdx}
-            expandedWorkflows={expandedWorkflows}
-          />
-        );
-
-        const handlePermissionResponse = (allowed: boolean) => {
-          if (currentAgent?.pendingPermission) {
-            currentAgent.pendingPermission.resolve({ allowed });
-          }
-        };
-
-        const detailContent = (
-          <WorkflowDetailPage
-            workflow={workflow}
-            execution={state.workflowExecution}
-            currentAgent={currentAgent}
-            onApproveStage={handleWorkflowApprove}
-            onRejectStage={handleWorkflowReject}
-            onSkipStage={handleWorkflowSkip}
-            onCancelWorkflow={handleWorkflowCancel}
-            onQuestionResponse={handleQuestionResponse}
-            onPermissionResponse={handlePermissionResponse}
-            onClose={() => setMode('normal')}
-          />
-        );
-
-        return {
-          splitPanes: [
-            { content: listContent, widthPercent: 40 },
-            { content: detailContent, widthPercent: 60 }
-          ],
-          help: getWorkflowDetailHelp(isAwaitingApproval, canSkip, !!currentAgent?.pendingPermission, !!currentAgent?.pendingQuestion),
-        };
+          return {
+            splitPanes: [
+              { content: listContent, widthPercent: 40 },
+              { content: detailContent, widthPercent: 60 }
+            ],
+            help: getWorkflowDetailHelp(isAwaitingApproval, canSkip, !!currentAgent?.pendingPermission, !!currentAgent?.pendingQuestion),
+          };
+        }
       }
     }
 

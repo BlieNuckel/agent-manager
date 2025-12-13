@@ -8,7 +8,7 @@ import { ListViewPage, getListViewHelp, NewAgentPage, getNewAgentHelp, DetailVie
 
 export const DemoApp = () => {
   const { exit } = useApp();
-  const [state, dispatch] = useReducer(reducer, { agents: mockAgents, history: mockHistory, artifacts: [], templates: [], agentTypes: [], workflows: [], workflowExecution: null });
+  const [state, dispatch] = useReducer(reducer, { agents: mockAgents, history: mockHistory, artifacts: [], templates: [], agentTypes: [], workflows: [], workflowExecutions: [] });
   const [tab, setTab] = useState<'inbox' | 'history' | 'artifacts'>('inbox');
   const [inboxIdx, setInboxIdx] = useState(0);
   const [histIdx, setHistIdx] = useState(0);

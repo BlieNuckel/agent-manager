@@ -115,26 +115,30 @@ export function reducer(state: State, action: Action): State {
     case 'SET_WORKFLOWS':
       return { ...state, workflows: action.workflows };
     case 'START_WORKFLOW':
-      return { ...state, workflowExecution: action.execution };
+      return { ...state, workflowExecutions: [...state.workflowExecutions, action.execution] };
     case 'UPDATE_WORKFLOW_EXECUTION':
-      if (!state.workflowExecution) return state;
       return {
         ...state,
-        workflowExecution: { ...state.workflowExecution, ...action.updates }
+        workflowExecutions: state.workflowExecutions.map(exec =>
+          exec.executionId === action.executionId ? { ...exec, ...action.updates } : exec
+        )
       };
     case 'UPDATE_STAGE_STATE':
-      if (!state.workflowExecution) return state;
       return {
         ...state,
-        workflowExecution: {
-          ...state.workflowExecution,
-          stageStates: state.workflowExecution.stageStates.map((stage, idx) =>
-            idx === action.stageIndex ? { ...stage, ...action.updates } : stage
-          )
-        }
+        workflowExecutions: state.workflowExecutions.map(exec =>
+          exec.executionId === action.executionId
+            ? {
+                ...exec,
+                stageStates: exec.stageStates.map((stage, idx) =>
+                  idx === action.stageIndex ? { ...stage, ...action.updates } : stage
+                )
+              }
+            : exec
+        )
       };
     case 'CANCEL_WORKFLOW':
-      return { ...state, workflowExecution: null };
+      return { ...state, workflowExecutions: state.workflowExecutions.filter(exec => exec.executionId !== action.executionId) };
     default:
       return state;
   }

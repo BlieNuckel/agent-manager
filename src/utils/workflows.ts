@@ -12,6 +12,7 @@ import type {
 import type { CustomAgentType } from '../types/agentTypes';
 import type { Template } from '../types/templates';
 import { parseFrontmatter } from './frontmatter';
+import { genId } from './helpers';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -174,6 +175,7 @@ export function createWorkflowExecution(
   }));
 
   return {
+    executionId: genId(),
     workflowId: workflow.id,
     currentStageIndex: 0,
     status: 'pending',

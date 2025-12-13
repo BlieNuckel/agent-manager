@@ -62,6 +62,10 @@ describe('reducer', () => {
       agents: [],
       history: [],
       artifacts: [],
+      templates: [],
+      agentTypes: [],
+      workflows: [],
+      workflowExecutions: [],
     };
   });
 

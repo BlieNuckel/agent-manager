@@ -90,6 +90,14 @@ describe('createWorkflowExecution', () => {
     expect(execution.stageStates).toHaveLength(3);
     expect(execution.stageStates[0].status).toBe('pending');
   });
+
+  it('generates a unique executionId', () => {
+    const execution1 = createWorkflowExecution(mockWorkflow, 'Test 1');
+    const execution2 = createWorkflowExecution(mockWorkflow, 'Test 2');
+    expect(execution1.executionId).toBeDefined();
+    expect(execution2.executionId).toBeDefined();
+    expect(execution1.executionId).not.toBe(execution2.executionId);
+  });
 });
 
 describe('getNextStage', () => {
