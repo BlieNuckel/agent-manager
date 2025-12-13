@@ -27,7 +27,7 @@ export const Layout = ({ activeCount, waitingCount, helpContent, children, split
   const height = stdout?.rows ?? 24;
 
   return (
-    <Box height={height}>
+    <Box height={height} position="relative">
       <Box flexDirection="column" height={height} width="100%">
         <Box flexShrink={0}>
           <Header activeCount={activeCount} waitingCount={waitingCount} />
