@@ -18,7 +18,6 @@ import { cleanupOldTempImages } from '../utils/imageCleanup';
 import { Layout } from './Layout';
 import { ListViewPage, getListViewHelp, NewAgentPage, getNewAgentHelp, DetailViewPage, getDetailViewHelp, ArtifactDetailPage, getArtifactDetailHelp, NewArtifactPage, getNewArtifactHelp, WorkflowDetailPage, getWorkflowDetailHelp } from '../pages';
 import { WorkflowSelectPage, getWorkflowSelectHelp } from '../pages/WorkflowSelectPage';
-import { WorkflowExecutionPage, getWorkflowExecutionHelp } from '../pages/WorkflowExecutionPage';
 import { QuitConfirmationPrompt } from './QuitConfirmationPrompt';
 import { DeleteConfirmationPrompt } from './DeleteConfirmationPrompt';
 import { WorkflowDeleteConfirmationPrompt } from './WorkflowDeleteConfirmationPrompt';
@@ -462,7 +461,7 @@ export const App = () => {
 
 
   const handleQuestionResponse = (answers: Record<string, string | string[]>) => {
-    const agentId = (mode === 'workflow-execution' || mode === 'workflow-detail') ? workflowAgentId : detailAgentId;
+    const agentId = mode === 'workflow-detail' ? workflowAgentId : detailAgentId;
     debug('handleQuestionResponse called:', { agentId, mode, answers });
     if (agentId) {
       const agent = state.agents.find(a => a.id === agentId);
@@ -1123,7 +1122,7 @@ export const App = () => {
       return;
     }
 
-    if (mode === 'detail' || mode === 'input' || mode === 'command-result' || mode === 'new-artifact' || mode === 'workflow-select' || mode === 'workflow-execution' || mode === 'workflow-detail' || showCommandPalette) return
+    if (mode === 'detail' || mode === 'input' || mode === 'command-result' || mode === 'new-artifact' || mode === 'workflow-select' || mode === 'workflow-detail' || showCommandPalette) return
 
     if (key.tab) {
       if (key.shift) {
@@ -1276,36 +1275,6 @@ export const App = () => {
         ),
         help: getWorkflowSelectHelp(workflowSelectStep),
       };
-    }
-
-    if (mode === 'workflow-execution' && currentExecutionId) {
-      const execution = state.workflowExecutions.find(e => e.executionId === currentExecutionId);
-      if (execution) {
-        const workflow = state.workflows.find(w => w.id === execution.workflowId);
-        const currentAgent = workflowAgentId ? state.agents.find(a => a.id === workflowAgentId) : undefined;
-        const currentStage = workflow?.stages[execution.currentStageIndex];
-        const currentStageState = execution.stageStates[execution.currentStageIndex];
-        const isAwaitingApproval = currentStageState?.status === 'awaiting_approval';
-        const canSkip = currentStage && workflow ? canSkipStage(workflow, currentStage.id) : false;
-
-        if (workflow) {
-          return {
-            content: (
-              <WorkflowExecutionPage
-                workflow={workflow}
-                execution={execution}
-                currentAgent={currentAgent}
-                onApproveStage={handleWorkflowApprove}
-                onRejectStage={handleWorkflowReject}
-                onSkipStage={handleWorkflowSkip}
-                onCancelWorkflow={handleWorkflowCancel}
-                onQuestionResponse={handleQuestionResponse}
-              />
-            ),
-            help: getWorkflowExecutionHelp(isAwaitingApproval, canSkip, !!currentAgent?.pendingPermission, !!currentAgent?.pendingQuestion),
-          };
-        }
-      }
     }
 
     if (mode === 'workflow-detail' && currentExecutionId) {
