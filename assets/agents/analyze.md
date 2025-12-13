@@ -13,7 +13,7 @@ artifacts:
   compatibleOutputs: [analysis, research]
   consumes: [research]
 
-model: sonnet
+model: opus
 ---
 ## Role
 

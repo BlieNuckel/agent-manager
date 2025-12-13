@@ -15,7 +15,7 @@ artifacts:
   compatibleOutputs: [research]
   consumes: []
 
-model: sonnet
+model: opus
 ---
 ## Role
 
