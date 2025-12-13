@@ -21,7 +21,7 @@ interface AgentItemProps {
   isWorkflowChild?: boolean;
 }
 
-export const AgentItem = ({ agent, selected, isWorkflowChild = false }: AgentItemProps) => {
+export const AgentItem = React.memo(({ agent, selected, isWorkflowChild = false }: AgentItemProps) => {
   const isPending = agent.title === 'Pending...';
   const typeLabel = getAgentTypeLabel(agent);
   return (
@@ -56,4 +56,4 @@ export const AgentItem = ({ agent, selected, isWorkflowChild = false }: AgentIte
       )}
     </Box>
   );
-};
+});

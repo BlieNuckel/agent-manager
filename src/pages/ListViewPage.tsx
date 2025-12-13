@@ -36,10 +36,10 @@ export const ListViewPage = ({ tab, inboxItems, history, artifacts, inboxIdx, hi
               if (item.type === 'workflow') {
                 return (
                   <WorkflowItem
-                    key={`workflow-${item.execution.workflowId}`}
+                    key={`workflow-${item.execution.executionId}`}
                     workflow={item.workflow}
                     execution={item.execution}
-                    expanded={expandedWorkflows.has(item.execution.workflowId)}
+                    expanded={expandedWorkflows.has(item.execution.executionId)}
                     selected={i === inboxIdx}
                   />
                 );

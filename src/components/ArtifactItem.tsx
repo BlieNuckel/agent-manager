@@ -3,7 +3,7 @@ import { Box, Text } from 'ink';
 import type { ArtifactInfo } from '../types';
 import { formatTime } from '../utils/helpers';
 
-export const ArtifactItem = ({ artifact, selected }: { artifact: ArtifactInfo; selected: boolean }) => {
+export const ArtifactItem = React.memo(({ artifact, selected }: { artifact: ArtifactInfo; selected: boolean }) => {
   return (
     <Box flexDirection="column" marginBottom={1}>
       <Box>
@@ -16,4 +16,4 @@ export const ArtifactItem = ({ artifact, selected }: { artifact: ArtifactInfo; s
       </Box>
     </Box>
   );
-};
+});

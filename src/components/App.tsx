@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useReducer, useMemo } from 'react';
+import React, { useState, useEffect, useReducer, useMemo, useRef } from 'react';
 import { useInput, useApp } from 'ink';
 import path from 'path';
 import type { Agent, AgentType, HistoryEntry, Mode, PermissionRequest, QuestionRequest, InputStep, PermissionMode, ImageAttachment, TokenTracking, CustomAgentType, Workflow, WorkflowExecutionState, InboxItem } from '../types';
@@ -21,6 +21,7 @@ import { WorkflowSelectPage, getWorkflowSelectHelp } from '../pages/WorkflowSele
 import { WorkflowExecutionPage, getWorkflowExecutionHelp } from '../pages/WorkflowExecutionPage';
 import { QuitConfirmationPrompt } from './QuitConfirmationPrompt';
 import { DeleteConfirmationPrompt } from './DeleteConfirmationPrompt';
+import { WorkflowDeleteConfirmationPrompt } from './WorkflowDeleteConfirmationPrompt';
 import { ArtifactDeleteConfirmationPrompt } from './ArtifactDeleteConfirmationPrompt';
 import { CommandPalette } from './CommandPalette';
 import { CommandResult } from './CommandResult';
@@ -53,6 +54,8 @@ export const App = () => {
   const [agentToDelete, setAgentToDelete] = useState<string | null>(null);
   const [showArtifactDeleteConfirmation, setShowArtifactDeleteConfirmation] = useState(false);
   const [artifactToDelete, setArtifactToDelete] = useState<string | null>(null);
+  const [showWorkflowDeleteConfirmation, setShowWorkflowDeleteConfirmation] = useState(false);
+  const [workflowToDelete, setWorkflowToDelete] = useState<string | null>(null);
   const [commands, setCommands] = useState<Command[]>([]);
   const [commandsLoading, setCommandsLoading] = useState(false);
   const [commandResult, setCommandResult] = useState<{ result: CommandResultType; commandName: string } | null>(null);
@@ -60,6 +63,13 @@ export const App = () => {
   const [workflowSelectStep, setWorkflowSelectStep] = useState<'workflow' | 'prompt'>('workflow');
   const [workflowAgentId, setWorkflowAgentId] = useState<string | null>(null);
   const [expandedWorkflows, setExpandedWorkflows] = useState<Set<string>>(new Set());
+
+  const stateRef = useRef(state);
+  const modeRef = useRef(mode);
+  const detailAgentIdRef = useRef(detailAgentId);
+  stateRef.current = state;
+  modeRef.current = mode;
+  detailAgentIdRef.current = detailAgentId;
 
   const buildInboxItems = useMemo(() => {
     const items: InboxItem[] = [];
@@ -158,7 +168,7 @@ export const App = () => {
     const onIdle = async (id: string) => {
       dispatch({ type: 'SET_PERMISSION', id, permission: undefined });
 
-      const agent = state.agents.find(a => a.id === id);
+      const agent = stateRef.current.agents.find(a => a.id === id);
 
       if (agent?.pendingMerge?.status === 'drafting-pr') {
         const recentOutput = agent.output.slice(-20);
@@ -239,7 +249,7 @@ export const App = () => {
 
       dispatch({ type: 'UPDATE_AGENT', id, updates: { status: 'idle' } });
 
-      for (const execution of state.workflowExecutions) {
+      for (const execution of stateRef.current.workflowExecutions) {
         const stageIdx = execution.stageStates.findIndex(s => s.agentId === id);
         if (stageIdx >= 0 && execution.stageStates[stageIdx]?.status === 'running') {
           dispatch({ type: 'UPDATE_STAGE_STATE', executionId: execution.executionId, stageIndex: stageIdx, updates: { status: 'awaiting_approval' } });
@@ -270,7 +280,7 @@ export const App = () => {
           debug('Permission resolved:', { id, allowed: result.allowed, hasSuggestions: !!result.suggestions });
 
           if (result.allowed && !result.suggestions) {
-            const agent = state.agents.find(a => a.id === id);
+            const agent = stateRef.current.agents.find(a => a.id === id);
             const isEditTool = agent?.pendingPermission && ['Write', 'Edit', 'MultiEdit', 'NotebookEdit'].includes(agent.pendingPermission.toolName);
 
             if (isEditTool) {
@@ -286,7 +296,7 @@ export const App = () => {
 
       dispatch({ type: 'QUEUE_PERMISSION', id, permission: wrappedPermission });
 
-      if (mode !== 'detail' || detailAgentId !== id) {
+      if (modeRef.current !== 'detail' || detailAgentIdRef.current !== id) {
         process.stdout.write('\u0007');
       }
     };
@@ -294,7 +304,7 @@ export const App = () => {
       debug('Question request received in UI:', { id, questionCount: question.questions.length });
       dispatch({ type: 'SET_QUESTION', id, question });
 
-      if (mode !== 'detail' || detailAgentId !== id) {
+      if (modeRef.current !== 'detail' || detailAgentIdRef.current !== id) {
         process.stdout.write('\u0007');
       }
     };
@@ -302,7 +312,7 @@ export const App = () => {
       debug('Title update received in UI:', { id, title });
       dispatch({ type: 'UPDATE_AGENT_TITLE', id, title });
       dispatch({ type: 'UPDATE_HISTORY_TITLE', id, title });
-      const newHistory = state.history.map(h => h.id === id ? { ...h, title } : h);
+      const newHistory = stateRef.current.history.map(h => h.id === id ? { ...h, title } : h);
       saveHistory(newHistory);
     };
     const onTokenUsage = (id: string, tokenUsage: TokenTracking) => {
@@ -330,7 +340,7 @@ export const App = () => {
       agentManager.off('titleUpdate', onTitleUpdate);
       agentManager.off('tokenUsage', onTokenUsage);
     };
-  }, [state.history, mode, detailAgentId, state.agents]);
+  }, []);
 
   const createAgent = async (title: string, prompt: string, agentType: AgentType, worktree: { enabled: boolean; name: string }, images?: ImageAttachment[], customAgentType?: CustomAgentType) => {
     const id = genId();
@@ -550,6 +560,48 @@ export const App = () => {
   const handleArtifactDeleteCancel = () => {
     setShowArtifactDeleteConfirmation(false);
     setArtifactToDelete(null);
+  };
+
+  const getWorkflowAgentIds = (executionId: string): string[] => {
+    const execution = state.workflowExecutions.find(e => e.executionId === executionId);
+    if (!execution) return [];
+    return execution.stageStates
+      .map(s => s.agentId)
+      .filter((id): id is string => id !== undefined);
+  };
+
+  const handleWorkflowDeleteRequest = (executionId: string) => {
+    const execution = state.workflowExecutions.find(e => e.executionId === executionId);
+    if (!execution) return;
+
+    const agentIds = getWorkflowAgentIds(executionId);
+    const agents = agentIds.map(id => state.agents.find(a => a.id === id)).filter(Boolean);
+    const hasActiveAgents = agents.some(a => a && (a.status === 'working' || a.status === 'waiting'));
+
+    if (hasActiveAgents || agents.length > 0) {
+      setWorkflowToDelete(executionId);
+      setShowWorkflowDeleteConfirmation(true);
+    } else {
+      agentIds.forEach(id => agentManager.kill(id));
+      dispatch({ type: 'REMOVE_WORKFLOW', executionId, agentIds });
+      setInboxIdx(Math.max(0, Math.min(inboxIdx, buildInboxItems.length - 2)));
+    }
+  };
+
+  const handleWorkflowDeleteConfirm = () => {
+    if (workflowToDelete) {
+      const agentIds = getWorkflowAgentIds(workflowToDelete);
+      agentIds.forEach(id => agentManager.kill(id));
+      dispatch({ type: 'REMOVE_WORKFLOW', executionId: workflowToDelete, agentIds });
+      setInboxIdx(Math.max(0, Math.min(inboxIdx, buildInboxItems.length - 2)));
+      setWorkflowToDelete(null);
+    }
+    setShowWorkflowDeleteConfirmation(false);
+  };
+
+  const handleWorkflowDeleteCancel = () => {
+    setShowWorkflowDeleteConfirmation(false);
+    setWorkflowToDelete(null);
   };
 
   const handleMergeResponse = async (approved: boolean) => {
@@ -969,6 +1021,15 @@ export const App = () => {
       return;
     }
 
+    if (showWorkflowDeleteConfirmation) {
+      if (input === 'y') {
+        handleWorkflowDeleteConfirm();
+      } else if (input === 'n' || key.escape) {
+        handleWorkflowDeleteCancel();
+      }
+      return;
+    }
+
     if (mode === 'detail' || mode === 'input' || mode === 'command-result' || mode === 'new-artifact' || mode === 'workflow-select' || mode === 'workflow-execution' || mode === 'workflow-detail' || showCommandPalette) return
 
     if (key.tab) {
@@ -1034,7 +1095,21 @@ export const App = () => {
 
     if (tab === 'inbox') {
       const item = buildInboxItems[inboxIdx];
-      if (item?.type === 'agent') {
+      if (item?.type === 'workflow') {
+        if (input === 'd') {
+          handleWorkflowDeleteRequest(item.execution.executionId);
+        }
+        if (input === 'x') {
+          const agentIds = getWorkflowAgentIds(item.execution.executionId);
+          agentIds.forEach(id => {
+            agentManager.kill(id);
+            dispatch({ type: 'UPDATE_AGENT', id, updates: { status: 'done' } });
+          });
+        }
+      } else if (item?.type === 'agent') {
+        if (item.isWorkflowChild) {
+          return;
+        }
         if (input === 'x') {
           agentManager.kill(item.agent.id);
           dispatch({ type: 'UPDATE_AGENT', id: item.agent.id, updates: { status: 'done' } });
@@ -1352,6 +1427,20 @@ export const App = () => {
     />
   ) : undefined;
 
+  const workflowToDeleteData = workflowToDelete ? state.workflowExecutions.find(e => e.executionId === workflowToDelete) : null;
+  const workflowToDeleteInfo = workflowToDeleteData ? state.workflows.find(w => w.id === workflowToDeleteData.workflowId) : null;
+  const workflowAgentIdsForDelete = workflowToDelete ? getWorkflowAgentIds(workflowToDelete) : [];
+  const workflowAgentsForDelete = workflowAgentIdsForDelete.map(id => state.agents.find(a => a.id === id)).filter(Boolean);
+  const workflowDeletePromptEl = showWorkflowDeleteConfirmation && workflowToDeleteInfo ? (
+    <WorkflowDeleteConfirmationPrompt
+      workflowName={workflowToDeleteInfo.name}
+      activeAgentCount={workflowAgentsForDelete.filter(a => a && (a.status === 'working' || a.status === 'waiting')).length}
+      totalAgentCount={workflowAgentsForDelete.length}
+      onConfirm={handleWorkflowDeleteConfirm}
+      onCancel={handleWorkflowDeleteCancel}
+    />
+  ) : undefined;
+
   const commandPaletteWindow = showCommandPalette ? (
     <FloatingWindow
       width={80}
@@ -1374,7 +1463,7 @@ export const App = () => {
   ) : undefined;
 
   return (
-    <Layout activeCount={activeCount} waitingCount={waitingCount} helpContent={help} splitPanes={splitPanes} quitPrompt={quitPrompt} deletePrompt={deletePrompt} artifactDeletePrompt={artifactDeletePromptEl} floatingWindows={commandPaletteWindow}>
+    <Layout activeCount={activeCount} waitingCount={waitingCount} helpContent={help} splitPanes={splitPanes} quitPrompt={quitPrompt} deletePrompt={deletePrompt} artifactDeletePrompt={artifactDeletePromptEl} workflowDeletePrompt={workflowDeletePromptEl} floatingWindows={commandPaletteWindow}>
       {content}
     </Layout>
   );

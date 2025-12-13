@@ -859,6 +859,131 @@ describe('reducer', () => {
     });
   });
 
+  describe('REMOVE_WORKFLOW', () => {
+    it('removes workflow execution and associated agents', () => {
+      const agent1 = createMockAgent({ id: 'agent-1' });
+      const agent2 = createMockAgent({ id: 'agent-2' });
+      const agent3 = createMockAgent({ id: 'agent-3' });
+
+      const state: State = {
+        ...initialState,
+        agents: [agent1, agent2, agent3],
+        workflowExecutions: [
+          {
+            executionId: 'exec-1',
+            workflowId: 'workflow-1',
+            currentStageIndex: 0,
+            status: 'running',
+            stageStates: [
+              { stageId: 'stage-1', status: 'running', agentId: 'agent-1' },
+              { stageId: 'stage-2', status: 'pending', agentId: 'agent-2' },
+            ],
+            initialPrompt: 'Test prompt',
+          },
+        ],
+      };
+
+      const result = reducer(state, {
+        type: 'REMOVE_WORKFLOW',
+        executionId: 'exec-1',
+        agentIds: ['agent-1', 'agent-2'],
+      });
+
+      expect(result.workflowExecutions).toHaveLength(0);
+      expect(result.agents).toHaveLength(1);
+      expect(result.agents[0].id).toBe('agent-3');
+    });
+
+    it('removes only the specified workflow execution', () => {
+      const state: State = {
+        ...initialState,
+        workflowExecutions: [
+          {
+            executionId: 'exec-1',
+            workflowId: 'workflow-1',
+            currentStageIndex: 0,
+            status: 'running',
+            stageStates: [],
+            initialPrompt: 'Prompt 1',
+          },
+          {
+            executionId: 'exec-2',
+            workflowId: 'workflow-2',
+            currentStageIndex: 0,
+            status: 'running',
+            stageStates: [],
+            initialPrompt: 'Prompt 2',
+          },
+        ],
+      };
+
+      const result = reducer(state, {
+        type: 'REMOVE_WORKFLOW',
+        executionId: 'exec-1',
+        agentIds: [],
+      });
+
+      expect(result.workflowExecutions).toHaveLength(1);
+      expect(result.workflowExecutions[0].executionId).toBe('exec-2');
+    });
+
+    it('handles empty agentIds array', () => {
+      const agent1 = createMockAgent({ id: 'agent-1' });
+
+      const state: State = {
+        ...initialState,
+        agents: [agent1],
+        workflowExecutions: [
+          {
+            executionId: 'exec-1',
+            workflowId: 'workflow-1',
+            currentStageIndex: 0,
+            status: 'completed',
+            stageStates: [],
+            initialPrompt: 'Test',
+          },
+        ],
+      };
+
+      const result = reducer(state, {
+        type: 'REMOVE_WORKFLOW',
+        executionId: 'exec-1',
+        agentIds: [],
+      });
+
+      expect(result.workflowExecutions).toHaveLength(0);
+      expect(result.agents).toHaveLength(1);
+    });
+
+    it('does not mutate the original state', () => {
+      const agent1 = createMockAgent({ id: 'agent-1' });
+
+      const state: State = {
+        ...initialState,
+        agents: [agent1],
+        workflowExecutions: [
+          {
+            executionId: 'exec-1',
+            workflowId: 'workflow-1',
+            currentStageIndex: 0,
+            status: 'running',
+            stageStates: [{ stageId: 'stage-1', status: 'running', agentId: 'agent-1' }],
+            initialPrompt: 'Test',
+          },
+        ],
+      };
+
+      reducer(state, {
+        type: 'REMOVE_WORKFLOW',
+        executionId: 'exec-1',
+        agentIds: ['agent-1'],
+      });
+
+      expect(state.workflowExecutions).toHaveLength(1);
+      expect(state.agents).toHaveLength(1);
+    });
+  });
+
   describe('default case', () => {
     it('returns the same state for unknown action types', () => {
       const state = { ...initialState, agents: [createMockAgent()] };

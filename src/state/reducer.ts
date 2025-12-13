@@ -139,6 +139,12 @@ export function reducer(state: State, action: Action): State {
       };
     case 'CANCEL_WORKFLOW':
       return { ...state, workflowExecutions: state.workflowExecutions.filter(exec => exec.executionId !== action.executionId) };
+    case 'REMOVE_WORKFLOW':
+      return {
+        ...state,
+        workflowExecutions: state.workflowExecutions.filter(exec => exec.executionId !== action.executionId),
+        agents: state.agents.filter(a => !action.agentIds.includes(a.id))
+      };
     default:
       return state;
   }

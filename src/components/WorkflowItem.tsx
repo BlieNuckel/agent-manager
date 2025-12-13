@@ -39,7 +39,7 @@ function getLastActivityTime(execution: WorkflowExecutionState): Date {
   return lastStage?.completedAt || lastStage?.startedAt || new Date();
 }
 
-export const WorkflowItem = ({ workflow, execution, expanded, selected }: WorkflowItemProps) => {
+export const WorkflowItem = React.memo(({ workflow, execution, expanded, selected }: WorkflowItemProps) => {
   const completedStages = execution.stageStates.filter(s => s.status === 'approved' || s.status === 'skipped').length;
   const totalStages = workflow.stages.length;
   const currentStageNum = Math.min(completedStages + 1, totalStages);
@@ -71,4 +71,4 @@ export const WorkflowItem = ({ workflow, execution, expanded, selected }: Workfl
       </Box>
     </Box>
   );
-};
+});

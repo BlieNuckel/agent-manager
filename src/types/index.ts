@@ -143,7 +143,8 @@ export type Action =
   | { type: 'START_WORKFLOW'; execution: WorkflowExecutionState }
   | { type: 'UPDATE_WORKFLOW_EXECUTION'; executionId: string; updates: Partial<WorkflowExecutionState> }
   | { type: 'UPDATE_STAGE_STATE'; executionId: string; stageIndex: number; updates: Partial<StageExecutionState> }
-  | { type: 'CANCEL_WORKFLOW'; executionId: string };
+  | { type: 'CANCEL_WORKFLOW'; executionId: string }
+  | { type: 'REMOVE_WORKFLOW'; executionId: string; agentIds: string[] };
 
 export interface ArtifactInfo {
   name: string;
