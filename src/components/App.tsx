@@ -24,7 +24,7 @@ import { DeleteConfirmationPrompt } from './DeleteConfirmationPrompt';
 import { ArtifactDeleteConfirmationPrompt } from './ArtifactDeleteConfirmationPrompt';
 import { CommandPalette } from './CommandPalette';
 import { CommandResult } from './CommandResult';
-import { HoverWindow } from './HoverWindow';
+import { FloatingWindow } from './FloatingWindow';
 import { CommandLoader } from '../commands/loader';
 import { CommandExecutor } from '../commands/executor';
 import type { Command, CommandResult as CommandResultType } from '../commands/types';
@@ -1330,14 +1330,15 @@ export const App = () => {
   ) : undefined;
 
   const commandPaletteWindow = showCommandPalette ? (
-    <HoverWindow
+    <FloatingWindow
       width={80}
       height={22}
       position="center"
       showBorder={true}
       borderColor="cyan"
       borderStyle="round"
-      dimBackground={true}
+      showBackdrop={true}
+      backdropDim={true}
       padding={1}
     >
       <CommandPalette
@@ -1346,11 +1347,11 @@ export const App = () => {
         onCancel={handleCommandCancel}
         loading={commandsLoading}
       />
-    </HoverWindow>
+    </FloatingWindow>
   ) : undefined;
 
   return (
-    <Layout activeCount={activeCount} waitingCount={waitingCount} helpContent={help} splitPanes={splitPanes} quitPrompt={quitPrompt} deletePrompt={deletePrompt} artifactDeletePrompt={artifactDeletePromptEl} hoverWindows={commandPaletteWindow}>
+    <Layout activeCount={activeCount} waitingCount={waitingCount} helpContent={help} splitPanes={splitPanes} quitPrompt={quitPrompt} deletePrompt={deletePrompt} artifactDeletePrompt={artifactDeletePromptEl} floatingWindows={commandPaletteWindow}>
       {content}
     </Layout>
   );
