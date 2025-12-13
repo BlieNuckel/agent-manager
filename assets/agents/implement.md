@@ -11,6 +11,7 @@ artifacts:
   consumes: [plan]
 
 model: sonnet
+worktree: true
 ---
 ## Role
 
