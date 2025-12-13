@@ -9,7 +9,7 @@ import { getGitRoot, getCurrentBranch, getRepoName, generateUniqueBranchName, cr
 import type { WorktreeContext, WorkflowContext } from '../agent/systemPromptTemplates';
 import { genId } from '../utils/helpers';
 import { debug } from '../utils/logger';
-import { listArtifacts, deleteArtifact } from '../utils/artifacts';
+import { listArtifacts, deleteArtifact, findArtifactByWorkflowStage } from '../utils/artifacts';
 import { listTemplates } from '../utils/templates';
 import { listAgentTypes } from '../utils/agentTypes';
 import { listWorkflows, createWorkflowExecution, canSkipStage, shouldAutoApprove, getLastArtifactPath, getStageArtifactTemplate } from '../utils/workflows';
@@ -950,7 +950,9 @@ export const App = () => {
           stageDescription: firstStage.description,
           stageIndex: 0,
           totalStages: workflow.stages.length,
-          expectedOutput: getStageArtifactTemplate(firstStage, state.agentTypes)
+          expectedOutput: getStageArtifactTemplate(firstStage, state.agentTypes),
+          executionId: execution.executionId,
+          stageId: firstStage.id
         };
 
         agentManager.spawn(id, prompt, effectiveWorkDir, 'normal', worktreeContext, agentTitle, undefined, agentType, workflowContext);
@@ -968,7 +970,13 @@ export const App = () => {
     if (!workflow) return;
 
     const currentIdx = execution.currentStageIndex;
-    dispatch({ type: 'UPDATE_STAGE_STATE', executionId: currentExecutionId, stageIndex: currentIdx, updates: { status: 'approved', completedAt: new Date() } });
+    const currentStage = workflow.stages[currentIdx];
+
+    const artifactPath = currentStage
+      ? await findArtifactByWorkflowStage(currentExecutionId, currentStage.id)
+      : undefined;
+
+    dispatch({ type: 'UPDATE_STAGE_STATE', executionId: currentExecutionId, stageIndex: currentIdx, updates: { status: 'approved', completedAt: new Date(), artifactPath } });
 
     if (workflowAgentId) {
       agentManager.kill(workflowAgentId);
@@ -1020,7 +1028,9 @@ export const App = () => {
         stageIndex: nextIdx,
         totalStages: workflow.stages.length,
         previousArtifact: lastArtifactPath,
-        expectedOutput: getStageArtifactTemplate(nextStage, state.agentTypes)
+        expectedOutput: getStageArtifactTemplate(nextStage, state.agentTypes),
+        executionId: currentExecutionId,
+        stageId: nextStage.id
       };
 
       agentManager.spawn(id, prompt, process.cwd(), 'normal', undefined, agent.title, undefined, agentType, workflowContext);

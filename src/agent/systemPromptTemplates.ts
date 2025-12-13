@@ -16,6 +16,8 @@ export interface WorkflowContext {
   totalStages: number;
   previousArtifact?: string;
   expectedOutput?: string;
+  executionId?: string;
+  stageId?: string;
 }
 
 export function buildWorktreeInstructions(context: WorktreeContext): string {
@@ -199,6 +201,15 @@ function buildWorkflowInstructions(context: WorkflowContext): string {
     parts.push(`## Expected Output`);
     parts.push(`This stage should produce a **${context.expectedOutput}** artifact.`);
     parts.push(`Save your output to \`~/.agent-manager/artifacts/\` using the appropriate template.`);
+    if (context.executionId && context.stageId) {
+      parts.push('');
+      parts.push(`**IMPORTANT:** When creating the artifact, include these workflow tracking fields in the YAML frontmatter:`);
+      parts.push('```yaml');
+      parts.push(`workflowExecutionId: ${context.executionId}`);
+      parts.push(`workflowStageId: ${context.stageId}`);
+      parts.push('```');
+      parts.push(`This allows the next stage to automatically find your output.`);
+    }
   }
 
   parts.push('');

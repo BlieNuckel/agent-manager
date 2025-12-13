@@ -129,3 +129,30 @@ export async function ensureArtifactsDir(): Promise<void> {
     // Directory may already exist
   }
 }
+
+export async function findArtifactByWorkflowStage(
+  executionId: string,
+  stageId: string
+): Promise<string | undefined> {
+  const artifacts = await listArtifacts();
+
+  for (const artifact of artifacts) {
+    if (!artifact.path.endsWith('.md')) continue;
+
+    try {
+      const content = await fs.promises.readFile(artifact.path, 'utf-8');
+      if (!hasFrontmatter(content)) continue;
+
+      const parsed = parseFrontmatter(content);
+      const data = parsed.data as Record<string, unknown>;
+
+      if (data.workflowExecutionId === executionId && data.workflowStageId === stageId) {
+        return artifact.path;
+      }
+    } catch {
+      continue;
+    }
+  }
+
+  return undefined;
+}
