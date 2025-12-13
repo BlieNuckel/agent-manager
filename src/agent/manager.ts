@@ -275,14 +275,14 @@ export class AgentSDKManager extends EventEmitter {
 
     const effectiveCwd = worktreeContext?.worktreePath || workDir;
 
-    let promptContent: string | any[];
+    let promptContent: string | AsyncIterable<any>;
     if (images && images.length > 0) {
-      promptContent = [
+      const contentBlocks: any[] = [
         { type: 'text', text: prompt }
       ];
 
       for (const img of images) {
-        promptContent.push({
+        contentBlocks.push({
           type: 'image',
           source: {
             type: 'base64',
@@ -291,7 +291,21 @@ export class AgentSDKManager extends EventEmitter {
           }
         });
       }
-      debug('Including', images.length, 'image(s) in prompt');
+
+      async function* messageGenerator() {
+        yield {
+          type: 'user',
+          session_id: '',
+          message: {
+            role: 'user',
+            content: contentBlocks
+          },
+          parent_tool_use_id: null
+        };
+      }
+
+      promptContent = messageGenerator();
+      debug('Including', images.length, 'image(s) in prompt as message stream');
     } else {
       promptContent = prompt;
     }
@@ -322,7 +336,7 @@ export class AgentSDKManager extends EventEmitter {
         preset: 'claude_code',
         append: systemPromptAppend
       };
-      debug('Injecting systemPrompt with worktree instructions');
+      debug('Injecting systemPrompt with instructions');
     }
 
     const q = query({
@@ -615,12 +629,12 @@ export class AgentSDKManager extends EventEmitter {
 
     this.emit('output', id, '', false, undefined, undefined, Date.now());
 
-    let messageContent: string | any[];
+    let messageContent: string | AsyncIterable<any>;
     if (images && images.length > 0) {
-      messageContent = [{ type: 'text', text: message }];
+      const contentBlocks: any[] = [{ type: 'text', text: message }];
 
       for (const img of images) {
-        messageContent.push({
+        contentBlocks.push({
           type: 'image',
           source: {
             type: 'base64',
@@ -629,7 +643,21 @@ export class AgentSDKManager extends EventEmitter {
           }
         });
       }
-      debug('Including', images.length, 'image(s) in follow-up message');
+
+      async function* messageGenerator() {
+        yield {
+          type: 'user',
+          session_id: '',
+          message: {
+            role: 'user',
+            content: contentBlocks
+          },
+          parent_tool_use_id: null
+        };
+      }
+
+      messageContent = messageGenerator();
+      debug('Including', images.length, 'image(s) in follow-up message as stream');
     } else {
       messageContent = message;
     }
