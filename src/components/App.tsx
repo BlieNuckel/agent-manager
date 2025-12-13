@@ -841,7 +841,7 @@ export const App = () => {
       return;
     }
 
-    dispatch({ type: 'UPDATE_WORKFLOW_EXECUTION', updates: { currentStageIndex: nextIdx } });
+    dispatch({ type: 'UPDATE_WORKFLOW_EXECUTION', updates: { currentStageIndex: nextIdx, status: 'running' } });
 
     const nextStage = workflow.stages[nextIdx];
     const agentType = state.agentTypes.find(a => a.id === nextStage.agentType);
@@ -911,7 +911,7 @@ export const App = () => {
       return;
     }
 
-    dispatch({ type: 'UPDATE_WORKFLOW_EXECUTION', updates: { currentStageIndex: nextIdx } });
+    dispatch({ type: 'UPDATE_WORKFLOW_EXECUTION', updates: { currentStageIndex: nextIdx, status: 'running' } });
     handleWorkflowApprove();
   };
 
