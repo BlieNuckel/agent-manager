@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { Box, Text, useInput, useStdout } from 'ink';
 import type { Agent } from '../types';
 import type { Workflow, WorkflowExecutionState } from '../types/workflows';
@@ -6,6 +6,7 @@ import { WorkflowProgress } from '../components/WorkflowProgress';
 import { StatusBadge } from '../components/StatusBadge';
 import { PermissionPrompt } from '../components/PermissionPrompt';
 import { QuestionPrompt } from '../components/QuestionPrompt';
+import { AgentOutputViewport } from '../components/AgentOutputViewport';
 import { canSkipStage, getLastArtifactPath } from '../utils/workflows';
 
 interface WorkflowDetailPageProps {
@@ -34,9 +35,9 @@ export const WorkflowDetailPage = ({
   onClose
 }: WorkflowDetailPageProps) => {
   const { stdout } = useStdout();
-  const [scrollOffset, setScrollOffset] = useState(0);
 
   const termHeight = stdout?.rows || 24;
+  const termWidth = stdout?.columns || 80;
   const currentStage = workflow.stages[execution.currentStageIndex];
   const currentStageState = execution.stageStates[execution.currentStageIndex];
   const isAwaitingApproval = currentStageState?.status === 'awaiting_approval';
@@ -50,13 +51,13 @@ export const WorkflowDetailPage = ({
   const approvalHeight = isAwaitingApproval ? 3 : 0;
   const permissionHeight = currentAgent?.pendingPermission ? 16 : 0;
   const questionHeight = currentAgent?.pendingQuestion ? 14 : 0;
-  const outputBoxOverhead = 4;
+  const outputBoxOverhead = 3;
 
   const fixedHeight = headerHeight + progressHeight + stageInfoHeight + artifactInfoHeight + approvalHeight + permissionHeight + questionHeight + outputBoxOverhead;
   const visibleLines = Math.max(5, termHeight - fixedHeight);
 
   const output = currentAgent?.output || [];
-  const displayedLines = output.slice(Math.max(0, scrollOffset), scrollOffset + visibleLines);
+  const isViewportActive = !currentAgent?.pendingPermission && !currentAgent?.pendingQuestion;
 
   useInput((input, key) => {
     if (isAwaitingApproval && !currentAgent?.pendingPermission && !currentAgent?.pendingQuestion) {
@@ -83,31 +84,7 @@ export const WorkflowDetailPage = ({
       onClose();
       return;
     }
-
-    if (key.upArrow || input === 'k') {
-      setScrollOffset(o => Math.max(0, o - 1));
-      return;
-    }
-    if (key.downArrow || input === 'j') {
-      setScrollOffset(o => Math.min(Math.max(0, output.length - visibleLines), o + 1));
-      return;
-    }
-    if (input === 'g') {
-      setScrollOffset(0);
-      return;
-    }
-    if (input === 'G') {
-      setScrollOffset(Math.max(0, output.length - visibleLines));
-      return;
-    }
   });
-
-  useEffect(() => {
-    const maxScroll = Math.max(0, output.length - visibleLines);
-    if (currentAgent?.status === 'working' || scrollOffset > maxScroll) {
-      setScrollOffset(maxScroll);
-    }
-  }, [output.length, visibleLines, currentAgent?.status, scrollOffset]);
 
   const completedStages = execution.stageStates.filter(s => s.status === 'approved' || s.status === 'skipped').length;
   const totalStages = workflow.stages.length;
@@ -162,26 +139,14 @@ export const WorkflowDetailPage = ({
         <Text dimColor>
           Output ({output.length} lines)
         </Text>
-        {displayedLines.length === 0 ? (
-          <Text dimColor>Waiting for output...</Text>
-        ) : (
-          displayedLines.map((outputLine, i) => {
-            const line = outputLine.text;
-            return (
-              <Box key={scrollOffset + i}>
-                <Text wrap="wrap">
-                  {line.startsWith('[x]') ? <Text color="red">{line}</Text> :
-                    line.startsWith('[+]') ? <Text color="green">{line}</Text> :
-                      line.startsWith('[>] User:') ? <Text color="blue">{line}</Text> :
-                        line.startsWith('[>]') ? <Text dimColor>{line}</Text> :
-                          line.startsWith('[-]') ? <Text color="yellow">{line}</Text> :
-                            line.startsWith('[!]') ? <Text color="yellow">{line}</Text> :
-                              line}
-                </Text>
-              </Box>
-            );
-          })
-        )}
+        <AgentOutputViewport
+          output={output}
+          height={visibleLines}
+          width={termWidth - 4}
+          isActive={isViewportActive}
+          autoScroll={currentAgent?.status === 'working'}
+          subagentStats={currentAgent?.subagentStats}
+        />
       </Box>
 
       {currentAgent?.pendingPermission && (
@@ -222,6 +187,7 @@ export const getWorkflowDetailHelp = (isAwaitingApproval: boolean, canSkip: bool
       <>
         <Text color="cyan">↑↓jk</Text> Scroll{' '}
         <Text color="cyan">g/G</Text> Top/Bottom{' '}
+        <Text color="cyan">1-9</Text> Toggle{' '}
         <Text color="cyan">Esc</Text> Close{' '}
         <Text color="gray">c</Text> Cancel
       </>
@@ -244,6 +210,7 @@ export const getWorkflowDetailHelp = (isAwaitingApproval: boolean, canSkip: bool
     <>
       <Text color="cyan">↑↓jk</Text> Scroll{' '}
       <Text color="cyan">g/G</Text> Top/Bottom{' '}
+      <Text color="cyan">1-9</Text> Toggle{' '}
       <Text color="cyan">Esc/q</Text> Close{' '}
       <Text color="gray">c</Text> Cancel
     </>

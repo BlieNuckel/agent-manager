@@ -48,6 +48,15 @@ function isToolOperatingOnArtifacts(toolName: string, toolInput: Record<string, 
   return false;
 }
 
+interface ActiveSubagentData {
+  agentID: string;
+  subagentType: string;
+  startTime: number;
+  inputTokens: number;
+  outputTokens: number;
+  toolCallCount: number;
+}
+
 interface QueryEntry {
   query: Query;
   abort: AbortController;
@@ -56,7 +65,7 @@ interface QueryEntry {
   sessionId?: string;
   workDir: string;
   systemPromptAppend?: string;
-  activeSubagents: Map<string, { agentID: string; subagentType: string }>;
+  activeSubagents: Map<string, ActiveSubagentData>;
 }
 
 export class AgentSDKManager extends EventEmitter {
@@ -134,10 +143,23 @@ export class AgentSDKManager extends EventEmitter {
           subagentType = detectedSubagentType;
           entry.activeSubagents.set(options.toolUseID, {
             agentID: options.agentID,
-            subagentType: detectedSubagentType
+            subagentType: detectedSubagentType,
+            startTime: Date.now(),
+            inputTokens: 0,
+            outputTokens: 0,
+            toolCallCount: 0,
           });
-          this.emit('output', id, `[→] Starting subagent: ${detectedSubagentType}`, false, undefined, undefined, Date.now());
+          this.emit('output', id, `[→] Starting subagent: ${detectedSubagentType}`, false, options.toolUseID, detectedSubagentType, Date.now());
           debug('Subagent started:', { agentID: options.agentID, subagentType: detectedSubagentType, toolUseID: options.toolUseID });
+        }
+      }
+
+      if (isSubagentTool && entry) {
+        for (const [toolUseId, subagentData] of entry.activeSubagents) {
+          if (subagentData.agentID === options.agentID) {
+            subagentData.toolCallCount++;
+            break;
+          }
         }
       }
 
@@ -412,13 +434,27 @@ export class AgentSDKManager extends EventEmitter {
       case 'user':
         if (message.parent_tool_use_id && message.tool_use_result) {
           if (entry && entry.activeSubagents.has(message.parent_tool_use_id)) {
-            const subagentInfo = entry.activeSubagents.get(message.parent_tool_use_id)!;
+            const subagentData = entry.activeSubagents.get(message.parent_tool_use_id)!;
+            const endTime = Date.now();
             entry.activeSubagents.delete(message.parent_tool_use_id);
-            this.emit('output', id, `[←] Subagent completed: ${subagentInfo.subagentType}`, false, undefined, undefined, Date.now());
+
+            this.emit('subagentStats', id, {
+              subagentId: message.parent_tool_use_id,
+              subagentType: subagentData.subagentType,
+              startTime: subagentData.startTime,
+              endTime,
+              inputTokens: subagentData.inputTokens,
+              outputTokens: subagentData.outputTokens,
+              toolCallCount: subagentData.toolCallCount,
+            });
+
+            this.emit('output', id, `[←] Subagent completed: ${subagentData.subagentType}`, false, message.parent_tool_use_id, subagentData.subagentType, Date.now());
             debug('Subagent completed:', {
-              agentID: subagentInfo.agentID,
-              subagentType: subagentInfo.subagentType,
-              parent_tool_use_id: message.parent_tool_use_id
+              agentID: subagentData.agentID,
+              subagentType: subagentData.subagentType,
+              parent_tool_use_id: message.parent_tool_use_id,
+              duration: endTime - subagentData.startTime,
+              toolCallCount: subagentData.toolCallCount,
             });
           }
         }

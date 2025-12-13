@@ -66,6 +66,16 @@ export interface OutputLine {
   timestamp?: number;
 }
 
+export interface SubagentStats {
+  subagentId: string;
+  subagentType: string;
+  startTime: number;
+  endTime?: number;
+  inputTokens: number;
+  outputTokens: number;
+  toolCallCount: number;
+}
+
 export type PermissionMode = 'default' | 'acceptEdits';
 
 export interface ImageAttachment {
@@ -107,6 +117,7 @@ export interface Agent {
   images?: ImageAttachment[];
   tokenUsage?: TokenTracking;
   customAgentTypeId?: string;
+  subagentStats?: Record<string, SubagentStats>;
 }
 
 export interface HistoryEntry {
@@ -144,7 +155,8 @@ export type Action =
   | { type: 'UPDATE_WORKFLOW_EXECUTION'; executionId: string; updates: Partial<WorkflowExecutionState> }
   | { type: 'UPDATE_STAGE_STATE'; executionId: string; stageIndex: number; updates: Partial<StageExecutionState> }
   | { type: 'CANCEL_WORKFLOW'; executionId: string }
-  | { type: 'REMOVE_WORKFLOW'; executionId: string; agentIds: string[] };
+  | { type: 'REMOVE_WORKFLOW'; executionId: string; agentIds: string[] }
+  | { type: 'SET_SUBAGENT_STATS'; id: string; subagentId: string; stats: SubagentStats };
 
 export interface ArtifactInfo {
   name: string;

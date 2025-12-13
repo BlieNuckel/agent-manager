@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { Box, Text, useInput, useStdout } from 'ink';
-import TextInput from 'ink-text-input';
 import type { Agent, ImageAttachment } from '../types';
 import { StatusBadge } from '../components/StatusBadge';
 import { ContextHealthIndicator } from '../components/ContextHealthIndicator';
@@ -8,6 +7,7 @@ import { PermissionPrompt } from '../components/PermissionPrompt';
 import { QuestionPrompt } from '../components/QuestionPrompt';
 import { MergePrompt } from '../components/MergePrompt';
 import { MultilineInput } from '../components/MultilineInput';
+import { AgentOutputViewport } from '../components/AgentOutputViewport';
 
 interface DetailViewPageProps {
   agent: Agent;
@@ -21,8 +21,6 @@ interface DetailViewPageProps {
   onToggleChatMode?: () => void;
 }
 
-export type OutputViewMode = 'verbose' | 'focused';
-
 export const DetailViewPage = ({
   agent,
   onQuestionResponse,
@@ -35,12 +33,10 @@ export const DetailViewPage = ({
   onToggleChatMode
 }: DetailViewPageProps) => {
   const { stdout } = useStdout();
-  const [scrollOffset, setScrollOffset] = useState(0);
   const [promptScrollOffset, setPromptScrollOffset] = useState(0);
   const [chatInput, setChatInput] = useState('');
   const [chatImages, setChatImages] = useState<Map<string, ImageAttachment>>(new Map());
   const [thinkingIndicator, setThinkingIndicator] = useState<{ show: boolean; duration: number } | null>(null);
-  const [viewMode, setViewMode] = useState<OutputViewMode>('focused');
 
   const handleChatImagePasted = (id: string, path: string, base64: string, mediaType: string) => {
     const attachment: ImageAttachment = {
@@ -69,6 +65,7 @@ export const DetailViewPage = ({
   };
 
   const termHeight = stdout?.rows || 24;
+  const termWidth = stdout?.columns || 80;
 
   const appHeaderHeight = 1;
   const appHelpBarHeight = 3;
@@ -81,29 +78,20 @@ export const DetailViewPage = ({
   const agentTitleHeight = 3;
   const promptHeaderHeight = 1;
   const workDirHeight = 1;
-  const outputBoxOverhead = 4;
+  const outputBoxOverhead = 3;
+  const thinkingHeight = thinkingIndicator?.show ? 1 : 0;
 
   const promptLines = agent.prompt.split('\n');
 
-  const fixedUIHeight = agentTitleHeight + promptHeaderHeight + workDirHeight + outputBoxOverhead + permissionHeight + questionHeight + mergePromptHeight + chatInputHeight;
+  const fixedUIHeight = agentTitleHeight + promptHeaderHeight + workDirHeight + outputBoxOverhead + permissionHeight + questionHeight + mergePromptHeight + chatInputHeight + thinkingHeight;
   const availableForContent = availableForPage - fixedUIHeight;
 
   const maxPromptHeight = Math.max(1, Math.min(promptLines.length, Math.floor(Math.max(0, availableForContent) * 0.3)));
   const promptActualHeight = Math.min(promptLines.length, maxPromptHeight);
 
   const visibleLines = Math.max(1, availableForContent - promptActualHeight);
-  const outputBoxHeight = visibleLines + outputBoxOverhead;
 
-  const filterOutputForFocusedView = (lines: typeof agent.output) => {
-    return lines.filter(line => {
-      const text = line.text;
-      if (text.startsWith('[>] User:')) return true;
-      if (text.startsWith('[>]')) return false;
-      return true;
-    });
-  };
-
-  const filteredOutput = viewMode === 'focused' ? filterOutputForFocusedView(agent.output) : agent.output;
+  const isViewportActive = !chatMode && !agent.pendingPermission && !agent.pendingQuestion && !agent.pendingMerge;
 
   useInput((input, key) => {
     if (chatMode) {
@@ -148,16 +136,6 @@ export const DetailViewPage = ({
       return;
     }
 
-    if (input === 'v') {
-      setViewMode(m => m === 'verbose' ? 'focused' : 'verbose');
-      setScrollOffset(0);
-      return;
-    }
-
-    if (key.upArrow || input === 'k') setScrollOffset(o => Math.max(0, o - 1));
-    if (key.downArrow || input === 'j') setScrollOffset(o => Math.min(Math.max(0, filteredOutput.length - visibleLines), o + 1));
-    if (input === 'g') setScrollOffset(0);
-    if (input === 'G') setScrollOffset(Math.max(0, filteredOutput.length - visibleLines));
     if (input === 'p') setPromptScrollOffset(o => Math.max(0, o - 1));
     if (input === 'P') setPromptScrollOffset(o => Math.min(Math.max(0, promptLines.length - maxPromptHeight), o + 1));
   });
@@ -175,23 +153,6 @@ export const DetailViewPage = ({
       }
     }
   };
-
-  useEffect(() => {
-    const maxScroll = Math.max(0, filteredOutput.length - visibleLines);
-    const atBottom = scrollOffset >= maxScroll - 2;
-    if (atBottom || agent.status === 'working') {
-      setScrollOffset(maxScroll);
-    } else if (scrollOffset > maxScroll) {
-      setScrollOffset(maxScroll);
-    }
-  }, [filteredOutput.length, visibleLines, scrollOffset, agent.status]);
-
-  useEffect(() => {
-    if (agent.pendingPermission || agent.pendingQuestion) {
-      const maxScroll = Math.max(0, filteredOutput.length - visibleLines);
-      setScrollOffset(maxScroll);
-    }
-  }, [agent.pendingPermission, agent.pendingQuestion, filteredOutput.length, visibleLines]);
 
   useEffect(() => {
     if (agent.status !== 'working') {
@@ -245,11 +206,9 @@ export const DetailViewPage = ({
     agent.output.length,
   ]);
 
-  const displayedLines = filteredOutput.slice(scrollOffset, scrollOffset + visibleLines);
   const displayedPromptLines = promptLines.slice(promptScrollOffset, promptScrollOffset + maxPromptHeight);
   const isPending = agent.title === 'Pending...';
   const promptNeedsScroll = promptLines.length > maxPromptHeight;
-  const viewModeLabel = viewMode === 'focused' ? 'focused' : 'all';
 
   return (
     <Box flexDirection="column" flexGrow={1} flexShrink={1} minHeight={0} overflow="hidden">
@@ -281,46 +240,17 @@ export const DetailViewPage = ({
       <Box flexDirection="column" flexShrink={1} flexGrow={1} minHeight={0} borderStyle="round" borderColor="gray" paddingX={1} overflow="hidden">
         <Box flexShrink={0} height={1}>
           <Text dimColor wrap="truncate-end">
-            Output [{viewModeLabel}] ({filteredOutput.length}{viewMode === 'focused' ? `/${agent.output.length}` : ''} lines, scroll: {scrollOffset + 1}-{Math.min(scrollOffset + visibleLines, filteredOutput.length)} of {filteredOutput.length})
+            Output ({agent.output.length} lines)
           </Text>
         </Box>
-        <Box flexDirection="column" flexShrink={1} flexGrow={1} minHeight={0} overflow="hidden">
-          {displayedLines.length === 0 ? (
-            <Text dimColor>Waiting for output...</Text>
-          ) : (
-            displayedLines.map((outputLine, i) => {
-              const line = outputLine.text;
-              const prefix = outputLine.isSubagent ? '  → ' : '';
-              const subagentLabel = outputLine.isSubagent && outputLine.subagentType ? `[${outputLine.subagentType}] ` : '';
-              const actualIndex = scrollOffset + i;
-              const isUserInput = line.startsWith('[>] User:');
-              const isAgentMessage = !line.startsWith('[x]') && !line.startsWith('[+]') && !line.startsWith('[>]') && !line.startsWith('[-]') && !line.startsWith('[!]');
-              const prevLine = i > 0 ? displayedLines[i - 1] : (scrollOffset > 0 ? filteredOutput[scrollOffset - 1] : null);
-              const prevLineText = prevLine?.text ?? '';
-              const prevIsAgentMessage = prevLine && !prevLineText.startsWith('[x]') && !prevLineText.startsWith('[+]') && !prevLineText.startsWith('[>]') && !prevLineText.startsWith('[-]') && !prevLineText.startsWith('[!]');
-              const needsBlankLineAbove = actualIndex > 0 && (isUserInput || (isAgentMessage && !prevIsAgentMessage));
-
-              return (
-                <React.Fragment key={scrollOffset + i}>
-                  {needsBlankLineAbove && <Box><Text> </Text></Box>}
-                  <Box>
-                    <Text wrap="wrap">
-                      {outputLine.isSubagent && <Text dimColor>{prefix}</Text>}
-                      {subagentLabel && <Text color="magenta" dimColor>{subagentLabel}</Text>}
-                      {line.startsWith('[x]') ? <Text color="red">{line}</Text> :
-                        line.startsWith('[+]') ? <Text color="green">{line}</Text> :
-                          isUserInput ? <Text color="blue">{line}</Text> :
-                            line.startsWith('[>]') ? <Text dimColor>{line}</Text> :
-                              line.startsWith('[-]') ? <Text color="yellow">{line}</Text> :
-                                line.startsWith('[!]') ? <Text color="yellow">{line}</Text> :
-                                  line}
-                    </Text>
-                  </Box>
-                </React.Fragment>
-              );
-            })
-          )}
-        </Box>
+        <AgentOutputViewport
+          output={agent.output}
+          height={visibleLines}
+          width={termWidth - 4}
+          isActive={isViewportActive}
+          autoScroll={agent.status === 'working'}
+          subagentStats={agent.subagentStats}
+        />
       </Box>
 
       {thinkingIndicator?.show && (
@@ -431,7 +361,7 @@ export const getDetailViewHelp = (promptNeedsScroll: boolean, canChat: boolean, 
       <>
         <Text color="cyan">↑↓/jk</Text>{' '}Scroll{'  '}
         <Text color="cyan">g/G</Text>{' '}Top/Bottom{'  '}
-        <Text color="cyan">v</Text>{' '}View{'  '}
+        <Text color="cyan">1-9</Text>{' '}Toggle{'  '}
         {promptNeedsScroll && <><Text color="cyan">p/P</Text>{' '}Prompt{'  '}</>}
         <Text color="cyan">q/Esc</Text>{' '}Close
       </>
@@ -442,7 +372,7 @@ export const getDetailViewHelp = (promptNeedsScroll: boolean, canChat: boolean, 
     <>
       <Text color="cyan">↑↓/jk</Text>{' '}Scroll{'  '}
       <Text color="cyan">g/G</Text>{' '}Top/Bottom{'  '}
-      <Text color="cyan">v</Text>{' '}View{'  '}
+      <Text color="cyan">1-9</Text>{' '}Toggle{'  '}
       {promptNeedsScroll && <><Text color="cyan">p/P</Text>{' '}Prompt{'  '}</>}
       {canChat && <><Text color="cyan">i</Text>{' '}Chat{'  '}</>}
       <Text color="cyan">q/Esc</Text>{' '}Close

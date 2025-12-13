@@ -66,7 +66,7 @@ export const WorkflowItem = React.memo(({ workflow, execution, expanded, selecte
       </Box>
       <Box marginLeft={14}>
         <Text dimColor wrap="truncate">
-          {execution.initialPrompt.slice(0, 60)}{execution.initialPrompt.length > 60 ? '...' : ''}
+          {execution.initialPrompt.replace(/\n/g, ' ').slice(0, 60)}{execution.initialPrompt.length > 60 ? '...' : ''}
         </Text>
       </Box>
     </Box>

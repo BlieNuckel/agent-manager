@@ -145,6 +145,21 @@ export function reducer(state: State, action: Action): State {
         workflowExecutions: state.workflowExecutions.filter(exec => exec.executionId !== action.executionId),
         agents: state.agents.filter(a => !action.agentIds.includes(a.id))
       };
+    case 'SET_SUBAGENT_STATS':
+      return {
+        ...state,
+        agents: state.agents.map(a =>
+          a.id === action.id
+            ? {
+                ...a,
+                subagentStats: {
+                  ...a.subagentStats,
+                  [action.subagentId]: action.stats
+                }
+              }
+            : a
+        )
+      };
     default:
       return state;
   }

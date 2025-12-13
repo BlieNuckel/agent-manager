@@ -47,7 +47,7 @@ export const AgentItem = React.memo(({ agent, selected, isWorkflowChild = false 
         </Box>
       </Box>
       <Box marginLeft={14}>
-        <Text dimColor wrap="truncate">{agent.prompt.slice(0, 60)}{agent.prompt.length > 60 ? '...' : ''}</Text>
+        <Text dimColor wrap="truncate">{agent.prompt.replace(/\n/g, ' ').slice(0, 60)}{agent.prompt.length > 60 ? '...' : ''}</Text>
       </Box>
       {agent.worktreeName && (
         <Box marginLeft={14}>

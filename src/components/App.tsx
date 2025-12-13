@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useReducer, useMemo, useRef } from 'react';
 import { useInput, useApp } from 'ink';
 import path from 'path';
-import type { Agent, AgentType, HistoryEntry, Mode, PermissionRequest, QuestionRequest, InputStep, PermissionMode, ImageAttachment, TokenTracking, CustomAgentType, Workflow, WorkflowExecutionState, InboxItem } from '../types';
+import type { Agent, AgentType, HistoryEntry, Mode, PermissionRequest, QuestionRequest, InputStep, PermissionMode, ImageAttachment, TokenTracking, CustomAgentType, Workflow, WorkflowExecutionState, InboxItem, SubagentStats } from '../types';
 import { reducer } from '../state/reducer';
 import { loadHistory, saveHistory } from '../state/history';
 import { AgentSDKManager } from '../agent/manager';
@@ -318,6 +318,9 @@ export const App = () => {
     const onTokenUsage = (id: string, tokenUsage: TokenTracking) => {
       dispatch({ type: 'UPDATE_TOKEN_USAGE', id, tokenUsage });
     };
+    const onSubagentStats = (id: string, stats: SubagentStats) => {
+      dispatch({ type: 'SET_SUBAGENT_STATS', id, subagentId: stats.subagentId, stats });
+    };
 
     agentManager.on('output', onOutput);
     agentManager.on('idle', onIdle);
@@ -328,6 +331,7 @@ export const App = () => {
     agentManager.on('questionRequest', onQuestionRequest);
     agentManager.on('titleUpdate', onTitleUpdate);
     agentManager.on('tokenUsage', onTokenUsage);
+    agentManager.on('subagentStats', onSubagentStats);
 
     return () => {
       agentManager.off('output', onOutput);
@@ -339,6 +343,7 @@ export const App = () => {
       agentManager.off('questionRequest', onQuestionRequest);
       agentManager.off('titleUpdate', onTitleUpdate);
       agentManager.off('tokenUsage', onTokenUsage);
+      agentManager.off('subagentStats', onSubagentStats);
     };
   }, []);
 
