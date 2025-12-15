@@ -9,6 +9,7 @@ stages:
     agentType: research
     name: Research Phase
     description: Explore the codebase to understand current implementation
+    # mediaAccess: ['image']  # Uncomment to give this stage access to attached images
 
   - id: analysis
     agentType: analyze
@@ -51,3 +52,11 @@ This workflow guides you through implementing a new feature with proper research
 - Take time in the research phase to thoroughly explore
 - The analysis phase should result in a clear recommendation
 - Review the plan carefully before approving implementation
+
+## Media Attachments
+
+You can attach images when starting this workflow (press Ctrl+V to paste from clipboard):
+- Images are available to stages that define `mediaAccess: ['image']` in their configuration
+- Stages without `mediaAccess` won't receive the images (saves context)
+- Use images for screenshots, mockups, diagrams, or reference materials
+- Supported formats: PNG, JPEG, GIF, WebP

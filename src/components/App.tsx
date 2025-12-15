@@ -459,6 +459,21 @@ export const App = () => {
     saveHistory(newHistory);
   };
 
+  const shouldStageReceiveImages = (stage: Workflow['stages'][0], images?: ImageAttachment[]): ImageAttachment[] | undefined => {
+    if (!images || images.length === 0) {
+      return undefined;
+    }
+
+    if (!stage.mediaAccess || stage.mediaAccess.length === 0) {
+      return undefined;
+    }
+
+    if (stage.mediaAccess.includes('image')) {
+      return images;
+    }
+
+    return undefined;
+  };
 
   const handleQuestionResponse = (answers: Record<string, string | string[]>) => {
     const agentId = mode === 'workflow-detail' ? workflowAgentId : detailAgentId;
@@ -834,8 +849,8 @@ export const App = () => {
     setMode('normal');
   };
 
-  const handleStartWorkflow = async (workflow: Workflow, prompt: string, worktree?: { enabled: boolean; name: string }) => {
-    const execution = createWorkflowExecution(workflow, prompt);
+  const handleStartWorkflow = async (workflow: Workflow, prompt: string, worktree?: { enabled: boolean; name: string }, images?: ImageAttachment[]) => {
+    const execution = createWorkflowExecution(workflow, prompt, images);
     dispatch({ type: 'START_WORKFLOW', execution });
     setCurrentExecutionId(execution.executionId);
     setMode('normal');
@@ -954,7 +969,8 @@ export const App = () => {
           stageId: firstStage.id
         };
 
-        agentManager.spawn(id, prompt, effectiveWorkDir, 'normal', worktreeContext, agentTitle, undefined, agentType, workflowContext);
+        const stageImages = shouldStageReceiveImages(firstStage, execution.images);
+        agentManager.spawn(id, prompt, effectiveWorkDir, 'normal', worktreeContext, agentTitle, stageImages, agentType, workflowContext);
       }
     }
   };
@@ -986,6 +1002,18 @@ export const App = () => {
     if (nextIdx >= workflow.stages.length) {
       dispatch({ type: 'UPDATE_WORKFLOW_EXECUTION', executionId: currentExecutionId, updates: { status: 'completed', currentStageIndex: nextIdx } });
       setWorkflowAgentId(null);
+
+      if (execution.images && execution.images.length > 0) {
+        const fs = await import('fs/promises');
+        for (const image of execution.images) {
+          try {
+            await fs.unlink(image.path);
+          } catch (err) {
+            // Image might already be cleaned up, ignore error
+          }
+        }
+      }
+
       return;
     }
 
@@ -1032,7 +1060,8 @@ export const App = () => {
         stageId: nextStage.id
       };
 
-      agentManager.spawn(id, prompt, process.cwd(), 'normal', undefined, agent.title, undefined, agentType, workflowContext);
+      const stageImages = shouldStageReceiveImages(nextStage, execution.images);
+      agentManager.spawn(id, prompt, process.cwd(), 'normal', undefined, agent.title, stageImages, agentType, workflowContext);
     }
   };
 
@@ -1068,11 +1097,22 @@ export const App = () => {
     handleWorkflowApprove();
   };
 
-  const handleWorkflowCancel = () => {
+  const handleWorkflowCancel = async () => {
     if (workflowAgentId) {
       agentManager.kill(workflowAgentId);
     }
     if (currentExecutionId) {
+      const execution = state.workflowExecutions.find(e => e.executionId === currentExecutionId);
+      if (execution?.images && execution.images.length > 0) {
+        const fs = await import('fs/promises');
+        for (const image of execution.images) {
+          try {
+            await fs.unlink(image.path);
+          } catch (err) {
+            // Ignore cleanup errors
+          }
+        }
+      }
       dispatch({ type: 'CANCEL_WORKFLOW', executionId: currentExecutionId });
     }
     setWorkflowAgentId(null);

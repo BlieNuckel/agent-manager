@@ -11,6 +11,7 @@ import type {
 } from '../types/workflows';
 import type { CustomAgentType } from '../types/agentTypes';
 import type { Template } from '../types/templates';
+import type { ImageAttachment } from '../types/index.js';
 import { parseFrontmatter } from './frontmatter';
 import { genId } from './helpers';
 
@@ -167,7 +168,8 @@ export function getStageArtifactTemplate(
 
 export function createWorkflowExecution(
   workflow: Workflow,
-  initialPrompt: string
+  initialPrompt: string,
+  images?: ImageAttachment[]
 ): WorkflowExecutionState {
   const stageStates: StageExecutionState[] = workflow.stages.map(stage => ({
     stageId: stage.id,
@@ -180,7 +182,8 @@ export function createWorkflowExecution(
     currentStageIndex: 0,
     status: 'pending',
     stageStates,
-    initialPrompt
+    initialPrompt,
+    images
   };
 }
 

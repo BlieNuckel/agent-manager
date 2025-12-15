@@ -1,3 +1,5 @@
+import { ImageAttachment } from './index.js';
+
 export interface WorkflowStage {
   id: string;
   agentType: string;
@@ -5,6 +7,7 @@ export interface WorkflowStage {
   description?: string;
   artifactTemplate?: string;
   promptAdditions?: string;
+  mediaAccess?: ('image' | 'pdf' | 'video')[];
 }
 
 export interface WorkflowSettings {
@@ -55,4 +58,5 @@ export interface WorkflowExecutionState {
   status: WorkflowExecutionStatus;
   stageStates: StageExecutionState[];
   initialPrompt: string;
+  images?: ImageAttachment[];
 }

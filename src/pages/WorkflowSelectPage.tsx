@@ -1,8 +1,10 @@
 import React, { useState, useMemo } from 'react';
 import { Box, Text, useInput } from 'ink';
 import TextInput from 'ink-text-input';
+import { MultilineInput } from '../components/MultilineInput.js';
 import type { Workflow } from '../types/workflows';
 import type { CustomAgentType } from '../types/agentTypes';
+import type { ImageAttachment } from '../types/index.js';
 import { formatStageSummary } from '../utils/workflows';
 import { getGitRoot, generateUniqueBranchName } from '../git/worktree';
 
@@ -11,7 +13,7 @@ type WorkflowSelectStep = 'workflow' | 'prompt' | 'branchName';
 interface WorkflowSelectPageProps {
   workflows: Workflow[];
   agentTypes: CustomAgentType[];
-  onStart: (workflow: Workflow, prompt: string, worktree?: { enabled: boolean; name: string }) => void;
+  onStart: (workflow: Workflow, prompt: string, worktree?: { enabled: boolean; name: string }, images?: ImageAttachment[]) => void;
   onCancel: () => void;
   onStateChange?: (state: { step: WorkflowSelectStep }) => void;
 }
@@ -22,6 +24,35 @@ export const WorkflowSelectPage = ({ workflows, agentTypes, onStart, onCancel, o
   const [prompt, setPrompt] = useState('');
   const [branchName, setBranchName] = useState('');
   const [gitRoot] = useState(() => getGitRoot());
+  const [images, setImages] = useState<Map<string, ImageAttachment>>(new Map());
+
+  const extractImagesFromPrompt = (promptText: string): ImageAttachment[] => {
+    const imagePattern = /<image:([^>]+)>/g;
+    const matches = [...promptText.matchAll(imagePattern)];
+    const extractedImages: ImageAttachment[] = [];
+
+    for (const match of matches) {
+      const filename = match[1];
+      const imageId = filename.split('.')[0];
+      const image = images.get(imageId);
+      if (image) {
+        extractedImages.push(image);
+      }
+    }
+
+    return extractedImages;
+  };
+
+  const handleImagePasted = (id: string, path: string, base64: string, mediaType: string) => {
+    const newImage: ImageAttachment = {
+      id,
+      path,
+      base64,
+      mediaType: mediaType as ImageAttachment['mediaType'],
+      timestamp: Date.now()
+    };
+    setImages(prev => new Map(prev).set(id, newImage));
+  };
 
   const selectedWorkflowNeedsWorktree = useMemo(() => {
     const workflow = workflows[selectedIndex];
@@ -74,14 +105,16 @@ export const WorkflowSelectPage = ({ workflows, agentTypes, onStart, onCancel, o
         setStep('branchName');
         onStateChange?.({ step: 'branchName' });
       } else {
-        onStart(workflows[selectedIndex], value.trim());
+        const extractedImages = extractImagesFromPrompt(value);
+        onStart(workflows[selectedIndex], value.trim(), undefined, extractedImages.length > 0 ? extractedImages : undefined);
       }
     }
   };
 
   const handleBranchNameSubmit = (value: string) => {
     if (value.trim() && workflows[selectedIndex]) {
-      onStart(workflows[selectedIndex], prompt.trim(), { enabled: true, name: value.trim() });
+      const extractedImages = extractImagesFromPrompt(prompt);
+      onStart(workflows[selectedIndex], prompt.trim(), { enabled: true, name: value.trim() }, extractedImages.length > 0 ? extractedImages : undefined);
     }
   };
 
@@ -119,7 +152,7 @@ export const WorkflowSelectPage = ({ workflows, agentTypes, onStart, onCancel, o
             <Text color="gray">Stages:</Text>
             {selectedWorkflow.stages.map((stage, i) => (
               <Text key={stage.id} dimColor>
-                {'  '}{i + 1}. {stage.name}{stage.description ? ` - ${stage.description}` : ''}
+                {'  '}{i + 1}. {stage.name}{stage.mediaAccess && stage.mediaAccess.includes('image') ? ' 📎' : ''}{stage.description ? ` - ${stage.description}` : ''}
               </Text>
             ))}
           </Box>
@@ -130,13 +163,19 @@ export const WorkflowSelectPage = ({ workflows, agentTypes, onStart, onCancel, o
         <Box marginTop={1} flexDirection="column">
           <Text color="magenta">Task:</Text>
           <Box marginLeft={2}>
-            <TextInput
+            <MultilineInput
               value={prompt}
               onChange={setPrompt}
               onSubmit={handlePromptSubmit}
-              placeholder="Describe your task..."
+              placeholder="Describe your task (Ctrl+V to paste images)..."
+              onImagePasted={handleImagePasted}
             />
           </Box>
+          {images.size > 0 && (
+            <Box marginLeft={2} marginTop={1}>
+              <Text dimColor>📎 {images.size} image{images.size > 1 ? 's' : ''} attached</Text>
+            </Box>
+          )}
         </Box>
       )}
 
