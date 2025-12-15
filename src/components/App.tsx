@@ -202,59 +202,77 @@ export const App = () => {
         return;
       }
 
+      let isLastWorkflowStage = false;
+      let workflowExecution: WorkflowExecutionState | undefined;
+
+      for (const execution of stateRef.current.workflowExecutions) {
+        const stageIdx = execution.stageStates.findIndex(s => s.agentId === id);
+        if (stageIdx >= 0 && execution.stageStates[stageIdx]?.status === 'running') {
+          workflowExecution = execution;
+          const workflow = stateRef.current.workflows.find(w => w.id === execution.workflowId);
+          if (workflow) {
+            isLastWorkflowStage = stageIdx === workflow.stages.length - 1;
+          }
+          break;
+        }
+      }
+
       if (agent?.worktreeName && agent.worktreePath) {
-        const gitRoot = getGitRoot();
-        if (gitRoot) {
-          dispatch({
-            type: 'APPEND_OUTPUT',
-            id,
-            line: { text: '[i] Testing merge viability...', isSubagent: false }
-          });
+        const shouldShowMergePrompt = !workflowExecution || isLastWorkflowStage;
 
-          const mergeResult = await testMerge(gitRoot, agent.worktreeName);
+        if (shouldShowMergePrompt) {
+          const gitRoot = getGitRoot();
+          if (gitRoot) {
+            dispatch({
+              type: 'APPEND_OUTPUT',
+              id,
+              line: { text: '[i] Testing merge viability...', isSubagent: false }
+            });
 
-          if (mergeResult.canMerge && !mergeResult.hasConflicts) {
-            dispatch({
-              type: 'SET_MERGE_STATE',
-              id,
-              mergeState: { branchName: agent.worktreeName, status: 'ready' }
-            });
-            process.stdout.write('\u0007');
-          } else if (mergeResult.hasConflicts) {
-            dispatch({
-              type: 'SET_MERGE_STATE',
-              id,
-              mergeState: {
-                branchName: agent.worktreeName,
-                status: 'conflicts',
-                error: `Conflicts in: ${mergeResult.conflictFiles?.join(', ')}`
-              }
-            });
-            process.stdout.write('\u0007');
-          } else if (mergeResult.error) {
-            dispatch({
-              type: 'SET_MERGE_STATE',
-              id,
-              mergeState: {
-                branchName: agent.worktreeName,
-                status: 'failed',
-                error: mergeResult.error
-              }
-            });
-            process.stdout.write('\u0007');
+            const mergeResult = await testMerge(gitRoot, agent.worktreeName);
+
+            if (mergeResult.canMerge && !mergeResult.hasConflicts) {
+              dispatch({
+                type: 'SET_MERGE_STATE',
+                id,
+                mergeState: { branchName: agent.worktreeName, status: 'ready' }
+              });
+              process.stdout.write('\u0007');
+            } else if (mergeResult.hasConflicts) {
+              dispatch({
+                type: 'SET_MERGE_STATE',
+                id,
+                mergeState: {
+                  branchName: agent.worktreeName,
+                  status: 'conflicts',
+                  error: `Conflicts in: ${mergeResult.conflictFiles?.join(', ')}`
+                }
+              });
+              process.stdout.write('\u0007');
+            } else if (mergeResult.error) {
+              dispatch({
+                type: 'SET_MERGE_STATE',
+                id,
+                mergeState: {
+                  branchName: agent.worktreeName,
+                  status: 'failed',
+                  error: mergeResult.error
+                }
+              });
+              process.stdout.write('\u0007');
+            }
           }
         }
       }
 
       dispatch({ type: 'UPDATE_AGENT', id, updates: { status: 'idle' } });
 
-      for (const execution of stateRef.current.workflowExecutions) {
-        const stageIdx = execution.stageStates.findIndex(s => s.agentId === id);
-        if (stageIdx >= 0 && execution.stageStates[stageIdx]?.status === 'running') {
-          dispatch({ type: 'UPDATE_STAGE_STATE', executionId: execution.executionId, stageIndex: stageIdx, updates: { status: 'awaiting_approval' } });
-          dispatch({ type: 'UPDATE_WORKFLOW_EXECUTION', executionId: execution.executionId, updates: { status: 'awaiting_approval' } });
+      if (workflowExecution) {
+        const stageIdx = workflowExecution.stageStates.findIndex(s => s.agentId === id);
+        if (stageIdx >= 0 && workflowExecution.stageStates[stageIdx]?.status === 'running') {
+          dispatch({ type: 'UPDATE_STAGE_STATE', executionId: workflowExecution.executionId, stageIndex: stageIdx, updates: { status: 'awaiting_approval' } });
+          dispatch({ type: 'UPDATE_WORKFLOW_EXECUTION', executionId: workflowExecution.executionId, updates: { status: 'awaiting_approval' } });
           process.stdout.write('\u0007');
-          break;
         }
       }
     };
@@ -933,6 +951,17 @@ export const App = () => {
               }
             });
 
+            dispatch({
+              type: 'UPDATE_WORKFLOW_EXECUTION',
+              executionId: execution.executionId,
+              updates: {
+                worktreePath: result.worktreePath,
+                worktreeBranchName: result.branchName,
+                worktreeGitRoot: gitRoot,
+                worktreeCurrentBranch: currentBranch
+              }
+            });
+
             debug('Worktree context created for workflow:', worktreeContext);
           }
         }
@@ -1031,13 +1060,32 @@ export const App = () => {
         prompt = `${nextStage.promptAdditions}\n\n${prompt}`;
       }
 
+      let worktreeContext: WorktreeContext | undefined;
+      let effectiveWorkDir = process.cwd();
+
+      if (execution.worktreePath && execution.worktreeBranchName && execution.worktreeGitRoot && execution.worktreeCurrentBranch) {
+        const repoName = getRepoName(execution.worktreeGitRoot);
+        worktreeContext = {
+          enabled: true,
+          suggestedName: execution.worktreeBranchName,
+          gitRoot: execution.worktreeGitRoot,
+          currentBranch: execution.worktreeCurrentBranch,
+          repoName,
+          worktreePath: execution.worktreePath,
+          branchName: execution.worktreeBranchName,
+        };
+        effectiveWorkDir = execution.worktreePath;
+      }
+
       const agent: Agent = {
         id,
         title: `[${workflow.name}] ${nextStage.name}`,
         prompt,
         status: 'working',
         output: [],
-        workDir: process.cwd(),
+        workDir: effectiveWorkDir,
+        worktreePath: execution.worktreePath,
+        worktreeName: execution.worktreeBranchName,
         createdAt: new Date(),
         updatedAt: new Date(),
         agentType: 'normal',
@@ -1061,7 +1109,7 @@ export const App = () => {
       };
 
       const stageImages = shouldStageReceiveImages(nextStage, execution.images);
-      agentManager.spawn(id, prompt, process.cwd(), 'normal', undefined, agent.title, stageImages, agentType, workflowContext);
+      agentManager.spawn(id, prompt, effectiveWorkDir, 'normal', worktreeContext, agent.title, stageImages, agentType, workflowContext);
     }
   };
 

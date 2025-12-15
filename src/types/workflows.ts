@@ -59,4 +59,8 @@ export interface WorkflowExecutionState {
   stageStates: StageExecutionState[];
   initialPrompt: string;
   images?: ImageAttachment[];
+  worktreePath?: string;
+  worktreeBranchName?: string;
+  worktreeGitRoot?: string;
+  worktreeCurrentBranch?: string;
 }
