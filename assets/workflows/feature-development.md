@@ -9,12 +9,13 @@ stages:
     agentType: research
     name: Research Phase
     description: Explore the codebase to understand current implementation
-    # mediaAccess: ['image']  # Uncomment to give this stage access to attached images
+    mediaAccess: ['image']
 
   - id: analysis
     agentType: analyze
     name: Analysis Phase
     description: Research solutions and weigh options
+    mediaAccess: ['image']
 
   - id: planning
     agentType: plan

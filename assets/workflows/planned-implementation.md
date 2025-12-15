@@ -9,6 +9,7 @@ stages:
     agentType: plan
     name: Planning Phase
     description: Create detailed implementation plan
+    mediaAccess: ['image']
 
   - id: implementation
     agentType: implement

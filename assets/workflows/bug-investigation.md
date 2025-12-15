@@ -9,6 +9,7 @@ stages:
     agentType: research
     name: Investigation Phase
     description: Investigate the bug and find the root cause
+    mediaAccess: ['image']
 
   - id: implementation
     agentType: implement
