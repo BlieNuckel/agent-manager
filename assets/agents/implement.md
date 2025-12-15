@@ -8,9 +8,9 @@ tools:
   allow: [Read, Write, Edit, MultiEdit, Glob, Grep, Bash, NotebookEdit]
 
 artifacts:
-  consumes: [plan]
+  consumes: [plan, research]
 
-model: sonnet
+model: opus
 worktree: true
 ---
 ## Role

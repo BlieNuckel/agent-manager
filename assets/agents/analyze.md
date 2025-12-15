@@ -10,7 +10,7 @@ tools:
 
 artifacts:
   produces: analysis
-  compatibleOutputs: [analysis, research]
+  compatibleOutputs: [analysis]
   consumes: [research]
 
 model: opus
