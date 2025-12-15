@@ -11,6 +11,8 @@ interface SubagentBlockProps {
   collapsed: boolean;
   blockNumber: number;
   width: number;
+  skipLines?: number;
+  maxLines?: number;
 }
 
 function formatDuration(ms: number): string {
@@ -35,6 +37,8 @@ export const SubagentBlock = ({
   stats,
   collapsed,
   blockNumber,
+  skipLines = 0,
+  maxLines,
 }: SubagentBlockProps) => {
   const [elapsed, setElapsed] = useState(0);
   const arrow = collapsed ? '▸' : '▾';
@@ -82,14 +86,20 @@ export const SubagentBlock = ({
   );
 
   if (collapsed) {
+    if (skipLines > 0) return null;
     return header;
   }
 
+  const showHeader = skipLines === 0;
+  const contentSkipLines = showHeader ? Math.max(0, skipLines) : Math.max(0, skipLines - 1);
+  const endLine = maxLines !== undefined ? contentSkipLines + (maxLines - (showHeader ? 1 : 0)) : output.length;
+  const visibleOutput = output.slice(contentSkipLines, endLine);
+
   return (
     <Box flexDirection="column">
-      {header}
-      {output.map((line, i) => (
-        <Box key={i} paddingLeft={2}>
+      {showHeader && header}
+      {visibleOutput.map((line, i) => (
+        <Box key={contentSkipLines + i} paddingLeft={2}>
           <Text dimColor>│ </Text>
           <Text wrap="wrap">
             {line.text.startsWith('[x]') ? <Text color="red">{line.text}</Text> :

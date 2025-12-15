@@ -186,16 +186,40 @@ export function groupOutputLines(
   return blocks;
 }
 
-export function getBlockLineCount(block: OutputBlockData, collapsed: boolean): number {
+function estimateWrappedLines(text: string, width: number): number {
+  if (width <= 0) return 1;
+
+  const lines = text.split('\n');
+  let totalLines = 0;
+
+  for (const line of lines) {
+    const cleanLine = line.replace(/\u001b\[[0-9;]+m/g, '');
+    if (cleanLine.length === 0) {
+      totalLines += 1;
+    } else {
+      totalLines += Math.ceil(cleanLine.length / width);
+    }
+  }
+
+  return Math.max(1, totalLines);
+}
+
+export function getBlockLineCount(block: OutputBlockData, collapsed: boolean, width: number = 80): number {
   switch (block.type) {
-    case 'messages':
-      return block.lines.length;
+    case 'messages': {
+      const text = block.lines.join('\n');
+      return estimateWrappedLines(text, width);
+    }
     case 'subagent':
       if (collapsed) return 1;
-      return 1 + block.output.length;
+      return 1 + block.output.reduce((acc, line) => {
+        return acc + estimateWrappedLines(line.text, width - 4);
+      }, 0);
     case 'tool-group':
       if (collapsed) return 1;
-      return 1 + block.lines.length;
+      return 1 + block.lines.reduce((acc, line) => {
+        return acc + estimateWrappedLines(line, width - 4);
+      }, 0);
     case 'status':
     case 'user-input':
       return 1;
