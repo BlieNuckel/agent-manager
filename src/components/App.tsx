@@ -1063,7 +1063,7 @@ export const App = () => {
       const id = genId();
       setWorkflowAgentId(id);
 
-      const lastArtifactPath = getLastArtifactPath(execution);
+      const lastArtifactPath = getLastArtifactPath(execution, nextIdx);
       let prompt = execution.initialPrompt;
       if (nextStage.promptAdditions) {
         prompt = `${nextStage.promptAdditions}\n\n${prompt}`;

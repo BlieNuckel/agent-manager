@@ -192,6 +192,19 @@ describe('getLastArtifactPath', () => {
     };
     expect(getLastArtifactPath(execution)).toBe('/artifacts/research.md');
   });
+
+  it('uses explicit currentStageIndex parameter when provided', () => {
+    const execution: WorkflowExecutionState = {
+      ...createWorkflowExecution(mockWorkflow, 'Test'),
+      currentStageIndex: 0,
+      stageStates: [
+        { stageId: 'research', status: 'approved', artifactPath: '/artifacts/research.md' },
+        { stageId: 'plan', status: 'pending' }
+      ]
+    };
+    expect(getLastArtifactPath(execution, 1)).toBe('/artifacts/research.md');
+    expect(getLastArtifactPath(execution)).toBeUndefined();
+  });
 });
 
 describe('formatStageSummary', () => {

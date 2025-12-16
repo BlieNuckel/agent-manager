@@ -208,8 +208,9 @@ export function shouldAutoApprove(workflow: Workflow, stageId: string): boolean 
   return workflow.settings?.autoApprove?.includes(stageId) ?? false;
 }
 
-export function getLastArtifactPath(execution: WorkflowExecutionState): string | undefined {
-  for (let i = execution.currentStageIndex - 1; i >= 0; i--) {
+export function getLastArtifactPath(execution: WorkflowExecutionState, currentStageIndex?: number): string | undefined {
+  const stageIndex = currentStageIndex ?? execution.currentStageIndex;
+  for (let i = stageIndex - 1; i >= 0; i--) {
     const stageState = execution.stageStates[i];
     if (stageState?.artifactPath) {
       return stageState.artifactPath;
