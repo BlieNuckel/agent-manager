@@ -6,13 +6,13 @@ import { debug } from '../utils/logger';
 const execAsync = promisify(exec);
 
 export class CommandExecutor {
-	async execute(command: Command): Promise<CommandResult> {
-		debug(`Executing command: ${command.id} (${command.type})`);
+	async execute(command: Command, args: string[] = []): Promise<CommandResult> {
+		debug(`Executing command: ${command.id} (${command.type}) with args:`, args);
 
 		try {
 			switch (command.type) {
 				case 'shell':
-					return await this.executeShell(command);
+					return await this.executeShell(command, args);
 				case 'typescript':
 					return {
 						success: false,
@@ -38,11 +38,25 @@ export class CommandExecutor {
 		}
 	}
 
-	private async executeShell(command: Command): Promise<CommandResult> {
+	private async executeShell(command: Command, args: string[]): Promise<CommandResult> {
 		try {
-			const { stdout, stderr } = await execAsync(command.script!, {
+			// Replace placeholders in the script with arguments
+			let script = command.script!;
+
+			// Replace positional placeholders like $1, $2, etc.
+			args.forEach((arg, index) => {
+				script = script.replace(new RegExp(`\\$${index + 1}`, 'g'), arg);
+			});
+
+			// Also set them as environment variables
+			const env: Record<string, string | undefined> = { ...process.env };
+			args.forEach((arg, index) => {
+				env[`ARG_${index + 1}`] = arg;
+			});
+
+			const { stdout, stderr } = await execAsync(script, {
 				shell: '/bin/bash',
-				env: { ...process.env },
+				env,
 			});
 
 			if (stderr && !stdout) {

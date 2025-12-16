@@ -3,6 +3,7 @@ import { Box, useStdout } from 'ink';
 import { Header } from './Header';
 import { HelpBar } from './HelpBar';
 import { SplitPane } from './SplitPane';
+import { Command } from '../commands/types';
 
 interface PaneConfig {
   content: ReactNode;
@@ -20,10 +21,28 @@ interface LayoutProps {
   artifactDeletePrompt?: ReactNode;
   workflowDeletePrompt?: ReactNode;
   hoverWindows?: ReactNode;
-  floatingWindows?: ReactNode;
+  commandMode?: boolean;
+  commands?: Command[];
+  onCommandExecute?: (command: Command, args: string[]) => void;
+  onCommandCancel?: () => void;
 }
 
-export const Layout = ({ activeCount, waitingCount, helpContent, children, splitPanes, quitPrompt, deletePrompt, artifactDeletePrompt, workflowDeletePrompt, hoverWindows, floatingWindows }: LayoutProps) => {
+export const Layout = ({
+  activeCount,
+  waitingCount,
+  helpContent,
+  children,
+  splitPanes,
+  quitPrompt,
+  deletePrompt,
+  artifactDeletePrompt,
+  workflowDeletePrompt,
+  hoverWindows,
+  commandMode,
+  commands,
+  onCommandExecute,
+  onCommandCancel
+}: LayoutProps) => {
   const { stdout } = useStdout();
   const height = stdout?.rows ?? 24;
 
@@ -67,11 +86,17 @@ export const Layout = ({ activeCount, waitingCount, helpContent, children, split
         )}
 
         <Box flexShrink={0}>
-          <HelpBar>{helpContent}</HelpBar>
+          <HelpBar
+            commandMode={commandMode}
+            commands={commands}
+            onCommandExecute={onCommandExecute}
+            onCommandCancel={onCommandCancel}
+          >
+            {helpContent}
+          </HelpBar>
         </Box>
       </Box>
       {hoverWindows}
-      {floatingWindows}
     </Box>
   );
 };

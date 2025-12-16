@@ -22,9 +22,7 @@ import { QuitConfirmationPrompt } from './QuitConfirmationPrompt';
 import { DeleteConfirmationPrompt } from './DeleteConfirmationPrompt';
 import { WorkflowDeleteConfirmationPrompt } from './WorkflowDeleteConfirmationPrompt';
 import { ArtifactDeleteConfirmationPrompt } from './ArtifactDeleteConfirmationPrompt';
-import { CommandPalette } from './CommandPalette';
 import { CommandResult } from './CommandResult';
-import { FloatingWindow } from './FloatingWindow';
 import { CommandLoader } from '../commands/loader';
 import { CommandExecutor } from '../commands/executor';
 import type { Command, CommandResult as CommandResultType } from '../commands/types';
@@ -58,7 +56,7 @@ export const App = () => {
   const [commands, setCommands] = useState<Command[]>([]);
   const [commandsLoading, setCommandsLoading] = useState(false);
   const [commandResult, setCommandResult] = useState<{ result: CommandResultType; commandName: string } | null>(null);
-  const [showCommandPalette, setShowCommandPalette] = useState(false);
+  const [commandMode, setCommandMode] = useState(false);
   const [workflowSelectStep, setWorkflowSelectStep] = useState<'workflow' | 'prompt' | 'branchName'>('workflow');
   const [workflowAgentId, setWorkflowAgentId] = useState<string | null>(null);
   const [expandedWorkflows, setExpandedWorkflows] = useState<Set<string>>(new Set());
@@ -838,7 +836,7 @@ export const App = () => {
 
   const handleOpenCommandPalette = async () => {
     setCommandsLoading(true);
-    setShowCommandPalette(true);
+    setCommandMode(true);
     try {
       const loadedCommands = await commandLoader.loadCommands();
       setCommands(loadedCommands);
@@ -850,12 +848,13 @@ export const App = () => {
     }
   };
 
-  const handleExecuteCommand = async (command: Command) => {
-    debug('Executing command:', command.id);
-    setShowCommandPalette(false);
+
+  const handleVimCommandExecute = async (command: Command, args: string[]) => {
+    debug('Executing command with args:', command.id, args);
+    setCommandMode(false);
 
     try {
-      const result = await commandExecutor.execute(command);
+      const result = await commandExecutor.execute(command, args);
       setCommandResult({ result, commandName: command.name });
       setMode('command-result');
     } catch (error: any) {
@@ -868,9 +867,10 @@ export const App = () => {
     }
   };
 
-  const handleCommandCancel = () => {
-    setShowCommandPalette(false);
+  const handleVimCommandCancel = () => {
+    setCommandMode(false);
   };
+
 
   const handleResultDismiss = () => {
     setCommandResult(null);
@@ -1220,7 +1220,7 @@ export const App = () => {
       return;
     }
 
-    if (mode === 'detail' || mode === 'input' || mode === 'command-result' || mode === 'new-artifact' || mode === 'workflow-select' || mode === 'workflow-detail' || showCommandPalette) return
+    if (mode === 'detail' || mode === 'input' || mode === 'command-result' || mode === 'new-artifact' || mode === 'workflow-select' || mode === 'workflow-detail' || commandMode) return
 
     if (key.tab) {
       if (key.shift) {
@@ -1605,29 +1605,22 @@ export const App = () => {
     />
   ) : undefined;
 
-  const commandPaletteWindow = showCommandPalette ? (
-    <FloatingWindow
-      width={80}
-      height={22}
-      position="center"
-      showBorder={true}
-      borderColor="cyan"
-      borderStyle="round"
-      showBackdrop={true}
-      backdropDim={true}
-      padding={1}
-    >
-      <CommandPalette
-        commands={commands}
-        onExecute={handleExecuteCommand}
-        onCancel={handleCommandCancel}
-        loading={commandsLoading}
-      />
-    </FloatingWindow>
-  ) : undefined;
 
   return (
-    <Layout activeCount={activeCount} waitingCount={waitingCount} helpContent={help} splitPanes={splitPanes} quitPrompt={quitPrompt} deletePrompt={deletePrompt} artifactDeletePrompt={artifactDeletePromptEl} workflowDeletePrompt={workflowDeletePromptEl} floatingWindows={commandPaletteWindow}>
+    <Layout
+      activeCount={activeCount}
+      waitingCount={waitingCount}
+      helpContent={help}
+      splitPanes={splitPanes}
+      quitPrompt={quitPrompt}
+      deletePrompt={deletePrompt}
+      artifactDeletePrompt={artifactDeletePromptEl}
+      workflowDeletePrompt={workflowDeletePromptEl}
+      commandMode={commandMode}
+      commands={commands}
+      onCommandExecute={handleVimCommandExecute}
+      onCommandCancel={handleVimCommandCancel}
+    >
       {content}
     </Layout>
   );
