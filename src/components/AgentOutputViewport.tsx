@@ -5,6 +5,7 @@ import {
   groupOutputLines,
   getBlockLineCount,
   isCollapsibleBlock,
+  convertBlockViewport,
   StatusLine,
   UserInputLine,
   MessageBlock,
@@ -143,7 +144,7 @@ export const AgentOutputViewport = ({
   }, [blocks, collapsedBlocks, width]);
 
   const visibleBlocks = useMemo(() => {
-    const visible: { block: OutputBlockData; collapsed: boolean; blockNumber: number; skipLines: number; maxLines: number }[] = [];
+    const visible: { block: OutputBlockData; collapsed: boolean; blockNumber: number; skipLines: number; maxLines?: number; showHeader: boolean }[] = [];
     const endLine = scrollOffset + height;
 
     for (const { block, lineIndex, collapsed, blockNumber } of renderBlocks) {
@@ -151,9 +152,19 @@ export const AgentOutputViewport = ({
       const blockEnd = lineIndex + blockLines;
 
       if (blockEnd > scrollOffset && lineIndex < endLine) {
-        const skipLines = Math.max(0, scrollOffset - lineIndex);
-        const maxLines = Math.min(blockLines - skipLines, height - (lineIndex + skipLines - scrollOffset));
-        visible.push({ block, collapsed, blockNumber, skipLines, maxLines });
+        const skipWrappedLines = Math.max(0, scrollOffset - lineIndex);
+        const maxWrappedLines = Math.min(blockLines - skipWrappedLines, height - (lineIndex + skipWrappedLines - scrollOffset));
+
+        const viewport = convertBlockViewport(block, collapsed, width, skipWrappedLines, maxWrappedLines);
+
+        visible.push({
+          block,
+          collapsed,
+          blockNumber,
+          skipLines: viewport.skipLines,
+          maxLines: viewport.maxLines,
+          showHeader: viewport.showHeader,
+        });
       }
     }
 
@@ -165,7 +176,8 @@ export const AgentOutputViewport = ({
     collapsed: boolean,
     blockNumber: number,
     skipLines: number,
-    maxLines: number
+    maxLines: number | undefined,
+    showHeader: boolean
   ) => {
     switch (block.type) {
       case 'messages':
@@ -200,6 +212,7 @@ export const AgentOutputViewport = ({
             blockNumber={blockNumber}
             skipLines={skipLines}
             maxLines={maxLines}
+            showHeader={showHeader}
           />
         );
 
@@ -217,6 +230,7 @@ export const AgentOutputViewport = ({
             width={width}
             skipLines={skipLines}
             maxLines={maxLines}
+            showHeader={showHeader}
           />
         );
     }
@@ -232,8 +246,8 @@ export const AgentOutputViewport = ({
 
   return (
     <Box flexDirection="column" height={height} overflow="hidden">
-      {visibleBlocks.map(({ block, collapsed, blockNumber, skipLines, maxLines }) =>
-        renderBlock(block, collapsed, blockNumber, skipLines, maxLines)
+      {visibleBlocks.map(({ block, collapsed, blockNumber, skipLines, maxLines, showHeader }) =>
+        renderBlock(block, collapsed, blockNumber, skipLines, maxLines, showHeader)
       )}
     </Box>
   );

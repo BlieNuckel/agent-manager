@@ -242,3 +242,144 @@ export function getBlockLineCount(block: OutputBlockData, collapsed: boolean, wi
 export function isCollapsibleBlock(block: OutputBlockData): boolean {
   return block.type === 'subagent' || block.type === 'tool-group';
 }
+
+export interface SourceLineMapping {
+  skipSourceLines: number;
+  maxSourceLines?: number;
+}
+
+function mapWrappedLinesToSourceLines(
+  sourceLines: string[],
+  width: number,
+  skipWrappedLines: number,
+  maxWrappedLines?: number
+): SourceLineMapping {
+  if (skipWrappedLines === 0 && maxWrappedLines === undefined) {
+    return { skipSourceLines: 0, maxSourceLines: undefined };
+  }
+
+  if (sourceLines.length === 0) {
+    return { skipSourceLines: 0, maxSourceLines: 0 };
+  }
+
+  let cumulativeWrappedLines = 0;
+  let startSourceLine = 0;
+  let endSourceLine = sourceLines.length;
+  let foundStart = false;
+  let wrappedLinesFromStart = 0;
+
+  for (let i = 0; i < sourceLines.length; i++) {
+    const linesForThisSource = estimateWrappedLines(sourceLines[i], width);
+    const nextCumulative = cumulativeWrappedLines + linesForThisSource;
+
+    if (!foundStart && nextCumulative > skipWrappedLines) {
+      startSourceLine = i;
+      foundStart = true;
+      wrappedLinesFromStart = 0;
+    }
+
+    if (foundStart) {
+      wrappedLinesFromStart += linesForThisSource;
+
+      if (maxWrappedLines !== undefined && wrappedLinesFromStart >= maxWrappedLines) {
+        endSourceLine = i + 1;
+        break;
+      }
+    }
+
+    cumulativeWrappedLines = nextCumulative;
+  }
+
+  if (!foundStart) {
+    return { skipSourceLines: sourceLines.length, maxSourceLines: 0 };
+  }
+
+  const maxSourceLines = maxWrappedLines !== undefined
+    ? Math.max(1, endSourceLine - startSourceLine)
+    : undefined;
+
+  return {
+    skipSourceLines: startSourceLine,
+    maxSourceLines,
+  };
+}
+
+export function convertBlockViewport(
+  block: OutputBlockData,
+  collapsed: boolean,
+  width: number,
+  skipWrappedLines: number,
+  maxWrappedLines?: number
+): { showHeader: boolean; skipLines: number; maxLines?: number } {
+  if (collapsed) {
+    return {
+      showHeader: skipWrappedLines === 0,
+      skipLines: 0,
+      maxLines: skipWrappedLines === 0 ? 1 : 0,
+    };
+  }
+
+  switch (block.type) {
+    case 'messages': {
+      const text = block.lines.join('\n');
+      const sourceLines = text.split('\n');
+      const mapping = mapWrappedLinesToSourceLines(sourceLines, width, skipWrappedLines, maxWrappedLines);
+      return {
+        showHeader: true,
+        skipLines: mapping.skipSourceLines,
+        maxLines: mapping.maxSourceLines,
+      };
+    }
+
+    case 'tool-group': {
+      const showHeader = skipWrappedLines === 0;
+      const contentSkip = showHeader ? 0 : skipWrappedLines - 1;
+      const contentMax = maxWrappedLines !== undefined
+        ? maxWrappedLines - (showHeader ? 1 : 0)
+        : undefined;
+
+      const mapping = mapWrappedLinesToSourceLines(
+        block.lines,
+        width - 4,
+        contentSkip,
+        contentMax
+      );
+
+      return {
+        showHeader,
+        skipLines: mapping.skipSourceLines,
+        maxLines: mapping.maxSourceLines,
+      };
+    }
+
+    case 'subagent': {
+      const showHeader = skipWrappedLines === 0;
+      const contentSkip = showHeader ? 0 : skipWrappedLines - 1;
+      const contentMax = maxWrappedLines !== undefined
+        ? maxWrappedLines - (showHeader ? 1 : 0)
+        : undefined;
+
+      const outputTexts = block.output.map(line => line.text);
+      const mapping = mapWrappedLinesToSourceLines(
+        outputTexts,
+        width - 4,
+        contentSkip,
+        contentMax
+      );
+
+      return {
+        showHeader,
+        skipLines: mapping.skipSourceLines,
+        maxLines: mapping.maxSourceLines,
+      };
+    }
+
+    case 'status':
+    case 'user-input':
+      return {
+        showHeader: true,
+        skipLines: 0,
+        maxLines: skipWrappedLines === 0 ? 1 : 0,
+      };
+  }
+}
