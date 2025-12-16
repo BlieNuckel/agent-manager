@@ -194,6 +194,7 @@ export const AgentOutputViewport = ({
           <ToolGroupBlock
             key={block.id}
             count={block.count}
+            errorCount={block.errorCount}
             lines={block.lines}
             collapsed={collapsed}
             blockNumber={blockNumber}

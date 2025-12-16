@@ -3,6 +3,7 @@ import { Box, Text } from 'ink';
 
 interface ToolGroupBlockProps {
   count: number;
+  errorCount: number;
   lines: string[];
   collapsed: boolean;
   blockNumber: number;
@@ -12,6 +13,7 @@ interface ToolGroupBlockProps {
 
 export const ToolGroupBlock = ({
   count,
+  errorCount,
   lines,
   collapsed,
   blockNumber,
@@ -19,13 +21,15 @@ export const ToolGroupBlock = ({
   maxLines,
 }: ToolGroupBlockProps) => {
   const arrow = collapsed ? '▸' : '▾';
+  const countText = `${count} tool call${count !== 1 ? 's' : ''}`;
 
   if (collapsed) {
     if (skipLines > 0) return null;
     return (
       <Box>
         <Text dimColor>
-          <Text color="cyan">[{blockNumber}]</Text> {arrow} {count} tool call{count !== 1 ? 's' : ''}
+          <Text color="cyan">[{blockNumber}]</Text> {arrow} {countText}
+          {errorCount > 0 && <Text color="red"> ({errorCount} error{errorCount !== 1 ? 's' : ''})</Text>}
         </Text>
       </Box>
     );
@@ -41,15 +45,19 @@ export const ToolGroupBlock = ({
       {showHeader && (
         <Box>
           <Text dimColor>
-            <Text color="cyan">[{blockNumber}]</Text> {arrow} {count} tool call{count !== 1 ? 's' : ''}
+            <Text color="cyan">[{blockNumber}]</Text> {arrow} {countText}
+            {errorCount > 0 && <Text color="red"> ({errorCount} error{errorCount !== 1 ? 's' : ''})</Text>}
           </Text>
         </Box>
       )}
-      {visibleLines.map((line, i) => (
-        <Box key={contentSkipLines + i} paddingLeft={4}>
-          <Text dimColor>{line}</Text>
-        </Box>
-      ))}
+      {visibleLines.map((line, i) => {
+        const isError = line.trim().startsWith('Error:');
+        return (
+          <Box key={contentSkipLines + i} paddingLeft={4}>
+            <Text dimColor={!isError} color={isError ? 'red' : undefined}>{line}</Text>
+          </Box>
+        );
+      })}
     </Box>
   );
 };

@@ -68,11 +68,19 @@ interface QueryEntry {
   activeSubagents: Map<string, ActiveSubagentData>;
 }
 
+export interface ToolStatusUpdate {
+  toolCallId: string;
+  status: 'success' | 'error';
+  prefix: '[✓]' | '[×]';
+  error?: string;
+}
+
 export class AgentSDKManager extends EventEmitter {
   private queries: Map<string, QueryEntry> = new Map();
   private agentStates: Map<string, { agentType: AgentType; hasTitle: boolean; permissionMode: PermissionMode; toolConfig?: AgentToolConfig }> = new Map();
   private thinkingStates: Map<string, boolean> = new Map();
   private tokenTracking: Map<string, TokenTracking> = new Map();
+  private pendingTools: Map<string, { agentId: string; timestamp: number }> = new Map();
   private static commandsCache: SlashCommand[] | null = null;
 
   private getPermissionModeForAgentType(agentType: AgentType): PermissionMode {
@@ -480,6 +488,17 @@ export class AgentSDKManager extends EventEmitter {
           }
         }
 
+        for (const [toolCallId, toolInfo] of Array.from(this.pendingTools.entries())) {
+          if (toolInfo.agentId === id) {
+            this.emit('updateToolStatus', id, {
+              toolCallId,
+              status: 'success',
+              prefix: '[✓]',
+            });
+            this.pendingTools.delete(toolCallId);
+          }
+        }
+
         const wasThinking = this.thinkingStates.get(id) || false;
         let hasThinking = false;
         let hasNonThinking = false;
@@ -509,7 +528,23 @@ export class AgentSDKManager extends EventEmitter {
 
             if (!isSubagent || (content.name !== 'Task' && PERMISSION_REQUIRED_TOOLS.includes(content.name))) {
               const inputSummary = this.formatToolInput(content.name, content.input as Record<string, unknown>);
-              this.emit('output', id, `[>] ${content.name}(${inputSummary})`, isSubagent, subagentInfo.subagentId, subagentInfo.subagentType, Date.now());
+              const toolCallId = content.id;
+              const outputLine = {
+                text: `[>] ${content.name}(${inputSummary})`,
+                toolCallId: toolCallId,
+                toolStatus: 'pending' as const,
+                isSubagent,
+                subagentId: isSubagent ? subagentInfo.subagentId : undefined,
+                subagentType: isSubagent ? subagentInfo.subagentType : undefined,
+                timestamp: Date.now(),
+              };
+
+              this.emit('output', id, outputLine);
+
+              this.pendingTools.set(toolCallId, {
+                agentId: id,
+                timestamp: Date.now()
+              });
             }
           }
         }
