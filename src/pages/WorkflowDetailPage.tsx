@@ -6,6 +6,7 @@ import { WorkflowProgress } from '../components/WorkflowProgress';
 import { StatusBadge } from '../components/StatusBadge';
 import { PermissionPrompt } from '../components/PermissionPrompt';
 import { QuestionPrompt } from '../components/QuestionPrompt';
+import { MergePrompt } from '../components/MergePrompt';
 import { AgentOutputViewport } from '../components/AgentOutputViewport';
 import { canSkipStage, getLastArtifactPath } from '../utils/workflows';
 
@@ -19,6 +20,9 @@ interface WorkflowDetailPageProps {
   onCancelWorkflow: () => void;
   onQuestionResponse: (answers: Record<string, string | string[]>) => void;
   onPermissionResponse: (allowed: boolean) => void;
+  onMergeResponse: (approved: boolean) => void;
+  onResolveMerge: () => void;
+  onDraftPR: () => void;
   onClose: () => void;
 }
 
@@ -32,6 +36,9 @@ export const WorkflowDetailPage = ({
   onCancelWorkflow,
   onQuestionResponse,
   onPermissionResponse,
+  onMergeResponse,
+  onResolveMerge,
+  onDraftPR,
   onClose
 }: WorkflowDetailPageProps) => {
   const { stdout } = useStdout();
@@ -51,16 +58,54 @@ export const WorkflowDetailPage = ({
   const approvalHeight = isAwaitingApproval ? 3 : 0;
   const permissionHeight = currentAgent?.pendingPermission ? 16 : 0;
   const questionHeight = currentAgent?.pendingQuestion ? 14 : 0;
+  const mergeHeight = currentAgent?.pendingMerge ? 7 : 0;
   const outputBoxOverhead = 3;
 
-  const fixedHeight = headerHeight + progressHeight + stageInfoHeight + artifactInfoHeight + approvalHeight + permissionHeight + questionHeight + outputBoxOverhead;
+  const fixedHeight = headerHeight + progressHeight + stageInfoHeight + artifactInfoHeight + approvalHeight + permissionHeight + questionHeight + mergeHeight + outputBoxOverhead;
   const visibleLines = Math.max(5, termHeight - fixedHeight);
 
   const output = currentAgent?.output || [];
-  const isViewportActive = !currentAgent?.pendingPermission && !currentAgent?.pendingQuestion;
+  const isViewportActive = !currentAgent?.pendingPermission && !currentAgent?.pendingQuestion && !currentAgent?.pendingMerge;
 
   useInput((input, key) => {
-    if (isAwaitingApproval && !currentAgent?.pendingPermission && !currentAgent?.pendingQuestion) {
+    if (currentAgent?.pendingMerge) {
+      const mergeStatus = currentAgent.pendingMerge.status;
+
+      if (mergeStatus === 'ready') {
+        if (input === 'y') {
+          onMergeResponse(true);
+          return;
+        }
+        if (input === 'n') {
+          onMergeResponse(false);
+          return;
+        }
+        if (input === 'p') {
+          onDraftPR();
+          return;
+        }
+      }
+
+      if (mergeStatus === 'conflicts' || mergeStatus === 'failed') {
+        if (input === 'r') {
+          onResolveMerge();
+          return;
+        }
+      }
+
+      if (mergeStatus === 'pr-created') {
+        if (input === 'y') {
+          onMergeResponse(true);
+          return;
+        }
+        if (input === 'n') {
+          onMergeResponse(false);
+          return;
+        }
+      }
+    }
+
+    if (isAwaitingApproval && !currentAgent?.pendingPermission && !currentAgent?.pendingQuestion && !currentAgent?.pendingMerge) {
       if (input === 'a' || input === 'y') {
         onApproveStage();
         return;
@@ -163,7 +208,16 @@ export const WorkflowDetailPage = ({
         />
       )}
 
-      {isAwaitingApproval && !currentAgent?.pendingPermission && !currentAgent?.pendingQuestion && (
+      {currentAgent?.pendingMerge && (
+        <MergePrompt
+          mergeState={currentAgent.pendingMerge}
+          onApprove={() => onMergeResponse(true)}
+          onDeny={() => onMergeResponse(false)}
+          onDraftPR={onDraftPR}
+        />
+      )}
+
+      {isAwaitingApproval && !currentAgent?.pendingPermission && !currentAgent?.pendingQuestion && !currentAgent?.pendingMerge && (
         <Box marginTop={1} borderStyle="single" borderColor="cyan" paddingX={1}>
           <Text color="cyan" bold>Stage complete. </Text>
           <Text>[<Text color="green">a</Text>]pprove </Text>
@@ -181,8 +235,8 @@ export const WorkflowDetailPage = ({
   );
 };
 
-export const getWorkflowDetailHelp = (isAwaitingApproval: boolean, canSkip: boolean, hasPendingPermission: boolean, hasPendingQuestion: boolean) => {
-  if (hasPendingPermission || hasPendingQuestion) {
+export const getWorkflowDetailHelp = (isAwaitingApproval: boolean, canSkip: boolean, hasPendingPermission: boolean, hasPendingQuestion: boolean, hasPendingMerge: boolean) => {
+  if (hasPendingPermission || hasPendingQuestion || hasPendingMerge) {
     return (
       <>
         <Text color="cyan">↑↓jk</Text> Scroll{' '}
