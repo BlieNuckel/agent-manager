@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useReducer, useMemo, useRef } from 'react';
 import { useInput, useApp } from 'ink';
 import path from 'path';
-import type { Agent, AgentType, HistoryEntry, Mode, PermissionRequest, QuestionRequest, InputStep, PermissionMode, ImageAttachment, TokenTracking, CustomAgentType, Workflow, WorkflowExecutionState, InboxItem, SubagentStats } from '../types';
+import type { Agent, AgentType, HistoryEntry, Mode, PermissionRequest, QuestionRequest, InputStep, PermissionMode, ImageAttachment, TokenTracking, CustomAgentType, Workflow, WorkflowExecutionState, InboxItem, SubagentStats, TodoItem } from '../types';
 import { reducer } from '../state/reducer';
 import { loadHistory, saveHistory } from '../state/history';
 import { AgentSDKManager } from '../agent/manager';
@@ -344,6 +344,10 @@ export const App = () => {
     const onSubagentStats = (id: string, stats: SubagentStats) => {
       dispatch({ type: 'SET_SUBAGENT_STATS', id, subagentId: stats.subagentId, stats });
     };
+    const onTodosUpdate = (id: string, todos: TodoItem[]) => {
+      debug('Todos update received in UI:', { id, todosCount: todos.length });
+      dispatch({ type: 'UPDATE_AGENT_TODOS', id, todos });
+    };
 
     agentManager.on('output', onOutput);
     agentManager.on('updateToolStatus', onUpdateToolStatus);
@@ -356,6 +360,7 @@ export const App = () => {
     agentManager.on('titleUpdate', onTitleUpdate);
     agentManager.on('tokenUsage', onTokenUsage);
     agentManager.on('subagentStats', onSubagentStats);
+    agentManager.on('todosUpdate', onTodosUpdate);
 
     return () => {
       agentManager.off('output', onOutput);
@@ -369,6 +374,7 @@ export const App = () => {
       agentManager.off('titleUpdate', onTitleUpdate);
       agentManager.off('tokenUsage', onTokenUsage);
       agentManager.off('subagentStats', onSubagentStats);
+      agentManager.off('todosUpdate', onTodosUpdate);
     };
   }, []);
 

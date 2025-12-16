@@ -8,6 +8,7 @@ import { QuestionPrompt } from '../components/QuestionPrompt';
 import { MergePrompt } from '../components/MergePrompt';
 import { MultilineInput } from '../components/MultilineInput';
 import { AgentOutputViewport } from '../components/AgentOutputViewport';
+import { TodoOverlay } from '../components/TodoOverlay';
 
 interface DetailViewPageProps {
   agent: Agent;
@@ -37,6 +38,7 @@ export const DetailViewPage = ({
   const [chatInput, setChatInput] = useState('');
   const [chatImages, setChatImages] = useState<Map<string, ImageAttachment>>(new Map());
   const [thinkingIndicator, setThinkingIndicator] = useState<{ show: boolean; duration: number } | null>(null);
+  const [showTodos, setShowTodos] = useState(false);
 
   const handleChatImagePasted = (id: string, path: string, base64: string, mediaType: string) => {
     const attachment: ImageAttachment = {
@@ -80,10 +82,11 @@ export const DetailViewPage = ({
   const workDirHeight = 1;
   const outputBoxOverhead = 3;
   const thinkingHeight = thinkingIndicator?.show ? 1 : 0;
+  const todoOverlayHeight = showTodos && agent.todos ? Math.min(15, 5 + agent.todos.length) : 0;
 
   const promptLines = agent.prompt.split('\n');
 
-  const fixedUIHeight = agentTitleHeight + promptHeaderHeight + workDirHeight + outputBoxOverhead + permissionHeight + questionHeight + mergePromptHeight + chatInputHeight + thinkingHeight;
+  const fixedUIHeight = agentTitleHeight + promptHeaderHeight + workDirHeight + outputBoxOverhead + permissionHeight + questionHeight + mergePromptHeight + chatInputHeight + thinkingHeight + todoOverlayHeight;
   const availableForContent = availableForPage - fixedUIHeight;
 
   const maxPromptHeight = Math.max(1, Math.min(promptLines.length, Math.floor(Math.max(0, availableForContent) * 0.3)));
@@ -138,6 +141,10 @@ export const DetailViewPage = ({
 
     if (input === 'p') setPromptScrollOffset(o => Math.max(0, o - 1));
     if (input === 'P') setPromptScrollOffset(o => Math.min(Math.max(0, promptLines.length - maxPromptHeight), o + 1));
+
+    if (input === 't') {
+      setShowTodos(prev => !prev);
+    }
   });
 
   const handleChatSubmit = (value: string) => {
@@ -284,6 +291,10 @@ export const DetailViewPage = ({
         />
       )}
 
+      {showTodos && agent.todos && (
+        <TodoOverlay todos={agent.todos} />
+      )}
+
       {chatMode && (
         <Box flexDirection="column" flexShrink={0} borderStyle="single" borderColor="cyan" paddingX={1}>
           <Text color="cyan" bold>Send message (Ctrl+V to paste image, Esc to cancel):</Text>
@@ -374,6 +385,7 @@ export const getDetailViewHelp = (promptNeedsScroll: boolean, canChat: boolean, 
       <Text color="cyan">g/G</Text>{' '}Top/Bottom{'  '}
       <Text color="cyan">1-9</Text>{' '}Toggle{'  '}
       {promptNeedsScroll && <><Text color="cyan">p/P</Text>{' '}Prompt{'  '}</>}
+      <Text color="cyan">t</Text>{' '}Todos{'  '}
       {canChat && <><Text color="cyan">i</Text>{' '}Chat{'  '}</>}
       <Text color="cyan">q/Esc</Text>{' '}Close
     </>

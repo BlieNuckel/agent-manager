@@ -13,6 +13,12 @@ export type Status = 'working' | 'waiting' | 'idle' | 'done' | 'error';
 export type Mode = 'normal' | 'input' | 'detail' | 'detail-chat' | 'command-result' | 'new-artifact' | 'workflow-select' | 'workflow-detail';
 export type InputStep = 'title' | 'prompt' | 'agentType' | 'artifact' | 'worktree' | 'worktreeName';
 
+export interface TodoItem {
+  content: string;
+  status: 'pending' | 'in_progress' | 'completed';
+  activeForm: string;
+}
+
 export type { Template, TemplateFrontmatter };
 export type AgentType = 'normal' | 'planning' | 'auto-accept';
 
@@ -121,6 +127,7 @@ export interface Agent {
   tokenUsage?: TokenTracking;
   customAgentTypeId?: string;
   subagentStats?: Record<string, SubagentStats>;
+  todos?: TodoItem[];
 }
 
 export interface HistoryEntry {
@@ -161,6 +168,7 @@ export type Action =
   | { type: 'SET_TEMPLATES'; templates: Template[] }
   | { type: 'SET_AGENT_TYPES'; agentTypes: CustomAgentType[] }
   | { type: 'UPDATE_TOKEN_USAGE'; id: string; tokenUsage: TokenTracking }
+  | { type: 'UPDATE_AGENT_TODOS'; id: string; todos: TodoItem[] }
   | { type: 'SET_WORKFLOWS'; workflows: Workflow[] }
   | { type: 'START_WORKFLOW'; execution: WorkflowExecutionState }
   | { type: 'UPDATE_WORKFLOW_EXECUTION'; executionId: string; updates: Partial<WorkflowExecutionState> }

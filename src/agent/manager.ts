@@ -4,7 +4,7 @@ import { query, type Query, type SDKMessage, type SlashCommand, createSdkMcpServ
 import { z } from 'zod';
 import { homedir } from 'os';
 import { resolve, normalize } from 'path';
-import type { AgentType, Question, PermissionMode, ImageAttachment, TokenTracking, CustomAgentType, AgentToolConfig } from '../types';
+import type { AgentType, Question, PermissionMode, ImageAttachment, TokenTracking, CustomAgentType, AgentToolConfig, TodoItem } from '../types';
 import { debug } from '../utils/logger';
 import { generateTitle } from '../utils/titleGenerator';
 import type { WorktreeContext, WorkflowContext } from './systemPromptTemplates';
@@ -182,6 +182,16 @@ export class AgentSDKManager extends EventEmitter {
 
       if (toolName === 'mcp__question-handler__AskQuestion') {
         debug('Auto-allowing AskQuestion tool');
+        this.emit('output', id, `[+] Auto-allowed: ${toolName}`, isSubagentTool, options.agentID, subagentType, Date.now());
+        return { behavior: 'allow' as const, updatedInput: toolInput };
+      }
+
+      if (toolName === 'TodoWrite') {
+        debug('Intercepting TodoWrite tool:', { agentId: id, todos: toolInput.todos });
+        const todos = toolInput.todos as any[];
+        if (todos && Array.isArray(todos)) {
+          this.emit('todosUpdate', id, todos);
+        }
         this.emit('output', id, `[+] Auto-allowed: ${toolName}`, isSubagentTool, options.agentID, subagentType, Date.now());
         return { behavior: 'allow' as const, updatedInput: toolInput };
       }

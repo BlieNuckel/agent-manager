@@ -137,6 +137,15 @@ export function reducer(state: State, action: Action): State {
             : a
         ),
       };
+    case 'UPDATE_AGENT_TODOS':
+      return {
+        ...state,
+        agents: state.agents.map(a =>
+          a.id === action.id
+            ? { ...a, todos: action.todos, updatedAt: new Date() }
+            : a
+        ),
+      };
     case 'SET_WORKFLOWS':
       return { ...state, workflows: action.workflows };
     case 'START_WORKFLOW':
