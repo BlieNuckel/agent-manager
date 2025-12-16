@@ -10,11 +10,10 @@ import { generateTitle } from '../utils/titleGenerator';
 import type { WorktreeContext, WorkflowContext } from './systemPromptTemplates';
 import { buildSystemPrompt } from './systemPromptTemplates';
 import { isToolAllowed, buildAgentSystemPrompt } from '../utils/agentTypes';
+import { createArtifactMcpServer } from '../mcp/artifactServer';
 
 const PERMISSION_REQUIRED_TOOLS = ['Write', 'Edit', 'MultiEdit', 'Bash', 'NotebookEdit', 'KillBash'];
 export const AUTO_ACCEPT_EDIT_TOOLS = ['Write', 'Edit', 'MultiEdit', 'NotebookEdit'];
-
-const ARTIFACTS_DIR = resolve(homedir(), '.agent-manager', 'artifacts');
 
 function convertModelToSdkFormat(model: 'opus' | 'sonnet' | 'haiku'): string {
   const modelMap = {
@@ -51,37 +50,6 @@ function convertToSdkAgentDefinitions(
   return definitions;
 }
 
-function isArtifactPath(filePath: string): boolean {
-  if (!filePath) return false;
-
-  let normalizedPath = filePath;
-  if (filePath.startsWith('~')) {
-    normalizedPath = filePath.replace('~', homedir());
-  }
-
-  const absolutePath = resolve(normalize(normalizedPath));
-  return absolutePath.startsWith(ARTIFACTS_DIR);
-}
-
-function isToolOperatingOnArtifacts(toolName: string, toolInput: Record<string, unknown>): boolean {
-  const filePathKeys = ['file_path', 'notebook_path', 'path'];
-
-  for (const key of filePathKeys) {
-    const value = toolInput[key];
-    if (typeof value === 'string' && isArtifactPath(value)) {
-      return true;
-    }
-  }
-
-  if (toolName === 'Bash') {
-    const command = toolInput.command;
-    if (typeof command === 'string' && command.includes('.agent-manager/artifacts')) {
-      return true;
-    }
-  }
-
-  return false;
-}
 
 interface ActiveSubagentData {
   agentID: string;
@@ -204,12 +172,6 @@ export class AgentSDKManager extends EventEmitter {
             break;
           }
         }
-      }
-
-      if (isToolOperatingOnArtifacts(toolName, toolInput)) {
-        debug('Auto-allowing artifact directory operation:', { toolName, toolInput });
-        this.emit('output', id, `[+] Auto-allowed artifact access: ${toolName}`, isSubagentTool, options.agentID, subagentType, Date.now());
-        return { behavior: 'allow' as const, updatedInput: toolInput };
       }
 
       if (toolName === 'EnterPlanMode') {
@@ -383,8 +345,10 @@ export class AgentSDKManager extends EventEmitter {
       settingSources: ['user', 'project', 'local'],
       maxThinkingTokens: 16384,
       mcpServers: {
-        'question-handler': this.createQuestionMcpServer(id)
-      }
+        'question-handler': this.createQuestionMcpServer(id),
+        'artifacts': createArtifactMcpServer()
+      },
+      allowedTools: ['mcp__artifacts__Read', 'mcp__artifacts__Write']
     };
 
     if (worktreeContext?.enabled && worktreeContext.worktreePath) {
@@ -791,8 +755,10 @@ export class AgentSDKManager extends EventEmitter {
       settingSources: ['user', 'project', 'local'],
       maxThinkingTokens: 16384,
       mcpServers: {
-        'question-handler': this.createQuestionMcpServer(id)
-      }
+        'question-handler': this.createQuestionMcpServer(id),
+        'artifacts': createArtifactMcpServer()
+      },
+      allowedTools: ['mcp__artifacts__Read', 'mcp__artifacts__Write']
     };
 
     if (entry.systemPromptAppend) {
