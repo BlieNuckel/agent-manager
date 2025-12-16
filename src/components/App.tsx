@@ -468,7 +468,7 @@ export const App = () => {
     }
 
     debug('Spawning agent:', { id, effectiveWorkDir, agentType, hasWorktreeContext: !!worktreeContext, imageCount: images?.length || 0, customAgentTypeId: customAgentType?.id });
-    agentManager.spawn(id, prompt, effectiveWorkDir, agentType, worktreeContext, title, images, customAgentType);
+    agentManager.spawn(id, prompt, effectiveWorkDir, agentType, worktreeContext, title, images, customAgentType, undefined, state.agentTypes);
 
     const entry: HistoryEntry = {
       id,
@@ -1008,7 +1008,7 @@ export const App = () => {
         };
 
         const stageImages = shouldStageReceiveImages(firstStage, execution.images);
-        agentManager.spawn(id, prompt, effectiveWorkDir, 'normal', worktreeContext, agentTitle, stageImages, agentType, workflowContext);
+        agentManager.spawn(id, prompt, effectiveWorkDir, 'normal', worktreeContext, agentTitle, stageImages, agentType, workflowContext, state.agentTypes);
       }
     }
   };
@@ -1118,7 +1118,7 @@ export const App = () => {
       };
 
       const stageImages = shouldStageReceiveImages(nextStage, execution.images);
-      agentManager.spawn(id, prompt, effectiveWorkDir, 'normal', worktreeContext, agent.title, stageImages, agentType, workflowContext);
+      agentManager.spawn(id, prompt, effectiveWorkDir, 'normal', worktreeContext, agent.title, stageImages, agentType, workflowContext, state.agentTypes);
     }
   };
 

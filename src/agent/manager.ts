@@ -16,6 +16,41 @@ export const AUTO_ACCEPT_EDIT_TOOLS = ['Write', 'Edit', 'MultiEdit', 'NotebookEd
 
 const ARTIFACTS_DIR = resolve(homedir(), '.agent-manager', 'artifacts');
 
+function convertModelToSdkFormat(model: 'opus' | 'sonnet' | 'haiku'): string {
+  const modelMap = {
+    'opus': 'claude-opus-4-20250514',
+    'sonnet': 'claude-sonnet-4-5-20250929',
+    'haiku': 'claude-haiku-4-20250514'
+  };
+  return modelMap[model];
+}
+
+interface AgentDefinition {
+  description: string;
+  tools?: string[];
+  disallowedTools?: string[];
+  prompt: string;
+  model?: 'sonnet' | 'opus' | 'haiku' | 'inherit';
+}
+
+function convertToSdkAgentDefinitions(
+  agentTypes: CustomAgentType[]
+): Record<string, AgentDefinition> {
+  const definitions: Record<string, AgentDefinition> = {};
+
+  for (const agent of agentTypes) {
+    definitions[agent.id] = {
+      description: agent.description,
+      prompt: agent.systemPrompt,
+      model: agent.model || 'inherit',
+      tools: agent.tools?.allow,
+      disallowedTools: agent.tools?.deny
+    };
+  }
+
+  return definitions;
+}
+
 function isArtifactPath(filePath: string): boolean {
   if (!filePath) return false;
 
@@ -286,7 +321,7 @@ export class AgentSDKManager extends EventEmitter {
     });
   }
 
-  async spawn(id: string, prompt: string, workDir: string, agentType: AgentType, worktreeContext?: WorktreeContext, title?: string, images?: ImageAttachment[], customAgentType?: CustomAgentType, workflowContext?: WorkflowContext): Promise<void> {
+  async spawn(id: string, prompt: string, workDir: string, agentType: AgentType, worktreeContext?: WorktreeContext, title?: string, images?: ImageAttachment[], customAgentType?: CustomAgentType, workflowContext?: WorkflowContext, allAgentTypes?: CustomAgentType[]): Promise<void> {
     const abortController = new AbortController();
     const permissionMode = this.getPermissionModeForAgentType(agentType);
     this.agentStates.set(id, { agentType, hasTitle: true, permissionMode, toolConfig: customAgentType?.tools });
@@ -367,6 +402,19 @@ export class AgentSDKManager extends EventEmitter {
         append: systemPromptAppend
       };
       debug('Injecting systemPrompt with instructions');
+    }
+
+    if (customAgentType?.model) {
+      queryOptions.model = convertModelToSdkFormat(customAgentType.model);
+      debug('Setting model for agent:', queryOptions.model);
+    }
+
+    if (allAgentTypes) {
+      const subagents = allAgentTypes.filter(at => at.isSubagent);
+      if (subagents.length > 0) {
+        queryOptions.agents = convertToSdkAgentDefinitions(subagents);
+        debug('Registered subagents:', Object.keys(queryOptions.agents));
+      }
     }
 
     const q = query({
