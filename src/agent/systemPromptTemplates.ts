@@ -134,32 +134,39 @@ Architecture decisions...
 - Keep artifacts focused and well-organized
 - Remove or archive obsolete artifacts when appropriate
 
-## Example
+## Artifact Tools
 
-\`\`\`bash
-# Save an implementation plan with frontmatter
-cat > ~/.agent-manager/artifacts/2024-03-15-user-auth-plan.md << 'EOF'
----
-template: plan
-version: 1
-title: User Authentication Implementation
-created: 2024-03-15
-agent: auth-agent
-phases:
-  - name: Research
-    status: completed
-  - name: Implementation
-    status: pending
----
+You have access to dedicated artifact tools that automatically handle the shared directory:
 
-# User Authentication Implementation
+### ArtifactRead
+- **Tool:** \`mcp__artifacts__Read\`
+- **Usage:** Read an artifact file by name
+- **Parameters:**
+  - \`artifactName\` - The filename only (e.g., "2024-03-15-user-auth-plan.md")
+- **Returns:** File contents or null if file doesn't exist
+- **Note:** No need to include directory paths - the tool handles this automatically
 
-## Overview
-...implementation details...
-EOF
+### ArtifactWrite
+- **Tool:** \`mcp__artifacts__Write\`
+- **Usage:** Write content to an artifact file
+- **Parameters:**
+  - \`artifactName\` - The filename only (e.g., "2024-03-15-user-auth-plan.md")
+  - \`content\` - The content to write
+  - \`mode\` - Either "overwrite" or "append" (defaults to "overwrite")
+- **Note:** The artifacts directory is created automatically if it doesn't exist
 
-# Read an existing artifact
-cat ~/.agent-manager/artifacts/2024-03-15-user-auth-plan.md
+## Example Usage
+
+\`\`\`
+# Write an implementation plan using ArtifactWrite
+Use mcp__artifacts__Write with:
+- artifactName: "2024-03-15-user-auth-plan.md"
+- content: "---\ntemplate: plan\n..."
+- mode: "overwrite"
+
+# Read an existing artifact using ArtifactRead
+Use mcp__artifacts__Read with:
+- artifactName: "2024-03-15-user-auth-plan.md"
 \`\`\`
 
 This shared directory helps maintain continuity across different agent sessions and enables collaboration between agents working on related tasks.
@@ -187,9 +194,9 @@ function buildWorkflowInstructions(context: WorkflowContext): string {
     parts.push('');
     parts.push(`Before doing ANY exploration or research, you MUST first read the artifact from the previous stage:`);
     parts.push('');
-    parts.push(`\`\`\`bash`);
-    parts.push(`cat "${context.previousArtifact}"`);
-    parts.push(`\`\`\``);
+    const artifactName = context.previousArtifact.split('/').pop() || context.previousArtifact;
+    parts.push(`Use the \`mcp__artifacts__Read\` tool with:`);
+    parts.push(`- artifactName: "${artifactName}"`);
     parts.push('');
     parts.push(`This artifact contains findings, analysis, or plans from the previous stage that are ESSENTIAL context for your work.`);
     parts.push(`Do NOT start from scratch. Do NOT re-explore what has already been researched.`);

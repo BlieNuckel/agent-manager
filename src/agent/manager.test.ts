@@ -350,24 +350,6 @@ describe('AgentSDKManager', () => {
   });
 
   describe('permission flow', () => {
-    it('auto-allows artifact directory operations', async () => {
-      let canUseToolFn: any;
-      vi.mocked(query).mockImplementationOnce((opts: any) => {
-        canUseToolFn = opts.options.canUseTool;
-        return createMockQuery([]) as any;
-      });
-
-      manager.on('idle', vi.fn());
-      await manager.spawn('test-id', 'test prompt', '/test/dir', 'normal');
-
-      const result = await canUseToolFn(
-        'Write',
-        { file_path: '~/.agent-manager/artifacts/test.md' },
-        { signal: new AbortController().signal, toolUseID: 'tool-1' }
-      );
-
-      expect(result.behavior).toBe('allow');
-    });
 
     it('auto-accepts edit tools when permission mode is acceptEdits', async () => {
       let canUseToolFn: any;
@@ -893,79 +875,4 @@ describe('AgentSDKManager', () => {
     });
   });
 
-  describe('artifact path detection', () => {
-    it('auto-allows Write to artifacts directory', async () => {
-      let canUseToolFn: any;
-      vi.mocked(query).mockImplementation((opts: any) => {
-        canUseToolFn = opts.options.canUseTool;
-        return createMockQuery([]) as any;
-      });
-
-      manager.on('idle', vi.fn());
-      await manager.spawn('test-id', 'test prompt', '/test/dir', 'normal');
-
-      await vi.waitFor(() => {
-        expect(canUseToolFn).toBeDefined();
-      });
-
-      const result = await canUseToolFn(
-        'Write',
-        { file_path: `${process.env.HOME}/.agent-manager/artifacts/test.md` },
-        { signal: new AbortController().signal, toolUseID: 'tool-1' }
-      );
-
-      expect(result.behavior).toBe('allow');
-    });
-
-    it('auto-allows Bash commands targeting artifacts directory', async () => {
-      let canUseToolFn: any;
-      vi.mocked(query).mockImplementation((opts: any) => {
-        canUseToolFn = opts.options.canUseTool;
-        return createMockQuery([]) as any;
-      });
-
-      manager.on('idle', vi.fn());
-      await manager.spawn('test-id', 'test prompt', '/test/dir', 'normal');
-
-      await vi.waitFor(() => {
-        expect(canUseToolFn).toBeDefined();
-      });
-
-      const result = await canUseToolFn(
-        'Bash',
-        { command: 'cat ~/.agent-manager/artifacts/test.md' },
-        { signal: new AbortController().signal, toolUseID: 'tool-1' }
-      );
-
-      expect(result.behavior).toBe('allow');
-    });
-
-    it('requires permission for non-artifact paths', async () => {
-      let canUseToolFn: any;
-      vi.mocked(query).mockImplementation((opts: any) => {
-        canUseToolFn = opts.options.canUseTool;
-        return createMockQuery([]) as any;
-      });
-
-      const permissionRequestHandler = vi.fn((id, request) => {
-        request.resolve({ allowed: true });
-      });
-      manager.on('permissionRequest', permissionRequestHandler);
-      manager.on('idle', vi.fn());
-
-      await manager.spawn('test-id', 'test prompt', '/test/dir', 'normal');
-
-      await vi.waitFor(() => {
-        expect(canUseToolFn).toBeDefined();
-      });
-
-      await canUseToolFn(
-        'Write',
-        { file_path: '/some/other/path.ts' },
-        { signal: new AbortController().signal, toolUseID: 'tool-1' }
-      );
-
-      expect(permissionRequestHandler).toHaveBeenCalled();
-    });
-  });
 });
