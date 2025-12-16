@@ -26,6 +26,7 @@ import { CommandResult } from './CommandResult';
 import { CommandLoader } from '../commands/loader';
 import { CommandExecutor } from '../commands/executor';
 import type { Command, CommandResult as CommandResultType } from '../commands/types';
+import { RepoCommandInput } from './RepoCommandInput';
 
 const agentManager = new AgentSDKManager();
 const commandLoader = new CommandLoader();
@@ -378,9 +379,9 @@ export const App = () => {
     };
   }, []);
 
-  const createAgent = async (title: string, prompt: string, agentType: AgentType, worktree: { enabled: boolean; name: string }, images?: ImageAttachment[], customAgentType?: CustomAgentType) => {
+  const createAgent = async (title: string, prompt: string, agentType: AgentType, worktree: { enabled: boolean; name: string }, images?: ImageAttachment[], customAgentType?: CustomAgentType, repository?: Repository) => {
     const id = genId();
-    const workDir = process.cwd();
+    const workDir = repository?.path || process.cwd();
     let worktreeContext: WorktreeContext | undefined;
     let effectiveWorkDir = workDir;
 
@@ -407,6 +408,7 @@ export const App = () => {
           permissionMode,
           permissionQueue: [],
           images,
+          repository: repository ? { name: repository.name, path: repository.path } : undefined,
         };
         dispatch({ type: 'ADD_AGENT', agent: placeholderAgent });
 
@@ -446,7 +448,8 @@ export const App = () => {
           updates: {
             workDir: effectiveWorkDir,
             worktreePath: result.worktreePath,
-            worktreeName: result.branchName
+            worktreeName: result.branchName,
+            repository: repository ? { name: repository.name, path: repository.path } : undefined
           }
         });
 
@@ -468,6 +471,7 @@ export const App = () => {
         permissionMode,
         permissionQueue: [],
         images,
+        repository: repository ? { name: repository.name, path: repository.path } : undefined,
       };
       dispatch({ type: 'ADD_AGENT', agent: placeholderAgent });
     }
@@ -883,8 +887,20 @@ export const App = () => {
     setMode('normal');
   };
 
-  const handleStartWorkflow = async (workflow: Workflow, prompt: string, worktree?: { enabled: boolean; name: string }, images?: ImageAttachment[]) => {
-    const execution = createWorkflowExecution(workflow, prompt, images);
+  const handleRepoCommandComplete = () => {
+    setMode('normal');
+  };
+
+  const handleRepoCommandResult = (message: string, success: boolean) => {
+    setCommandResult({
+      result: { success, message },
+      commandName: 'repo'
+    });
+    setMode('command-result');
+  };
+
+  const handleStartWorkflow = async (workflow: Workflow, prompt: string, worktree?: { enabled: boolean; name: string }, images?: ImageAttachment[], repository?: Repository) => {
+    const execution = createWorkflowExecution(workflow, prompt, images, repository);
     dispatch({ type: 'START_WORKFLOW', execution });
     setCurrentExecutionId(execution.executionId);
     setMode('normal');
@@ -897,7 +913,7 @@ export const App = () => {
         setWorkflowAgentId(id);
 
         let worktreeContext: WorktreeContext | undefined;
-        let effectiveWorkDir = process.cwd();
+        let effectiveWorkDir = repository?.path || process.cwd();
 
         if (worktree?.enabled && worktree.name) {
           const gitRoot = getGitRoot();
@@ -912,14 +928,15 @@ export const App = () => {
               prompt,
               status: 'working',
               output: [{ text: '[i] Setting up git worktree...', isSubagent: false }],
-              workDir: process.cwd(),
+              workDir: effectiveWorkDir,
               worktreeName: branchName,
               createdAt: new Date(),
               updatedAt: new Date(),
               agentType: 'normal',
               permissionMode: 'default',
               permissionQueue: [],
-              customAgentTypeId: agentType.id
+              customAgentTypeId: agentType.id,
+              repository: repository ? { name: repository.name, path: repository.path } : undefined
             };
             dispatch({ type: 'ADD_AGENT', agent: placeholderAgent });
             dispatch({ type: 'UPDATE_STAGE_STATE', executionId: execution.executionId, stageIndex: 0, updates: { status: 'running', agentId: id, startedAt: new Date() } });
@@ -989,13 +1006,14 @@ export const App = () => {
             prompt,
             status: 'working',
             output: [],
-            workDir: process.cwd(),
+            workDir: effectiveWorkDir,
             createdAt: new Date(),
             updatedAt: new Date(),
             agentType: 'normal',
             permissionMode: 'default',
             permissionQueue: [],
-            customAgentTypeId: agentType.id
+            customAgentTypeId: agentType.id,
+            repository: repository ? { name: repository.name, path: repository.path } : undefined
           };
           dispatch({ type: 'ADD_AGENT', agent });
           dispatch({ type: 'UPDATE_STAGE_STATE', executionId: execution.executionId, stageIndex: 0, updates: { status: 'running', agentId: id, startedAt: new Date() } });
@@ -1077,7 +1095,7 @@ export const App = () => {
       }
 
       let worktreeContext: WorktreeContext | undefined;
-      let effectiveWorkDir = process.cwd();
+      let effectiveWorkDir = execution.repository?.path || process.cwd();
 
       if (execution.worktreePath && execution.worktreeBranchName && execution.worktreeGitRoot && execution.worktreeCurrentBranch) {
         const repoName = getRepoName(execution.worktreeGitRoot);
@@ -1107,7 +1125,8 @@ export const App = () => {
         agentType: 'normal',
         permissionMode: 'default',
         permissionQueue: [],
-        customAgentTypeId: agentType.id
+        customAgentTypeId: agentType.id,
+        repository: execution.repository
       };
       dispatch({ type: 'ADD_AGENT', agent });
       dispatch({ type: 'UPDATE_STAGE_STATE', executionId: currentExecutionId, stageIndex: nextIdx, updates: { status: 'running', agentId: id, startedAt: new Date() } });
@@ -1226,7 +1245,7 @@ export const App = () => {
       return;
     }
 
-    if (mode === 'detail' || mode === 'input' || mode === 'command-result' || mode === 'new-artifact' || mode === 'workflow-select' || mode === 'workflow-detail' || commandMode) return
+    if (mode === 'detail' || mode === 'input' || mode === 'command-result' || mode === 'new-artifact' || mode === 'workflow-select' || mode === 'workflow-detail' || mode === 'repo-command' || commandMode) return
 
     if (key.tab) {
       if (key.shift) {
@@ -1240,6 +1259,12 @@ export const App = () => {
     if (input === 'n') { setMode('input'); return; }
     if (input === 'w') { setMode('workflow-select'); return; }
     if (input === ':') { handleOpenCommandPalette(); return; }
+
+    // Handle repo command
+    if (input === 'r' && key.shift) {
+      setMode('repo-command');
+      return;
+    }
 
     const list = tab === 'inbox' ? buildInboxItems : tab === 'history' ? state.history : state.artifacts;
     const idx = tab === 'inbox' ? inboxIdx : tab === 'history' ? histIdx : artifactsIdx;
@@ -1547,6 +1572,18 @@ export const App = () => {
           />
         ),
         help: getNewArtifactHelp('template'),
+      };
+    }
+
+    if (mode === 'repo-command') {
+      return {
+        content: (
+          <RepoCommandInput
+            onComplete={handleRepoCommandComplete}
+            onResult={handleRepoCommandResult}
+          />
+        ),
+        help: <Text dimColor>ESC to cancel</Text>,
       };
     }
 
