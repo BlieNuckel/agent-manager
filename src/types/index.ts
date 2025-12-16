@@ -10,8 +10,18 @@ import type { Workflow, WorkflowExecutionState, StageExecutionState } from './wo
 export type { CustomAgentType, AgentToolConfig, AgentArtifactConfig };
 export type { Workflow, WorkflowExecutionState, StageExecutionState };
 export type Status = 'working' | 'waiting' | 'idle' | 'done' | 'error';
-export type Mode = 'normal' | 'input' | 'detail' | 'detail-chat' | 'command-result' | 'new-artifact' | 'workflow-select' | 'workflow-detail';
-export type InputStep = 'title' | 'prompt' | 'agentType' | 'artifact' | 'worktree' | 'worktreeName';
+export type Mode = 'normal' | 'input' | 'detail' | 'detail-chat' | 'command-result' | 'new-artifact' | 'workflow-select' | 'workflow-detail' | 'repo-command';
+export type InputStep = 'repository' | 'title' | 'prompt' | 'agentType' | 'artifact' | 'worktree' | 'worktreeName';
+
+export interface Repository {
+  name: string;
+  path: string;
+  isDefault?: boolean;
+}
+
+export interface RepositoryConfig {
+  repositories: Repository[];
+}
 
 export interface TodoItem {
   content: string;
@@ -128,6 +138,10 @@ export interface Agent {
   customAgentTypeId?: string;
   subagentStats?: Record<string, SubagentStats>;
   todos?: TodoItem[];
+  repository?: {
+    name: string;
+    path: string;
+  };
 }
 
 export interface HistoryEntry {

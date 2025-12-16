@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Box, Text, useInput } from 'ink';
 import TextInput from 'ink-text-input';
-import type { AgentType, InputStep, HistoryEntry, ImageAttachment, CustomAgentType } from '../types';
+import type { AgentType, InputStep, HistoryEntry, ImageAttachment, CustomAgentType, Repository } from '../types';
 import type { SlashCommand } from '@anthropic-ai/claude-agent-sdk';
 import { getGitRoot } from '../git/worktree';
 import { AgentSDKManager } from '../agent/manager';
@@ -9,9 +9,10 @@ import { SlashCommandMenu } from '../components/SlashCommandMenu';
 import { MultilineInput } from '../components/MultilineInput';
 import { listArtifacts, formatArtifactReference, type ArtifactInfo } from '../utils/artifacts';
 import { DiscardConfirmationPrompt } from '../components/DiscardConfirmationPrompt';
+import { RepositoryManager } from '../utils/repositoryManager';
 
 interface NewAgentPageProps {
-  onSubmit: (title: string, p: string, agentType: AgentType, worktree: { enabled: boolean; name: string }, images?: ImageAttachment[], customAgentType?: CustomAgentType) => void;
+  onSubmit: (title: string, p: string, agentType: AgentType, worktree: { enabled: boolean; name: string }, images?: ImageAttachment[], customAgentType?: CustomAgentType, repository?: Repository) => void;
   onCancel: () => void;
   onStateChange?: (state: { step: InputStep; showSlashMenu: boolean }) => void;
   initialHistoryEntry?: HistoryEntry | null;
@@ -22,13 +23,15 @@ interface NewAgentPageProps {
 export const NewAgentPage = ({ onSubmit, onCancel, onStateChange, initialHistoryEntry, initialArtifactPath, customAgentTypes = [] }: NewAgentPageProps) => {
   const availableAgentTypes = customAgentTypes.filter(at => !at.isSubagent);
 
+  const [repositories, setRepositories] = useState<Repository[]>([]);
+  const [selectedRepositoryIndex, setSelectedRepositoryIndex] = useState(0);
   const [title, setTitle] = useState(initialHistoryEntry?.title || '');
   const [prompt, setPrompt] = useState(initialHistoryEntry?.prompt || '');
   const [agentType, setAgentType] = useState<AgentType>('normal');
   const [selectedCustomTypeIndex, setSelectedCustomTypeIndex] = useState(-1);
   const [useWorktree, setUseWorktree] = useState(true);
   const [worktreeName, setWorktreeName] = useState('');
-  const [step, setStep] = useState<InputStep>(initialHistoryEntry ? 'prompt' : 'title');
+  const [step, setStep] = useState<InputStep>(initialHistoryEntry ? 'prompt' : 'repository');
   const [gitRoot] = useState(() => getGitRoot());
   const [slashCommands, setSlashCommands] = useState<SlashCommand[]>([]);
   const [showSlashMenu, setShowSlashMenu] = useState(false);
@@ -72,6 +75,14 @@ export const NewAgentPage = ({ onSubmit, onCancel, onStateChange, initialHistory
   useEffect(() => {
     AgentSDKManager.getAvailableCommands().then(setSlashCommands);
     listArtifacts().then(setArtifacts);
+    RepositoryManager.loadRepositories().then(config => {
+      if (config.repositories.length > 0) {
+        setRepositories(config.repositories);
+        // Select default repository if available
+        const defaultIndex = config.repositories.findIndex(r => r.isDefault);
+        setSelectedRepositoryIndex(defaultIndex >= 0 ? defaultIndex : 0);
+      }
+    });
   }, []);
 
   useEffect(() => {
@@ -155,8 +166,32 @@ export const NewAgentPage = ({ onSubmit, onCancel, onStateChange, initialHistory
       return;
     }
 
+    // Handle repository selection
+    if (step === 'repository') {
+      if (key.upArrow && selectedRepositoryIndex > 0) {
+        setSelectedRepositoryIndex(selectedRepositoryIndex - 1);
+        return;
+      }
+      if (key.downArrow && selectedRepositoryIndex < repositories.length - 1) {
+        setSelectedRepositoryIndex(selectedRepositoryIndex + 1);
+        return;
+      }
+      if (key.return) {
+        setStep('title');
+        return;
+      }
+      const num = parseInt(input);
+      if (!isNaN(num) && num >= 1 && num <= repositories.length) {
+        setSelectedRepositoryIndex(num - 1);
+        return;
+      }
+    }
+
     if (key.leftArrow) {
-      if (step === 'prompt') {
+      if (step === 'title') {
+        setStep('repository');
+        return;
+      } else if (step === 'prompt') {
         setStep('title');
         return;
       } else if (step === 'agentType') {
@@ -263,7 +298,8 @@ export const NewAgentPage = ({ onSubmit, onCancel, onStateChange, initialHistory
     const name = value.trim();
     const finalPrompt = getFinalPrompt();
     const imageAttachments = extractImagesFromPrompt(prompt);
-    onSubmit(title, finalPrompt, agentType, { enabled: true, name }, imageAttachments, getSelectedCustomAgentType());
+    const selectedRepo = repositories[selectedRepositoryIndex];
+    onSubmit(title, finalPrompt, agentType, { enabled: true, name }, imageAttachments, getSelectedCustomAgentType(), selectedRepo);
   };
 
   const handlePromptChange = (value: string) => {
@@ -296,14 +332,16 @@ export const NewAgentPage = ({ onSubmit, onCancel, onStateChange, initialHistory
       } else {
         const finalPrompt = getFinalPrompt();
         const imageAttachments = extractImagesFromPrompt(prompt);
-        onSubmit(title, finalPrompt, agentType, { enabled: false, name: '' }, imageAttachments, selectedCustomType);
+        const selectedRepo = repositories[selectedRepositoryIndex];
+        onSubmit(title, finalPrompt, agentType, { enabled: false, name: '' }, imageAttachments, selectedCustomType, selectedRepo);
       }
     } else if (gitRoot) {
       setStep('worktree');
     } else {
       const finalPrompt = getFinalPrompt();
       const imageAttachments = extractImagesFromPrompt(prompt);
-      onSubmit(title, finalPrompt, agentType, { enabled: false, name: '' }, imageAttachments, selectedCustomType);
+      const selectedRepo = repositories[selectedRepositoryIndex];
+      onSubmit(title, finalPrompt, agentType, { enabled: false, name: '' }, imageAttachments, selectedCustomType, selectedRepo);
     }
   };
 
@@ -313,7 +351,8 @@ export const NewAgentPage = ({ onSubmit, onCancel, onStateChange, initialHistory
     } else {
       const finalPrompt = getFinalPrompt();
       const imageAttachments = extractImagesFromPrompt(prompt);
-      onSubmit(title, finalPrompt, agentType, { enabled: false, name: '' }, imageAttachments, getSelectedCustomAgentType());
+      const selectedRepo = repositories[selectedRepositoryIndex];
+      onSubmit(title, finalPrompt, agentType, { enabled: false, name: '' }, imageAttachments, getSelectedCustomAgentType(), selectedRepo);
     }
   };
 
@@ -341,7 +380,41 @@ export const NewAgentPage = ({ onSubmit, onCancel, onStateChange, initialHistory
         </Box>
 
         <Box marginTop={1} flexDirection="column">
-          <Text color={step === 'title' ? 'cyan' : step === 'prompt' || step === 'agentType' || step === 'worktree' || step === 'worktreeName' ? 'green' : 'gray'}>
+          <Text color={step === 'repository' ? 'cyan' : step === 'title' || step === 'prompt' || step === 'agentType' || step === 'worktree' || step === 'worktreeName' ? 'green' : 'gray'}>
+            {step === 'repository' ? '>' : repositories.length > 0 ? '+' : '○'} Repository:{' '}
+          </Text>
+          {step === 'repository' ? (
+            <Box flexDirection="column" marginLeft={2}>
+              {repositories.length === 0 ? (
+                <>
+                  <Text dimColor>No repositories registered.</Text>
+                  <Text dimColor>Use 'R' in the main menu to register repositories.</Text>
+                </>
+              ) : (
+                <>
+                  {repositories.map((repo, i) => (
+                    <Text key={repo.name}>
+                      [<Text color={selectedRepositoryIndex === i ? 'cyan' : 'white'} bold={selectedRepositoryIndex === i}>{i + 1}</Text>] {repo.name} <Text dimColor>({repo.path})</Text>
+                      {repo.isDefault && <Text color="green"> (default)</Text>}
+                    </Text>
+                  ))}
+                  <Box marginTop={1}>
+                    <Text dimColor>Use arrow keys or numbers to select</Text>
+                  </Box>
+                </>
+              )}
+            </Box>
+          ) : (
+            <Box marginLeft={2}>
+              <Text dimColor={step === 'repository'}>
+                {repositories.length > 0 ? repositories[selectedRepositoryIndex]?.name : 'No repository selected'}
+              </Text>
+            </Box>
+          )}
+        </Box>
+
+        <Box marginTop={1} flexDirection="column">
+          <Text color={step === 'title' ? 'cyan' : step === 'repository' ? 'gray' : step === 'prompt' || step === 'agentType' || step === 'worktree' || step === 'worktreeName' ? 'green' : 'gray'}>
             {step === 'title' ? '>' : title ? '+' : '○'} Title:{' '}
           </Text>
           {step === 'title' ? (
@@ -361,8 +434,8 @@ export const NewAgentPage = ({ onSubmit, onCancel, onStateChange, initialHistory
         </Box>
 
         <Box marginTop={1} flexDirection="column">
-          <Text color={step === 'prompt' ? 'cyan' : step === 'title' ? 'gray' : 'green'}>
-            {step === 'title' ? '○' : step === 'prompt' ? '>' : '+'} Prompt:{' '}
+          <Text color={step === 'prompt' ? 'cyan' : step === 'title' || step === 'repository' ? 'gray' : 'green'}>
+            {step === 'title' || step === 'repository' ? '○' : step === 'prompt' ? '>' : '+'} Prompt:{' '}
           </Text>
           {step === 'prompt' ? (
             <Box flexDirection="column">
@@ -390,8 +463,8 @@ export const NewAgentPage = ({ onSubmit, onCancel, onStateChange, initialHistory
 
         {availableAgentTypes.length > 0 && (
           <Box marginTop={1} flexDirection="column">
-            <Text color={step === 'agentType' ? 'cyan' : step === 'title' || step === 'prompt' ? 'gray' : 'green'}>
-              {step === 'title' || step === 'prompt' ? '○' : step === 'agentType' ? '▸' : '✓'} Custom Agent Type:{' '}
+            <Text color={step === 'agentType' ? 'cyan' : step === 'repository' || step === 'title' || step === 'prompt' ? 'gray' : 'green'}>
+              {step === 'repository' || step === 'title' || step === 'prompt' ? '○' : step === 'agentType' ? '▸' : '✓'} Custom Agent Type:{' '}
             </Text>
             {step === 'agentType' ? (
               <Box flexDirection="column" marginLeft={2}>
@@ -404,7 +477,7 @@ export const NewAgentPage = ({ onSubmit, onCancel, onStateChange, initialHistory
               </Box>
             ) : (
               <Box marginLeft={2}>
-                <Text dimColor={step === 'title' || step === 'prompt'}>
+                <Text dimColor={step === 'repository' || step === 'title' || step === 'prompt'}>
                   {selectedCustomTypeIndex >= 0 ? availableAgentTypes[selectedCustomTypeIndex].name : 'None'}
                 </Text>
               </Box>
@@ -413,8 +486,8 @@ export const NewAgentPage = ({ onSubmit, onCancel, onStateChange, initialHistory
         )}
 
         <Box marginTop={1} flexDirection="column">
-          <Text color={step === 'artifact' ? 'cyan' : step === 'title' || step === 'prompt' || step === 'agentType' ? 'gray' : 'green'}>
-            {step === 'title' || step === 'prompt' || step === 'agentType' ? '○' : step === 'artifact' ? '▸' : '✓'} Include Artifact:{' '}
+          <Text color={step === 'artifact' ? 'cyan' : step === 'repository' || step === 'title' || step === 'prompt' || step === 'agentType' ? 'gray' : 'green'}>
+            {step === 'repository' || step === 'title' || step === 'prompt' || step === 'agentType' ? '○' : step === 'artifact' ? '▸' : '✓'} Include Artifact:{' '}
           </Text>
           {step === 'artifact' ? (
             <Box flexDirection="column" marginLeft={2}>
@@ -436,7 +509,7 @@ export const NewAgentPage = ({ onSubmit, onCancel, onStateChange, initialHistory
             </Box>
           ) : (
             <Box marginLeft={2}>
-              <Text dimColor={step === 'title' || step === 'prompt' || step === 'agentType'}>
+              <Text dimColor={step === 'repository' || step === 'title' || step === 'prompt' || step === 'agentType'}>
                 {selectedArtifactIndex >= 0 ? artifacts[selectedArtifactIndex].name : 'None'}
               </Text>
             </Box>
@@ -452,11 +525,11 @@ export const NewAgentPage = ({ onSubmit, onCancel, onStateChange, initialHistory
               {step === 'worktree' ? (
                 <Text>[<Text color={useWorktree ? 'green' : 'white'} bold={useWorktree}>Y</Text>/<Text color={!useWorktree ? 'red' : 'white'} bold={!useWorktree}>N</Text>]</Text>
               ) : (
-                <Text dimColor={step === 'title' || step === 'prompt'}>{useWorktree ? 'Yes' : 'No'}</Text>
+                <Text dimColor={step === 'repository' || step === 'title' || step === 'prompt'}>{useWorktree ? 'Yes' : 'No'}</Text>
               )}
             </Box>
 
-            {(step === 'worktreeName' || (useWorktree && step !== 'title' && step !== 'prompt')) && (
+            {(step === 'worktreeName' || (useWorktree && step !== 'repository' && step !== 'title' && step !== 'prompt')) && (
               <Box marginTop={1}>
                 <Text color={step === 'worktreeName' ? 'cyan' : 'gray'}>
                   {step === 'worktreeName' ? '>' : '○'} Worktree name:{' '}
@@ -508,10 +581,22 @@ export const getNewAgentHelp = (inputStep?: InputStep, showSlashMenu?: boolean) 
     );
   }
 
+  if (inputStep === 'repository') {
+    return (
+      <>
+        <Text color="cyan">↑↓</Text> Navigate{' '}
+        <Text color="cyan">1-9</Text> Select{' '}
+        <Text color="cyan">Enter</Text> Continue{' '}
+        <Text color="cyan">Esc</Text> Cancel
+      </>
+    );
+  }
+
   if (inputStep === 'title') {
     return (
       <>
         <Text color="cyan">Enter</Text> Continue{' '}
+        <Text color="cyan">←</Text> Back{' '}
         <Text color="cyan">Esc</Text> Cancel
       </>
     );

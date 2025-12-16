@@ -54,6 +54,11 @@ export const AgentItem = React.memo(({ agent, selected, isWorkflowChild = false 
           <Text color="magenta">* {agent.worktreeName}</Text>
         </Box>
       )}
+      {agent.repository && (
+        <Box marginLeft={14}>
+          <Text dimColor>📁 {agent.repository.name}</Text>
+        </Box>
+      )}
     </Box>
   );
 });

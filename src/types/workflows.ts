@@ -1,4 +1,4 @@
-import { ImageAttachment } from './index.js';
+import { ImageAttachment, Repository } from './index.js';
 
 export interface WorkflowStage {
   id: string;
@@ -63,4 +63,8 @@ export interface WorkflowExecutionState {
   worktreeBranchName?: string;
   worktreeGitRoot?: string;
   worktreeCurrentBranch?: string;
+  repository?: {
+    name: string;
+    path: string;
+  };
 }
