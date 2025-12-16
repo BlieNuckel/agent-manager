@@ -190,4 +190,4 @@ export interface State {
 
 export type InboxItem =
   | { type: 'agent'; agent: Agent; isWorkflowChild?: boolean }
-  | { type: 'workflow'; workflow: Workflow; execution: WorkflowExecutionState };
+  | { type: 'workflow'; workflow: Workflow; execution: WorkflowExecutionState; agents: Agent[] };

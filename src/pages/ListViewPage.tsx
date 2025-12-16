@@ -39,6 +39,7 @@ export const ListViewPage = ({ tab, inboxItems, history, artifacts, inboxIdx, hi
                     key={`workflow-${item.execution.executionId}`}
                     workflow={item.workflow}
                     execution={item.execution}
+                    agents={item.agents}
                     expanded={expandedWorkflows.has(item.execution.executionId)}
                     selected={i === inboxIdx}
                   />

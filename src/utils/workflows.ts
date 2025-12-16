@@ -11,7 +11,7 @@ import type {
 } from '../types/workflows';
 import type { CustomAgentType } from '../types/agentTypes';
 import type { Template } from '../types/templates';
-import type { ImageAttachment } from '../types/index.js';
+import type { ImageAttachment, Agent } from '../types/index.js';
 import { parseFrontmatter } from './frontmatter';
 import { genId } from './helpers';
 
@@ -221,4 +221,74 @@ export function getLastArtifactPath(execution: WorkflowExecutionState, currentSt
 
 export function formatStageSummary(workflow: Workflow): string {
   return workflow.stages.map(s => s.id).join(' → ');
+}
+
+export interface WorkflowPromptStatus {
+  type: 'permission' | 'question' | 'merge-ready' | 'merge-conflicts' | 'merge-failed' | null;
+  agentId?: string;
+  badge?: string;
+  color?: string;
+}
+
+export function getWorkflowPromptStatus(
+  execution: WorkflowExecutionState,
+  agents: Agent[]
+): WorkflowPromptStatus {
+  const currentStage = execution.stageStates[execution.currentStageIndex];
+  if (!currentStage?.agentId) {
+    return { type: null };
+  }
+
+  const agent = agents.find(a => a.id === currentStage.agentId);
+  if (!agent || agent.status !== 'waiting') {
+    return { type: null };
+  }
+
+  if (agent.pendingPermission) {
+    return {
+      type: 'permission',
+      agentId: agent.id,
+      badge: '[!] Permission',
+      color: 'yellow'
+    };
+  }
+
+  if (agent.pendingQuestion) {
+    return {
+      type: 'question',
+      agentId: agent.id,
+      badge: '[?] Question',
+      color: 'magenta'
+    };
+  }
+
+  if (agent.pendingMerge) {
+    const { status } = agent.pendingMerge;
+    if (status === 'ready') {
+      return {
+        type: 'merge-ready',
+        agentId: agent.id,
+        badge: '[M] Merge ready',
+        color: 'green'
+      };
+    }
+    if (status === 'conflicts') {
+      return {
+        type: 'merge-conflicts',
+        agentId: agent.id,
+        badge: '[!] Merge conflicts',
+        color: 'yellow'
+      };
+    }
+    if (status === 'failed') {
+      return {
+        type: 'merge-failed',
+        agentId: agent.id,
+        badge: '[!] Merge failed',
+        color: 'red'
+      };
+    }
+  }
+
+  return { type: null };
 }

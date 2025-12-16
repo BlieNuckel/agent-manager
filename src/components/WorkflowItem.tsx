@@ -1,11 +1,14 @@
 import React from 'react';
 import { Box, Text } from 'ink';
 import type { Workflow, WorkflowExecutionState, WorkflowExecutionStatus } from '../types/workflows';
+import type { Agent } from '../types/index';
 import { formatTime } from '../utils/helpers';
+import { getWorkflowPromptStatus } from '../utils/workflows';
 
 interface WorkflowItemProps {
   workflow: Workflow;
   execution: WorkflowExecutionState;
+  agents: Agent[];
   expanded: boolean;
   selected: boolean;
 }
@@ -39,12 +42,18 @@ function getLastActivityTime(execution: WorkflowExecutionState): Date {
   return lastStage?.completedAt || lastStage?.startedAt || new Date();
 }
 
-export const WorkflowItem = React.memo(({ workflow, execution, expanded, selected }: WorkflowItemProps) => {
+export const WorkflowItem = React.memo(({ workflow, execution, agents, expanded, selected }: WorkflowItemProps) => {
   const completedStages = execution.stageStates.filter(s => s.status === 'approved' || s.status === 'skipped').length;
   const totalStages = workflow.stages.length;
   const currentStageNum = Math.min(completedStages + 1, totalStages);
   const statusIcon = getWorkflowStatusIcon(execution.status);
-  const statusColor = getWorkflowStatusColor(execution.status);
+  const promptStatus = getWorkflowPromptStatus(execution, agents);
+
+  let statusColor = getWorkflowStatusColor(execution.status);
+  if (execution.status === 'running' && promptStatus.type) {
+    statusColor = promptStatus.color || statusColor;
+  }
+
   const lastActivity = getLastActivityTime(execution);
 
   return (
@@ -59,6 +68,9 @@ export const WorkflowItem = React.memo(({ workflow, execution, expanded, selecte
           [{workflow.name}]
         </Text>
         <Text dimColor> Stage {currentStageNum}/{totalStages}</Text>
+        {promptStatus.badge && (
+          <Text color={promptStatus.color}> {promptStatus.badge}</Text>
+        )}
         <Text dimColor> ({formatTime(lastActivity)})</Text>
         {execution.status === 'awaiting_approval' && (
           <Text color="cyan"> [!] Approval needed</Text>

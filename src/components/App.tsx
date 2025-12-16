@@ -88,7 +88,8 @@ export const App = () => {
         items.push({
           type: 'workflow',
           workflow: wf,
-          execution
+          execution,
+          agents: state.agents
         });
 
         if (expandedWorkflows.has(execution.executionId)) {
@@ -1417,6 +1418,9 @@ export const App = () => {
               onCancelWorkflow={handleWorkflowCancel}
               onQuestionResponse={handleQuestionResponse}
               onPermissionResponse={handlePermissionResponse}
+              onMergeResponse={handleMergeResponse}
+              onResolveMerge={handleResolveConflicts}
+              onDraftPR={handleDraftPR}
               onClose={() => setMode('normal')}
             />
           );
@@ -1426,7 +1430,7 @@ export const App = () => {
               { content: listContent, widthPercent: 40 },
               { content: detailContent, widthPercent: 60 }
             ],
-            help: getWorkflowDetailHelp(isAwaitingApproval, canSkip, !!currentAgent?.pendingPermission, !!currentAgent?.pendingQuestion),
+            help: getWorkflowDetailHelp(isAwaitingApproval, canSkip, !!currentAgent?.pendingPermission, !!currentAgent?.pendingQuestion, !!currentAgent?.pendingMerge),
           };
         }
       }
