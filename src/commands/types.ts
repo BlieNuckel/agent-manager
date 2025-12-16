@@ -6,6 +6,14 @@ export interface CommandConfig {
 	categories?: Record<string, CategoryInfo>;
 }
 
+export interface CommandArgument {
+	name: string;
+	description: string;
+	required?: boolean;
+	default?: string;
+	type?: 'string' | 'number' | 'boolean' | 'path';
+}
+
 export interface Command {
 	id: string;
 	name: string;
@@ -17,6 +25,7 @@ export interface Command {
 	requires_api?: boolean;
 	confirm_before_run?: boolean;
 	hidden?: boolean;
+	args?: CommandArgument[];
 }
 
 export interface CategoryInfo {
