@@ -91,7 +91,7 @@ export const DetailViewPage = ({
 
   const visibleLines = Math.max(1, availableForContent - promptActualHeight);
 
-  const isViewportActive = !chatMode && !agent.pendingPermission && !agent.pendingQuestion && !agent.pendingMerge;
+  const isViewportActive = !chatMode;
 
   useInput((input, key) => {
     if (chatMode) {

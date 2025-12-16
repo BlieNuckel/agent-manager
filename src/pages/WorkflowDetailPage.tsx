@@ -57,7 +57,7 @@ export const WorkflowDetailPage = ({
   const visibleLines = Math.max(5, termHeight - fixedHeight);
 
   const output = currentAgent?.output || [];
-  const isViewportActive = !currentAgent?.pendingPermission && !currentAgent?.pendingQuestion;
+  const isViewportActive = true;
 
   useInput((input, key) => {
     if (isAwaitingApproval && !currentAgent?.pendingPermission && !currentAgent?.pendingQuestion) {
