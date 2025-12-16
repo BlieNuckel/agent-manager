@@ -16,13 +16,14 @@ export interface CustomAgentType {
   name: string;
   description: string;
   version?: number;
-  source: 'system' | 'user';
+  source: 'system' | 'user' | 'project';
   path: string;
 
   tools?: AgentToolConfig;
   artifacts?: AgentArtifactConfig;
   model?: 'opus' | 'sonnet' | 'haiku';
   worktree?: boolean;
+  isSubagent?: boolean;
 
   systemPrompt: string;
 }
@@ -36,4 +37,5 @@ export interface CustomAgentTypeFrontmatter {
   artifacts?: AgentArtifactConfig;
   model?: 'opus' | 'sonnet' | 'haiku';
   worktree?: boolean;
+  isSubagent?: boolean;
 }

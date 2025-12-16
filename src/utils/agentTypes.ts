@@ -5,6 +5,7 @@ import { fileURLToPath } from 'url';
 import Handlebars from 'handlebars';
 import type { CustomAgentType, AgentToolConfig, AgentArtifactConfig } from '../types/agentTypes';
 import { parseFrontmatter } from './frontmatter';
+import { getGitRoot } from '../git/worktree';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -17,6 +18,12 @@ export function getUserAgentTypesDir(): string {
   return path.join(os.homedir(), '.agent-manager', 'agents');
 }
 
+export function getProjectAgentTypesDir(): string | null {
+  const gitRoot = getGitRoot();
+  if (!gitRoot) return null;
+  return path.join(gitRoot, '.claude', 'agents');
+}
+
 export async function ensureUserAgentTypesDir(): Promise<void> {
   const dir = getUserAgentTypesDir();
   try {
@@ -26,7 +33,7 @@ export async function ensureUserAgentTypesDir(): Promise<void> {
   }
 }
 
-async function loadAgentTypesFromDir(dir: string, source: 'system' | 'user'): Promise<CustomAgentType[]> {
+async function loadAgentTypesFromDir(dir: string, source: 'system' | 'user' | 'project'): Promise<CustomAgentType[]> {
   const agentTypes: CustomAgentType[] = [];
 
   try {
@@ -53,6 +60,7 @@ async function loadAgentTypesFromDir(dir: string, source: 'system' | 'user'): Pr
         artifacts: data.artifacts as AgentArtifactConfig | undefined,
         model: data.model as 'opus' | 'sonnet' | 'haiku' | undefined,
         worktree: data.worktree as boolean | undefined,
+        isSubagent: data.isSubagent as boolean | undefined,
         systemPrompt: parsed.content.trim()
       });
     }
@@ -66,11 +74,19 @@ async function loadAgentTypesFromDir(dir: string, source: 'system' | 'user'): Pr
 export async function listAgentTypes(): Promise<CustomAgentType[]> {
   const systemDir = getSystemAgentTypesDir();
   const userDir = getUserAgentTypesDir();
+  const projectDir = getProjectAgentTypesDir();
 
-  const [systemAgentTypes, userAgentTypes] = await Promise.all([
+  const loadPromises = [
     loadAgentTypesFromDir(systemDir, 'system'),
     loadAgentTypesFromDir(userDir, 'user')
-  ]);
+  ];
+
+  if (projectDir) {
+    loadPromises.push(loadAgentTypesFromDir(projectDir, 'project'));
+  }
+
+  const results = await Promise.all(loadPromises);
+  const [systemAgentTypes, userAgentTypes, projectAgentTypes = []] = results;
 
   const agentTypeMap = new Map<string, CustomAgentType>();
 
@@ -79,6 +95,10 @@ export async function listAgentTypes(): Promise<CustomAgentType[]> {
   }
 
   for (const agentType of userAgentTypes) {
+    agentTypeMap.set(agentType.id, agentType);
+  }
+
+  for (const agentType of projectAgentTypes) {
     agentTypeMap.set(agentType.id, agentType);
   }
 

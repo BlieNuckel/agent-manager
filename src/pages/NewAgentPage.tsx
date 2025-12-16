@@ -20,6 +20,8 @@ interface NewAgentPageProps {
 }
 
 export const NewAgentPage = ({ onSubmit, onCancel, onStateChange, initialHistoryEntry, initialArtifactPath, customAgentTypes = [] }: NewAgentPageProps) => {
+  const availableAgentTypes = customAgentTypes.filter(at => !at.isSubagent);
+
   const [title, setTitle] = useState(initialHistoryEntry?.title || '');
   const [prompt, setPrompt] = useState(initialHistoryEntry?.prompt || '');
   const [agentType, setAgentType] = useState<AgentType>('normal');
@@ -161,7 +163,7 @@ export const NewAgentPage = ({ onSubmit, onCancel, onStateChange, initialHistory
         setStep('prompt');
         return;
       } else if (step === 'artifact') {
-        if (customAgentTypes.length > 0) {
+        if (availableAgentTypes.length > 0) {
           setStep('agentType');
         } else {
           setStep('prompt');
@@ -197,12 +199,12 @@ export const NewAgentPage = ({ onSubmit, onCancel, onStateChange, initialHistory
     if (step === 'agentType') {
       if (input === '0') { setSelectedCustomTypeIndex(-1); return; }
       const customIdx = parseInt(input) - 1;
-      if (!isNaN(customIdx) && customIdx >= 0 && customIdx < customAgentTypes.length) {
+      if (!isNaN(customIdx) && customIdx >= 0 && customIdx < availableAgentTypes.length) {
         setSelectedCustomTypeIndex(customIdx);
         return;
       }
       if (key.upArrow || key.downArrow) {
-        const totalOptions = 1 + customAgentTypes.length;
+        const totalOptions = 1 + availableAgentTypes.length;
         const currentIdx = selectedCustomTypeIndex + 1;
         let newIdx: number;
         if (key.upArrow) {
@@ -245,7 +247,7 @@ export const NewAgentPage = ({ onSubmit, onCancel, onStateChange, initialHistory
 
   const handlePromptSubmit = (value: string) => {
     if (value.trim()) {
-      if (customAgentTypes.length > 0) {
+      if (availableAgentTypes.length > 0) {
         setStep('agentType');
       } else {
         setStep('artifact');
@@ -254,7 +256,7 @@ export const NewAgentPage = ({ onSubmit, onCancel, onStateChange, initialHistory
   };
 
   const getSelectedCustomAgentType = (): CustomAgentType | undefined => {
-    return selectedCustomTypeIndex >= 0 ? customAgentTypes[selectedCustomTypeIndex] : undefined;
+    return selectedCustomTypeIndex >= 0 ? availableAgentTypes[selectedCustomTypeIndex] : undefined;
   };
 
   const handleWorktreeNameSubmit = (value: string) => {
@@ -386,7 +388,7 @@ export const NewAgentPage = ({ onSubmit, onCancel, onStateChange, initialHistory
           )}
         </Box>
 
-        {customAgentTypes.length > 0 && (
+        {availableAgentTypes.length > 0 && (
           <Box marginTop={1} flexDirection="column">
             <Text color={step === 'agentType' ? 'cyan' : step === 'title' || step === 'prompt' ? 'gray' : 'green'}>
               {step === 'title' || step === 'prompt' ? '○' : step === 'agentType' ? '▸' : '✓'} Custom Agent Type:{' '}
@@ -394,7 +396,7 @@ export const NewAgentPage = ({ onSubmit, onCancel, onStateChange, initialHistory
             {step === 'agentType' ? (
               <Box flexDirection="column" marginLeft={2}>
                 <Text>[<Text color={selectedCustomTypeIndex === -1 ? 'cyan' : 'white'} bold={selectedCustomTypeIndex === -1}>0</Text>] None (standard agent)</Text>
-                {customAgentTypes.map((cat, i) => (
+                {availableAgentTypes.map((cat, i) => (
                   <Text key={cat.id}>
                     [<Text color={selectedCustomTypeIndex === i ? 'cyan' : 'white'} bold={selectedCustomTypeIndex === i}>{i + 1}</Text>] {cat.name} <Text dimColor>({cat.description})</Text>
                   </Text>
@@ -403,7 +405,7 @@ export const NewAgentPage = ({ onSubmit, onCancel, onStateChange, initialHistory
             ) : (
               <Box marginLeft={2}>
                 <Text dimColor={step === 'title' || step === 'prompt'}>
-                  {selectedCustomTypeIndex >= 0 ? customAgentTypes[selectedCustomTypeIndex].name : 'None'}
+                  {selectedCustomTypeIndex >= 0 ? availableAgentTypes[selectedCustomTypeIndex].name : 'None'}
                 </Text>
               </Box>
             )}
