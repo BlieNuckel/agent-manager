@@ -36,6 +36,31 @@ export function reducer(state: State, action: Action): State {
             : a
         ),
       };
+    case 'UPDATE_TOOL_STATUS': {
+      const agent = state.agents.find(a => a.id === action.id);
+      if (!agent) return state;
+
+      const lineIndex = agent.output.findIndex(
+        line => line.toolCallId === action.update.toolCallId
+      );
+
+      if (lineIndex === -1) return state;
+
+      if (agent.output[lineIndex].toolStatus !== 'pending') {
+        return state;
+      }
+
+      const updatedLine = {
+        ...agent.output[lineIndex],
+        text: agent.output[lineIndex].text.replace(/^\[>\]/, action.update.prefix),
+        toolStatus: action.update.status,
+        toolError: action.update.error,
+      };
+
+      agent.output[lineIndex] = updatedLine;
+
+      return { ...state };
+    }
     case 'SET_PERMISSION':
       return {
         ...state,

@@ -234,11 +234,12 @@ describe('AgentSDKManager', () => {
       await vi.waitFor(() => {
         expect(outputHandler).toHaveBeenCalledWith(
           'test-id',
-          expect.stringContaining('[>] Read('),
-          false,
-          undefined,
-          undefined,
-          expect.any(Number)
+          expect.objectContaining({
+            text: expect.stringContaining('[>] Read('),
+            isSubagent: false,
+            toolCallId: expect.any(String),
+            toolStatus: 'pending',
+          })
         );
       });
     });
@@ -724,11 +725,12 @@ describe('AgentSDKManager', () => {
       await vi.waitFor(() => {
         expect(outputHandler).toHaveBeenCalledWith(
           'test-id',
-          '[>] Bash(npm install)',
-          false,
-          undefined,
-          undefined,
-          expect.any(Number)
+          expect.objectContaining({
+            text: '[>] Bash(npm install)',
+            isSubagent: false,
+            toolCallId: expect.any(String),
+            toolStatus: 'pending',
+          })
         );
       });
     });
@@ -762,11 +764,12 @@ describe('AgentSDKManager', () => {
       await vi.waitFor(() => {
         expect(outputHandler).toHaveBeenCalledWith(
           'test-id',
-          '[>] Glob(**/*.ts)',
-          false,
-          undefined,
-          undefined,
-          expect.any(Number)
+          expect.objectContaining({
+            text: '[>] Glob(**/*.ts)',
+            isSubagent: false,
+            toolCallId: expect.any(String),
+            toolStatus: 'pending',
+          })
         );
       });
     });
@@ -800,11 +803,12 @@ describe('AgentSDKManager', () => {
       await vi.waitFor(() => {
         expect(outputHandler).toHaveBeenCalledWith(
           'test-id',
-          '[>] WebSearch(typescript best practices)',
-          false,
-          undefined,
-          undefined,
-          expect.any(Number)
+          expect.objectContaining({
+            text: '[>] WebSearch(typescript best practices)',
+            isSubagent: false,
+            toolCallId: expect.any(String),
+            toolStatus: 'pending',
+          })
         );
       });
     });
@@ -839,11 +843,12 @@ describe('AgentSDKManager', () => {
       await vi.waitFor(() => {
         expect(outputHandler).toHaveBeenCalledWith(
           'test-id',
-          expect.stringMatching(/\[>\] Read\(.+\.\.\.\)/),
-          false,
-          undefined,
-          undefined,
-          expect.any(Number)
+          expect.objectContaining({
+            text: expect.stringMatching(/\[>\] Read\(.+\.\.\.\)/),
+            isSubagent: false,
+            toolCallId: expect.any(String),
+            toolStatus: 'pending',
+          })
         );
       });
     });
@@ -877,11 +882,12 @@ describe('AgentSDKManager', () => {
       await vi.waitFor(() => {
         expect(outputHandler).toHaveBeenCalledWith(
           'test-id',
-          '[>] Task(Search for files)',
-          false,
-          undefined,
-          undefined,
-          expect.any(Number)
+          expect.objectContaining({
+            text: '[>] Task(Search for files)',
+            isSubagent: false,
+            toolCallId: expect.any(String),
+            toolStatus: 'pending',
+          })
         );
       });
     });

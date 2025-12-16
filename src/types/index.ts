@@ -64,6 +64,9 @@ export interface OutputLine {
   subagentId?: string;
   subagentType?: string;
   timestamp?: number;
+  toolCallId?: string;
+  toolStatus?: 'pending' | 'success' | 'error';
+  toolError?: string;
 }
 
 export interface SubagentStats {
@@ -133,12 +136,20 @@ export interface HistoryEntry {
   }>;
 }
 
+export interface ToolStatusUpdate {
+  toolCallId: string;
+  status: 'success' | 'error';
+  prefix: '[✓]' | '[×]';
+  error?: string;
+}
+
 export type Action =
   | { type: 'ADD_AGENT'; agent: Agent }
   | { type: 'UPDATE_AGENT'; id: string; updates: Partial<Agent> }
   | { type: 'UPDATE_AGENT_TITLE'; id: string; title: string }
   | { type: 'REMOVE_AGENT'; id: string }
   | { type: 'APPEND_OUTPUT'; id: string; line: OutputLine; timestamp?: number }
+  | { type: 'UPDATE_TOOL_STATUS'; id: string; update: ToolStatusUpdate }
   | { type: 'SET_PERMISSION'; id: string; permission: PermissionRequest | undefined }
   | { type: 'QUEUE_PERMISSION'; id: string; permission: PermissionRequest }
   | { type: 'DEQUEUE_PERMISSION'; id: string }

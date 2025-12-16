@@ -4,6 +4,7 @@ import type { OutputBlockData } from './types';
 interface GroupingState {
   currentMessages: string[];
   currentToolGroup: string[];
+  toolGroupErrorCount: number;
   activeSubagent: {
     toolUseId: string;
     subagentType: string;
@@ -17,7 +18,7 @@ function getLineType(line: OutputLine): 'subagent-start' | 'subagent-end' | 'too
   if (text.startsWith('[→]')) return 'subagent-start';
   if (text.startsWith('[←]')) return 'subagent-end';
   if (text.startsWith('[>] User:')) return 'user-input';
-  if (text.startsWith('[>]')) return 'tool-call';
+  if (text.startsWith('[>]') || text.startsWith('[✓]') || text.startsWith('[×]')) return 'tool-call';
   if (text.startsWith('[x]')) return 'error';
   if (text.startsWith('[+]')) return 'success';
   if (text.startsWith('[-]') || text.startsWith('[!]') || text.startsWith('[?]')) return 'warning';
@@ -42,6 +43,7 @@ export function groupOutputLines(
   const state: GroupingState = {
     currentMessages: [],
     currentToolGroup: [],
+    toolGroupErrorCount: 0,
     activeSubagent: null,
   };
 
@@ -65,9 +67,11 @@ export function groupOutputLines(
         type: 'tool-group',
         id: nextId(),
         count: state.currentToolGroup.length,
+        errorCount: state.toolGroupErrorCount,
         lines: [...state.currentToolGroup],
       });
       state.currentToolGroup = [];
+      state.toolGroupErrorCount = 0;
     }
   };
 
@@ -119,6 +123,15 @@ export function groupOutputLines(
       case 'tool-call': {
         flushMessages();
         state.currentToolGroup.push(line.text);
+
+        if (line.toolError) {
+          state.currentToolGroup.push(`    Error: ${line.toolError}`);
+        }
+
+        if (line.text.startsWith('[×]')) {
+          state.toolGroupErrorCount++;
+        }
+
         break;
       }
 

@@ -161,8 +161,15 @@ export const App = () => {
   }, []);
 
   useEffect(() => {
-    const onOutput = (id: string, line: string, isSubagent: boolean = false, subagentId?: string, subagentType?: string, timestamp?: number) => {
-      dispatch({ type: 'APPEND_OUTPUT', id, line: { text: line, isSubagent, subagentId, subagentType }, timestamp });
+    const onOutput = (id: string, lineOrText: any, isSubagent?: boolean, subagentId?: string, subagentType?: string, timestamp?: number) => {
+      if (typeof lineOrText === 'string') {
+        dispatch({ type: 'APPEND_OUTPUT', id, line: { text: lineOrText, isSubagent: isSubagent || false, subagentId, subagentType }, timestamp });
+      } else {
+        dispatch({ type: 'APPEND_OUTPUT', id, line: lineOrText, timestamp });
+      }
+    };
+    const onUpdateToolStatus = (id: string, update: any) => {
+      dispatch({ type: 'UPDATE_TOOL_STATUS', id, update });
     };
     const onIdle = async (id: string) => {
       dispatch({ type: 'SET_PERMISSION', id, permission: undefined });
@@ -340,6 +347,7 @@ export const App = () => {
     };
 
     agentManager.on('output', onOutput);
+    agentManager.on('updateToolStatus', onUpdateToolStatus);
     agentManager.on('idle', onIdle);
     agentManager.on('done', onDone);
     agentManager.on('error', onError);
@@ -352,6 +360,7 @@ export const App = () => {
 
     return () => {
       agentManager.off('output', onOutput);
+      agentManager.off('updateToolStatus', onUpdateToolStatus);
       agentManager.off('idle', onIdle);
       agentManager.off('done', onDone);
       agentManager.off('error', onError);
