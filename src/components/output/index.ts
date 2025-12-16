@@ -1,4 +1,4 @@
-export { groupOutputLines, getBlockLineCount, isCollapsibleBlock } from './groupOutputLines';
+export { groupOutputLines, getBlockLineCount, isCollapsibleBlock, convertBlockViewport } from './groupOutputLines';
 export { StatusLine } from './StatusLine';
 export { UserInputLine } from './UserInputLine';
 export { MessageBlock } from './MessageBlock';

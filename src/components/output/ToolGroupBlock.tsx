@@ -9,6 +9,7 @@ interface ToolGroupBlockProps {
   blockNumber: number;
   skipLines?: number;
   maxLines?: number;
+  showHeader?: boolean;
 }
 
 export const ToolGroupBlock = ({
@@ -19,12 +20,13 @@ export const ToolGroupBlock = ({
   blockNumber,
   skipLines = 0,
   maxLines,
+  showHeader = true,
 }: ToolGroupBlockProps) => {
   const arrow = collapsed ? '▸' : '▾';
   const countText = `${count} tool call${count !== 1 ? 's' : ''}`;
 
   if (collapsed) {
-    if (skipLines > 0) return null;
+    if (!showHeader) return null;
     return (
       <Box>
         <Text dimColor>
@@ -35,10 +37,8 @@ export const ToolGroupBlock = ({
     );
   }
 
-  const showHeader = skipLines === 0;
-  const contentSkipLines = showHeader ? Math.max(0, skipLines) : Math.max(0, skipLines - 1);
-  const endLine = maxLines !== undefined ? contentSkipLines + (maxLines - (showHeader ? 1 : 0)) : lines.length;
-  const visibleLines = lines.slice(contentSkipLines, endLine);
+  const endLine = maxLines !== undefined ? skipLines + maxLines : lines.length;
+  const visibleLines = lines.slice(skipLines, endLine);
 
   return (
     <Box flexDirection="column">
@@ -53,7 +53,7 @@ export const ToolGroupBlock = ({
       {visibleLines.map((line, i) => {
         const isError = line.trim().startsWith('Error:');
         return (
-          <Box key={contentSkipLines + i} paddingLeft={4}>
+          <Box key={skipLines + i} paddingLeft={4}>
             <Text dimColor={!isError} color={isError ? 'red' : undefined}>{line}</Text>
           </Box>
         );
