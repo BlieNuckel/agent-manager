@@ -47,17 +47,18 @@ export function groupOutputLines(
     activeSubagent: null,
   };
 
-  let blockIdCounter = 0;
-  const nextId = () => `block-${blockIdCounter++}`;
+  let currentLineIndex = 0;
+  let blockStartLine = 0;
 
   const flushMessages = () => {
     if (state.currentMessages.length > 0) {
       blocks.push({
         type: 'messages',
-        id: nextId(),
+        id: `block-${blockStartLine}`,
         lines: [...state.currentMessages],
       });
       state.currentMessages = [];
+      blockStartLine = currentLineIndex;
     }
   };
 
@@ -65,13 +66,14 @@ export function groupOutputLines(
     if (state.currentToolGroup.length > 0) {
       blocks.push({
         type: 'tool-group',
-        id: nextId(),
+        id: `block-${blockStartLine}`,
         count: state.currentToolGroup.length,
         errorCount: state.toolGroupErrorCount,
         lines: [...state.currentToolGroup],
       });
       state.currentToolGroup = [];
       state.toolGroupErrorCount = 0;
+      blockStartLine = currentLineIndex;
     }
   };
 
@@ -80,7 +82,7 @@ export function groupOutputLines(
       const stats = subagentStats?.[state.activeSubagent.toolUseId];
       blocks.push({
         type: 'subagent',
-        id: nextId(),
+        id: `block-${blockStartLine}`,
         toolUseId: state.activeSubagent.toolUseId,
         subagentType: state.activeSubagent.subagentType,
         status: completed ? 'completed' : 'running',
@@ -88,6 +90,7 @@ export function groupOutputLines(
         stats,
       });
       state.activeSubagent = null;
+      blockStartLine = currentLineIndex;
     }
   };
 
@@ -140,9 +143,10 @@ export function groupOutputLines(
         flushToolGroup();
         blocks.push({
           type: 'user-input',
-          id: nextId(),
+          id: `block-${blockStartLine}`,
           text: line.text.replace(/^\[>\] User:\s*/, ''),
         });
+        blockStartLine = currentLineIndex + 1;
         break;
       }
 
@@ -151,10 +155,11 @@ export function groupOutputLines(
         flushToolGroup();
         blocks.push({
           type: 'status',
-          id: nextId(),
+          id: `block-${blockStartLine}`,
           line: line.text,
           variant: 'error',
         });
+        blockStartLine = currentLineIndex + 1;
         break;
       }
 
@@ -163,10 +168,11 @@ export function groupOutputLines(
         flushToolGroup();
         blocks.push({
           type: 'status',
-          id: nextId(),
+          id: `block-${blockStartLine}`,
           line: line.text,
           variant: 'success',
         });
+        blockStartLine = currentLineIndex + 1;
         break;
       }
 
@@ -175,10 +181,11 @@ export function groupOutputLines(
         flushToolGroup();
         blocks.push({
           type: 'status',
-          id: nextId(),
+          id: `block-${blockStartLine}`,
           line: line.text,
           variant: 'warning',
         });
+        blockStartLine = currentLineIndex + 1;
         break;
       }
 
@@ -188,6 +195,8 @@ export function groupOutputLines(
         break;
       }
     }
+
+    currentLineIndex++;
   }
 
   flushMessages();
