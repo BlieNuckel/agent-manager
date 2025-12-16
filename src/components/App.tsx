@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useReducer, useMemo, useRef } from 'react';
 import { useInput, useApp } from 'ink';
 import path from 'path';
-import type { Agent, AgentType, HistoryEntry, Mode, PermissionRequest, QuestionRequest, InputStep, PermissionMode, ImageAttachment, TokenTracking, CustomAgentType, Workflow, WorkflowExecutionState, InboxItem, SubagentStats, TodoItem } from '../types';
+import type { Agent, AgentType, HistoryEntry, Mode, PermissionRequest, QuestionRequest, InputStep, PermissionMode, ImageAttachment, TokenTracking, CustomAgentType, Workflow, WorkflowExecutionState, InboxItem, SubagentStats, TodoItem, Repository } from '../types';
 import { reducer } from '../state/reducer';
 import { loadHistory, saveHistory } from '../state/history';
 import { AgentSDKManager } from '../agent/manager';
@@ -26,7 +26,6 @@ import { CommandResult } from './CommandResult';
 import { CommandLoader } from '../commands/loader';
 import { CommandExecutor } from '../commands/executor';
 import type { Command, CommandResult as CommandResultType } from '../commands/types';
-import { RepoCommandInput } from './RepoCommandInput';
 
 const agentManager = new AgentSDKManager();
 const commandLoader = new CommandLoader();
@@ -887,18 +886,6 @@ export const App = () => {
     setMode('normal');
   };
 
-  const handleRepoCommandComplete = () => {
-    setMode('normal');
-  };
-
-  const handleRepoCommandResult = (message: string, success: boolean) => {
-    setCommandResult({
-      result: { success, message },
-      commandName: 'repo'
-    });
-    setMode('command-result');
-  };
-
   const handleStartWorkflow = async (workflow: Workflow, prompt: string, worktree?: { enabled: boolean; name: string }, images?: ImageAttachment[], repository?: Repository) => {
     const execution = createWorkflowExecution(workflow, prompt, images, repository);
     dispatch({ type: 'START_WORKFLOW', execution });
@@ -1245,7 +1232,7 @@ export const App = () => {
       return;
     }
 
-    if (mode === 'detail' || mode === 'input' || mode === 'command-result' || mode === 'new-artifact' || mode === 'workflow-select' || mode === 'workflow-detail' || mode === 'repo-command' || commandMode) return
+    if (mode === 'detail' || mode === 'input' || mode === 'command-result' || mode === 'new-artifact' || mode === 'workflow-select' || mode === 'workflow-detail' || commandMode) return
 
     if (key.tab) {
       if (key.shift) {
@@ -1259,12 +1246,6 @@ export const App = () => {
     if (input === 'n') { setMode('input'); return; }
     if (input === 'w') { setMode('workflow-select'); return; }
     if (input === ':') { handleOpenCommandPalette(); return; }
-
-    // Handle repo command
-    if (input === 'r' && key.shift) {
-      setMode('repo-command');
-      return;
-    }
 
     const list = tab === 'inbox' ? buildInboxItems : tab === 'history' ? state.history : state.artifacts;
     const idx = tab === 'inbox' ? inboxIdx : tab === 'history' ? histIdx : artifactsIdx;
@@ -1572,18 +1553,6 @@ export const App = () => {
           />
         ),
         help: getNewArtifactHelp('template'),
-      };
-    }
-
-    if (mode === 'repo-command') {
-      return {
-        content: (
-          <RepoCommandInput
-            onComplete={handleRepoCommandComplete}
-            onResult={handleRepoCommandResult}
-          />
-        ),
-        help: <Text dimColor>ESC to cancel</Text>,
       };
     }
 

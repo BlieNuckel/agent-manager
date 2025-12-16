@@ -11,6 +11,49 @@ export class CommandLoader {
 	private cache: Command[] | null = null;
 	private lastModified: number = 0;
 
+	private getBuiltinCommands(): Command[] {
+		return [
+			{
+				id: 'repo-ls',
+				name: 'repo-ls',
+				description: 'List all registered repositories',
+				category: 'repository',
+				type: 'inline',
+			},
+			{
+				id: 'repo-add',
+				name: 'repo-add',
+				description: 'Add a new repository',
+				category: 'repository',
+				type: 'inline',
+				args: [
+					{ name: 'name', description: 'Repository name', required: true, type: 'string' },
+					{ name: 'path', description: 'Repository path', required: true, type: 'path' },
+				],
+			},
+			{
+				id: 'repo-remove',
+				name: 'repo-remove',
+				description: 'Remove a repository',
+				category: 'repository',
+				type: 'inline',
+				args: [
+					{ name: 'name', description: 'Repository name', required: true, type: 'string' },
+				],
+			},
+			{
+				id: 'repo-default',
+				name: 'repo-default',
+				description: 'Set the default repository',
+				category: 'repository',
+				type: 'inline',
+				args: [
+					{ name: 'name', description: 'Repository name', required: true, type: 'string' },
+				],
+			},
+		];
+	}
+
 	async loadCommands(forceReload = false): Promise<Command[]> {
 		try {
 			const stats = await fs.stat(COMMANDS_FILE);
@@ -18,7 +61,7 @@ export class CommandLoader {
 
 			if (!forceReload && this.cache && modified === this.lastModified) {
 				debug('Using cached commands');
-				return this.cache;
+				return [...this.getBuiltinCommands(), ...this.cache];
 			}
 
 			debug(`Loading commands from ${COMMANDS_FILE}`);
@@ -30,8 +73,9 @@ export class CommandLoader {
 			this.cache = config.command || [];
 			this.lastModified = modified;
 
-			debug(`Loaded ${this.cache.length} command(s)`);
-			return this.cache;
+			const allCommands = [...this.getBuiltinCommands(), ...this.cache];
+			debug(`Loaded ${allCommands.length} command(s) (${this.getBuiltinCommands().length} builtin)`);
+			return allCommands;
 		} catch (error) {
 			if ((error as any).code === 'ENOENT') {
 				debug('Commands file not found, creating default config');

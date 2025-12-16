@@ -92,7 +92,6 @@ export const getListViewHelp = (tab: 'inbox' | 'history' | 'artifacts') => {
       {tab === 'inbox' && <><Text color="cyan">x</Text>{' '}Kill{'  '}</>}
       {(tab === 'inbox' || tab === 'history' || tab === 'artifacts') && <><Text color="cyan">d</Text>{' '}{tab === 'inbox' ? 'Remove' : 'Delete'}{'  '}</>}
       <Text color="cyan">:</Text>{' '}Commands{'  '}
-      <Text color="cyan">R</Text>{' '}Repos{'  '}
       <Text color="cyan">q</Text>{' '}Quit
     </>
   );
