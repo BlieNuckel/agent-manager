@@ -288,9 +288,20 @@ export const App = () => {
       if (workflowExecution) {
         const stageIdx = workflowExecution.stageStates.findIndex(s => s.agentId === id);
         if (stageIdx >= 0 && workflowExecution.stageStates[stageIdx]?.status === 'running') {
-          dispatch({ type: 'UPDATE_STAGE_STATE', executionId: workflowExecution.executionId, stageIndex: stageIdx, updates: { status: 'awaiting_approval' } });
-          dispatch({ type: 'UPDATE_WORKFLOW_EXECUTION', executionId: workflowExecution.executionId, updates: { status: 'awaiting_approval' } });
-          process.stdout.write('\u0007');
+          const workflow = state.workflows.find(w => w.id === workflowExecution.workflowId);
+          const isLastStage = workflow && stageIdx === workflow.stages.length - 1;
+
+          if (isLastStage) {
+            // For the last stage, mark as completed directly without approval
+            dispatch({ type: 'UPDATE_STAGE_STATE', executionId: workflowExecution.executionId, stageIndex: stageIdx, updates: { status: 'approved', completedAt: new Date() } });
+            dispatch({ type: 'UPDATE_WORKFLOW_EXECUTION', executionId: workflowExecution.executionId, updates: { status: 'completed' } });
+            process.stdout.write('\u0007');
+          } else {
+            // For non-last stages, request approval as before
+            dispatch({ type: 'UPDATE_STAGE_STATE', executionId: workflowExecution.executionId, stageIndex: stageIdx, updates: { status: 'awaiting_approval' } });
+            dispatch({ type: 'UPDATE_WORKFLOW_EXECUTION', executionId: workflowExecution.executionId, updates: { status: 'awaiting_approval' } });
+            process.stdout.write('\u0007');
+          }
         }
       }
     };
