@@ -32,11 +32,28 @@ const agentManager = new AgentSDKManager();
 const commandLoader = new CommandLoader();
 const commandExecutor = new CommandExecutor();
 
+// Define tab order in one place for easy maintenance
+const TAB_ORDER = ['inbox', 'artifacts', 'history', 'library'] as const;
+type TabType = typeof TAB_ORDER[number];
+
+// Helper functions for tab navigation
+const getNextTab = (current: TabType): TabType => {
+  const currentIndex = TAB_ORDER.indexOf(current);
+  const nextIndex = (currentIndex + 1) % TAB_ORDER.length;
+  return TAB_ORDER[nextIndex];
+};
+
+const getPreviousTab = (current: TabType): TabType => {
+  const currentIndex = TAB_ORDER.indexOf(current);
+  const previousIndex = (currentIndex - 1 + TAB_ORDER.length) % TAB_ORDER.length;
+  return TAB_ORDER[previousIndex];
+};
+
 export const App = () => {
   const { exit } = useApp();
   const [state, dispatch] = useReducer(reducer, { agents: [], history: loadHistory(), artifacts: [], templates: [], agentTypes: [], workflows: [], workflowExecutions: [] });
   const [currentExecutionId, setCurrentExecutionId] = useState<string | null>(null);
-  const [tab, setTab] = useState<'inbox' | 'artifacts' | 'history' | 'library'>('inbox');
+  const [tab, setTab] = useState<TabType>('inbox');
   const [inboxIdx, setInboxIdx] = useState(0);
   const [histIdx, setHistIdx] = useState(0);
   const [artifactsIdx, setArtifactsIdx] = useState(0);
@@ -1403,18 +1420,19 @@ export const App = () => {
 
     if (key.tab) {
       if (key.shift) {
-        setTab(t => t === 'inbox' ? 'history' : t === 'history' ? 'library' : t === 'library' ? 'artifacts' : 'inbox');
+        setTab(t => getPreviousTab(t));
       } else {
-        setTab(t => t === 'inbox' ? 'artifacts' : t === 'artifacts' ? 'history' : t === 'history' ? 'library' : 'inbox');
+        setTab(t => getNextTab(t));
       }
       return;
     }
 
-    // Number key shortcuts for tabs
-    if (input === '1') { setTab('inbox'); return; }
-    if (input === '2') { setTab('artifacts'); return; }
-    if (input === '3') { setTab('history'); return; }
-    if (input === '4') { setTab('library'); return; }
+    // Number key shortcuts for tabs - dynamically mapped to TAB_ORDER
+    const numKey = parseInt(input);
+    if (!isNaN(numKey) && numKey >= 1 && numKey <= TAB_ORDER.length) {
+      setTab(TAB_ORDER[numKey - 1]);
+      return;
+    }
     if (input === 'q') { handleQuitRequest(); return; }
     if (input === 'n') { setMode('input'); return; }
     if (input === 'w') { setMode('workflow-select'); return; }
