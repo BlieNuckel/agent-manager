@@ -174,18 +174,6 @@ export class AgentSDKManager extends EventEmitter {
         }
       }
 
-      if (toolName === 'EnterPlanMode') {
-        debug('Auto-allowing EnterPlanMode for normal agent');
-        this.emit('output', id, `[+] Auto-allowed: ${toolName}`, isSubagentTool, options.agentID, subagentType, Date.now());
-        return { behavior: 'allow' as const, updatedInput: toolInput };
-      }
-
-      if (toolName === 'mcp__question-handler__AskQuestion') {
-        debug('Auto-allowing AskQuestion tool');
-        this.emit('output', id, `[+] Auto-allowed: ${toolName}`, isSubagentTool, options.agentID, subagentType, Date.now());
-        return { behavior: 'allow' as const, updatedInput: toolInput };
-      }
-
       if (toolName === 'TodoWrite') {
         debug('Intercepting TodoWrite tool:', { agentId: id, todos: toolInput.todos });
         const todos = toolInput.todos as any[];
@@ -296,7 +284,35 @@ export class AgentSDKManager extends EventEmitter {
   async spawn(id: string, prompt: string, workDir: string, agentType: AgentType, worktreeContext?: WorktreeContext, title?: string, images?: ImageAttachment[], customAgentType?: CustomAgentType, workflowContext?: WorkflowContext, allAgentTypes?: CustomAgentType[]): Promise<void> {
     const abortController = new AbortController();
     const permissionMode = this.getPermissionModeForAgentType(agentType);
-    this.agentStates.set(id, { agentType, hasTitle: true, permissionMode, toolConfig: customAgentType?.tools });
+
+    let toolConfig = customAgentType?.tools;
+    if (toolConfig) {
+      const alwaysAllowedTools = [
+        'mcp__artifacts__Read',
+        'mcp__artifacts__Write',
+        'mcp__question-handler__AskQuestion',
+        'EnterPlanMode'
+      ];
+
+      const modifiedConfig = { ...toolConfig };
+
+      if (modifiedConfig.allow) {
+        modifiedConfig.allow = [
+          ...modifiedConfig.allow,
+          ...alwaysAllowedTools
+        ];
+      }
+
+      if (modifiedConfig.deny) {
+        modifiedConfig.deny = modifiedConfig.deny.filter(
+          t => !alwaysAllowedTools.includes(t)
+        );
+      }
+
+      toolConfig = modifiedConfig;
+    }
+
+    this.agentStates.set(id, { agentType, hasTitle: true, permissionMode, toolConfig });
 
     let systemPromptAppend = buildSystemPrompt(worktreeContext, workflowContext);
 
