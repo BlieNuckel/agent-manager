@@ -39,7 +39,7 @@ export const VimCommandInput = ({ commands, onExecute, onCancel }: VimCommandInp
   // Get the best match for ghost text
   const bestMatch = suggestions.length > 0 ? suggestions[selectedIndex] : null;
 
-  useInput((input, key) => {
+  useInput((char, key) => {
     if (key.escape) {
       onCancel();
       return;
@@ -47,9 +47,7 @@ export const VimCommandInput = ({ commands, onExecute, onCancel }: VimCommandInp
 
     if (key.return) {
       if (bestMatch) {
-        // Parse the full command line to extract arguments
-        const fullInput = input.trim();
-        const parts = fullInput.split(/\s+/);
+        const parts = input.trim().split(/\s+/);
         const args = parts.slice(1);
         onExecute(bestMatch, args);
       }
@@ -58,7 +56,6 @@ export const VimCommandInput = ({ commands, onExecute, onCancel }: VimCommandInp
 
     if (key.tab) {
       if (suggestions.length > 0) {
-        // Complete to the selected suggestion
         const selectedCommand = suggestions[selectedIndex];
         setInput(selectedCommand.name + ' ');
         setShowSuggestions(false);
@@ -66,14 +63,14 @@ export const VimCommandInput = ({ commands, onExecute, onCancel }: VimCommandInp
       return;
     }
 
-    if (key.upArrow || (key.ctrl && input === 'k')) {
+    if (key.upArrow || (key.ctrl && char === 'k')) {
       if (showSuggestions && selectedIndex > 0) {
         setSelectedIndex(selectedIndex - 1);
       }
       return;
     }
 
-    if (key.downArrow || (key.ctrl && input === 'j')) {
+    if (key.downArrow || (key.ctrl && char === 'j')) {
       if (showSuggestions && selectedIndex < suggestions.length - 1) {
         setSelectedIndex(selectedIndex + 1);
       }
@@ -87,8 +84,8 @@ export const VimCommandInput = ({ commands, onExecute, onCancel }: VimCommandInp
       return;
     }
 
-    if (input.length === 1 && !key.ctrl && !key.meta) {
-      setInput(prev => prev + input);
+    if (char.length === 1 && !key.ctrl && !key.meta) {
+      setInput(prev => prev + char);
       setShowSuggestions(true);
       setSelectedIndex(0);
     }
