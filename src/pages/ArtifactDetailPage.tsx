@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Box, Text, useInput, useStdout } from 'ink';
 import { marked } from 'marked';
-import TerminalRenderer from 'marked-terminal';
+import { markedTerminal } from 'marked-terminal';
 import chalk from 'chalk';
 import { AnsiText } from '../utils/ansiToInk';
 import fs from 'fs';
@@ -14,7 +14,7 @@ interface ArtifactDetailPageProps {
 
 chalk.level = 3;
 
-const renderer = new TerminalRenderer({
+marked.use(markedTerminal({
   code: chalk.yellow,
   codespan: chalk.yellow,
   tableOptions: {
@@ -23,9 +23,7 @@ const renderer = new TerminalRenderer({
       border: ['gray']
     }
   }
-});
-
-marked.setOptions({ renderer });
+}));
 
 const useRenderedMarkdown = (content: string): string[] => {
   return useMemo(() => {
