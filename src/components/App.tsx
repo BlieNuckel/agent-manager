@@ -16,7 +16,7 @@ import { listWorkflows, createWorkflowExecution, canSkipStage, shouldAutoApprove
 import { ensureTempImageDir } from '../utils/imageStorage';
 import { cleanupOldTempImages } from '../utils/imageCleanup';
 import { Layout } from './Layout';
-import { ListViewPage, getListViewHelp, NewAgentPage, getNewAgentHelp, DetailViewPage, getDetailViewHelp, ArtifactDetailPage, getArtifactDetailHelp, NewArtifactPage, getNewArtifactHelp, WorkflowDetailPage, getWorkflowDetailHelp } from '../pages';
+import { ListViewPage, getListViewHelp, NewAgentPage, getNewAgentHelp, DetailViewPage, getDetailViewHelp, ArtifactDetailPage, getArtifactDetailHelp, NewArtifactPage, getNewArtifactHelp, WorkflowDetailPage, getWorkflowDetailHelp, LibraryPage, getLibraryHelp } from '../pages';
 import { WorkflowSelectPage, getWorkflowSelectHelp } from '../pages/WorkflowSelectPage';
 import { QuitConfirmationPrompt } from './QuitConfirmationPrompt';
 import { DeleteConfirmationPrompt } from './DeleteConfirmationPrompt';
@@ -35,10 +35,17 @@ export const App = () => {
   const { exit } = useApp();
   const [state, dispatch] = useReducer(reducer, { agents: [], history: loadHistory(), artifacts: [], templates: [], agentTypes: [], workflows: [], workflowExecutions: [] });
   const [currentExecutionId, setCurrentExecutionId] = useState<string | null>(null);
-  const [tab, setTab] = useState<'inbox' | 'history' | 'artifacts'>('inbox');
+  const [tab, setTab] = useState<'inbox' | 'artifacts' | 'history' | 'library'>('inbox');
   const [inboxIdx, setInboxIdx] = useState(0);
   const [histIdx, setHistIdx] = useState(0);
   const [artifactsIdx, setArtifactsIdx] = useState(0);
+  const [libraryIdx, setLibraryIdx] = useState(0);
+  const [libraryFilters, setLibraryFilters] = useState<{ types: Set<'agent' | 'template' | 'workflow'>; sources: Set<'system' | 'user' | 'project'> }>({
+    types: new Set(['agent', 'template', 'workflow']),
+    sources: new Set(['system', 'user', 'project'])
+  });
+  const [librarySearchQuery, setLibrarySearchQuery] = useState('');
+  const [showLibraryPreview, setShowLibraryPreview] = useState(true);
   const [mode, setMode] = useState<Mode>('normal');
   const [detailAgentId, setDetailAgentId] = useState<string | null>(null);
   const [detailArtifactPath, setDetailArtifactPath] = useState<string | null>(null);
@@ -46,6 +53,7 @@ export const App = () => {
   const [inputState, setInputState] = useState<{ step: InputStep; showSlashMenu: boolean }>({ step: 'prompt', showSlashMenu: false });
   const [editingHistoryEntry, setEditingHistoryEntry] = useState<HistoryEntry | null>(null);
   const [preSelectedArtifactPath, setPreSelectedArtifactPath] = useState<string | null>(null);
+  const [selectedCustomAgentType, setSelectedCustomAgentType] = useState<CustomAgentType | null>(null);
   const [showQuitConfirmation, setShowQuitConfirmation] = useState(false);
   const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false);
   const [agentToDelete, setAgentToDelete] = useState<string | null>(null);
@@ -1236,12 +1244,18 @@ export const App = () => {
 
     if (key.tab) {
       if (key.shift) {
-        setTab(t => t === 'inbox' ? 'history' : t === 'history' ? 'artifacts' : 'inbox');
+        setTab(t => t === 'inbox' ? 'history' : t === 'history' ? 'library' : t === 'library' ? 'artifacts' : 'inbox');
       } else {
-        setTab(t => t === 'inbox' ? 'artifacts' : t === 'artifacts' ? 'history' : 'inbox');
+        setTab(t => t === 'inbox' ? 'artifacts' : t === 'artifacts' ? 'history' : t === 'history' ? 'library' : 'inbox');
       }
       return;
     }
+
+    // Number key shortcuts for tabs
+    if (input === '1') { setTab('inbox'); return; }
+    if (input === '2') { setTab('artifacts'); return; }
+    if (input === '3') { setTab('history'); return; }
+    if (input === '4') { setTab('library'); return; }
     if (input === 'q') { handleQuitRequest(); return; }
     if (input === 'n') { setMode('input'); return; }
     if (input === 'w') { setMode('workflow-select'); return; }
@@ -1525,12 +1539,13 @@ export const App = () => {
       return {
         content: (
           <NewAgentPage
-            onSubmit={(t, p, at, wt, imgs, cat) => { createAgent(t, p, at, wt, imgs, cat); setMode('normal'); setTab('inbox'); setInboxIdx(state.agents.length); setEditingHistoryEntry(null); setPreSelectedArtifactPath(null); }}
-            onCancel={() => { setMode('normal'); setEditingHistoryEntry(null); setPreSelectedArtifactPath(null); }}
+            onSubmit={(t, p, at, wt, imgs, cat) => { createAgent(t, p, at, wt, imgs, cat); setMode('normal'); setTab('inbox'); setInboxIdx(state.agents.length); setEditingHistoryEntry(null); setPreSelectedArtifactPath(null); setSelectedCustomAgentType(null); }}
+            onCancel={() => { setMode('normal'); setEditingHistoryEntry(null); setPreSelectedArtifactPath(null); setSelectedCustomAgentType(null); }}
             onStateChange={setInputState}
             initialHistoryEntry={editingHistoryEntry}
             initialArtifactPath={preSelectedArtifactPath}
             customAgentTypes={state.agentTypes}
+            initialCustomAgentType={selectedCustomAgentType}
           />
         ),
         help: getNewAgentHelp(inputState.step, inputState.showSlashMenu),
@@ -1553,6 +1568,39 @@ export const App = () => {
           />
         ),
         help: getNewArtifactHelp('template'),
+      };
+    }
+
+    if (tab === 'library') {
+      const handleLibrarySelect = (item: any) => {
+        if (item.type === 'agent') {
+          const agentType = item.data as CustomAgentType;
+          setSelectedCustomAgentType(agentType);
+          setMode('input');
+        } else if (item.type === 'workflow') {
+          setMode('workflow-select');
+        }
+      };
+
+      return {
+        content: (
+          <LibraryPage
+            agentTypes={state.agentTypes}
+            templates={state.templates}
+            workflows={state.workflows}
+            selectedIdx={libraryIdx}
+            onIdxChange={setLibraryIdx}
+            filters={libraryFilters}
+            onFiltersChange={setLibraryFilters}
+            searchQuery={librarySearchQuery}
+            onSearchQueryChange={setLibrarySearchQuery}
+            showPreview={showLibraryPreview}
+            onPreviewToggle={() => setShowLibraryPreview(!showLibraryPreview)}
+            onSelect={handleLibrarySelect}
+            onBack={() => setTab('inbox')}
+          />
+        ),
+        help: getLibraryHelp(),
       };
     }
 

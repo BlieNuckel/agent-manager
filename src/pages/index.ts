@@ -4,3 +4,4 @@ export { DetailViewPage, getDetailViewHelp } from './DetailViewPage';
 export { ArtifactDetailPage, getArtifactDetailHelp } from './ArtifactDetailPage';
 export { NewArtifactPage, getNewArtifactHelp } from './NewArtifactPage';
 export { WorkflowDetailPage, getWorkflowDetailHelp } from './WorkflowDetailPage';
+export { LibraryPage, getLibraryHelp } from './LibraryPage';
