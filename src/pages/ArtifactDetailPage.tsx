@@ -8,7 +8,6 @@ interface ArtifactDetailPageProps {
   artifact: ArtifactInfo;
   onBack: () => void;
 }
-
 export const ArtifactDetailPage = ({ artifact, onBack }: ArtifactDetailPageProps) => {
   const { stdout } = useStdout();
   const [content, setContent] = useState<string>('');

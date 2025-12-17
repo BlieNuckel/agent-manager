@@ -1,0 +1,13 @@
+diff --git a/node_modules/marked-terminal/index.js b/node_modules/marked-terminal/index.js
+index 5e2d4b4..45256e2 100644
+--- a/node_modules/marked-terminal/index.js
++++ b/node_modules/marked-terminal/index.js
+@@ -83,7 +83,7 @@ Renderer.prototype.space = function () {
+ 
+ Renderer.prototype.text = function (text) {
+   if (typeof text === 'object') {
+-    text = text.text;
++    text = text.tokens ? this.parser.parseInline(text.tokens) : text.text;
+   }
+   return this.o.text(text);
+ };

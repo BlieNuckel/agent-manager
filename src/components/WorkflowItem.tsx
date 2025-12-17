@@ -67,6 +67,9 @@ export const WorkflowItem = React.memo(({ workflow, execution, agents, expanded,
         <Text bold={selected} color={selected ? 'cyan' : 'magenta'}>
           [{workflow.name}]
         </Text>
+        {execution.repository && (
+          <Text dimColor> ({execution.repository.name})</Text>
+        )}
         <Text dimColor> Stage {currentStageNum}/{totalStages}</Text>
         {promptStatus.badge && (
           <Text color={promptStatus.color}> {promptStatus.badge}</Text>
