@@ -23,11 +23,11 @@ interface LibraryPageProps {
   onBack: () => void;
 }
 
-const getItemTypeIcon = (type: LibraryItemType): string => {
+const getItemTypeTag = (type: LibraryItemType): { text: string; color: string } => {
   switch (type) {
-    case 'agent': return '🤖';
-    case 'template': return '📄';
-    case 'workflow': return '🔄';
+    case 'agent': return { text: '[agent]', color: 'green' };
+    case 'template': return { text: '[artifact]', color: 'yellow' };
+    case 'workflow': return { text: '[workflow]', color: 'blue' };
   }
 };
 
@@ -358,10 +358,14 @@ export const LibraryPage = ({
                 <Box>
                   {idx === selectedIdx && <Text color="cyan">▶ </Text>}
                   {idx !== selectedIdx && <Text>  </Text>}
-                  <Text color={idx === selectedIdx ? 'cyan' : undefined} bold={idx === selectedIdx}>
-                    {getItemTypeIcon(item.type)} {item.name}
+                  <Text color={getItemTypeTag(item.type).color} bold>
+                    {getItemTypeTag(item.type).text}
                   </Text>
-                  <Text dimColor> [{getItemTypeLabel(item.type)}/{getSourceLabel(item.source)}]</Text>
+                  <Text> </Text>
+                  <Text color={idx === selectedIdx ? 'cyan' : undefined} bold={idx === selectedIdx}>
+                    {item.name}
+                  </Text>
+                  <Text dimColor> [{getSourceLabel(item.source)}]</Text>
                 </Box>
                 <Box paddingLeft={2}>
                   <Text dimColor wrap="truncate-end">{item.description}</Text>
@@ -384,24 +388,25 @@ export const LibraryPage = ({
       {showPreview && (
         <Box
           width="60%"
-          borderStyle="single"
-          borderColor="gray"
-          paddingLeft={1}
           flexDirection="column"
         >
-          <Box marginBottom={1}>
-            <Text bold color="magenta">Preview: </Text>
-            <Text>{selectedItem?.name || 'No selection'}</Text>
+          <Box flexDirection="column" marginBottom={1}>
+            <Text bold color="cyan">{selectedItem?.name || 'No selection'}</Text>
+            {selectedItem && (
+              <Text dimColor>{getItemTypeTag(selectedItem.type).text} - {getSourceLabel(selectedItem.source)}</Text>
+            )}
           </Box>
           {selectedItem && (
-            loadingPreview ? (
-              <Text dimColor>Loading preview...</Text>
-            ) : (
-              <ScrollableMarkdown
-                content={previewContent}
-                keybindings="vi"
-              />
-            )
+            <Box borderStyle="single" borderColor="gray" flexGrow={1} paddingX={1}>
+              {loadingPreview ? (
+                <Text dimColor>Loading preview...</Text>
+              ) : (
+                <ScrollableMarkdown
+                  content={previewContent}
+                  keybindings="vi"
+                />
+              )}
+            </Box>
           )}
         </Box>
       )}
