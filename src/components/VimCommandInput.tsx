@@ -81,7 +81,7 @@ export const VimCommandInput = ({ commands, onExecute, onCancel }: VimCommandInp
     }
 
     if (key.backspace || key.delete) {
-      setInput(input.slice(0, -1));
+      setInput(prev => prev.slice(0, -1));
       setShowSuggestions(true);
       setSelectedIndex(0);
       return;
