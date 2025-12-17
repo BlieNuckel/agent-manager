@@ -397,7 +397,7 @@ export const LibraryPage = ({
             )}
           </Box>
           {selectedItem && (
-            <Box borderStyle="single" borderColor="gray" flexGrow={1} paddingX={1}>
+            <Box flexGrow={1} paddingX={1}>
               {loadingPreview ? (
                 <Text dimColor>Loading preview...</Text>
               ) : (
