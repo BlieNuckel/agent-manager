@@ -1730,38 +1730,15 @@ export const App = () => {
       };
     }
 
-    if (tab === 'library') {
-      const handleLibrarySelect = (item: any) => {
-        if (item.type === 'agent') {
-          const agentType = item.data as CustomAgentType;
-          setSelectedCustomAgentType(agentType);
-          setMode('input');
-        } else if (item.type === 'workflow') {
-          setMode('workflow-select');
-        }
-      };
-
-      return {
-        content: (
-          <LibraryPage
-            agentTypes={state.agentTypes}
-            templates={state.templates}
-            workflows={state.workflows}
-            selectedIdx={libraryIdx}
-            onIdxChange={setLibraryIdx}
-            filters={libraryFilters}
-            onFiltersChange={setLibraryFilters}
-            searchQuery={librarySearchQuery}
-            onSearchQueryChange={setLibrarySearchQuery}
-            showPreview={showLibraryPreview}
-            onPreviewToggle={() => setShowLibraryPreview(!showLibraryPreview)}
-            onSelect={handleLibrarySelect}
-            onBack={() => setTab('inbox')}
-          />
-        ),
-        help: getLibraryHelp(),
-      };
-    }
+    const handleLibrarySelect = (item: any) => {
+      if (item.type === 'agent') {
+        const agentType = item.data as CustomAgentType;
+        setSelectedCustomAgentType(agentType);
+        setMode('input');
+      } else if (item.type === 'workflow') {
+        setMode('workflow-select');
+      }
+    };
 
     return {
       content: (
@@ -1774,9 +1751,23 @@ export const App = () => {
           histIdx={histIdx}
           artifactsIdx={artifactsIdx}
           expandedWorkflows={expandedWorkflows}
+          // Library props
+          agentTypes={state.agentTypes}
+          templates={state.templates}
+          workflows={state.workflows}
+          libraryIdx={libraryIdx}
+          onLibraryIdxChange={setLibraryIdx}
+          libraryFilters={libraryFilters}
+          onLibraryFiltersChange={setLibraryFilters}
+          librarySearchQuery={librarySearchQuery}
+          onLibrarySearchQueryChange={setLibrarySearchQuery}
+          showLibraryPreview={showLibraryPreview}
+          onLibraryPreviewToggle={() => setShowLibraryPreview(!showLibraryPreview)}
+          onLibrarySelect={handleLibrarySelect}
+          onLibraryBack={() => setTab('inbox')}
         />
       ),
-      help: getListViewHelp(tab),
+      help: tab === 'library' ? getLibraryHelp() : getListViewHelp(tab),
     };
   };
 
