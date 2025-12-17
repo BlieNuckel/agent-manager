@@ -37,8 +37,14 @@ export class RepositoryManager {
       throw new Error(`Repository with name '${name}' already exists`);
     }
 
+    // Expand tilde to home directory if present
+    let expandedPath = repoPath;
+    if (repoPath.startsWith('~')) {
+      expandedPath = path.join(os.homedir(), repoPath.slice(1));
+    }
+
     // Resolve to absolute path
-    const absolutePath = path.resolve(repoPath);
+    const absolutePath = path.resolve(expandedPath);
 
     // Verify path exists and is a directory
     try {
