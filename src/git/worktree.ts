@@ -5,11 +5,24 @@ import { copySettingsToWorktree, mergeSettingsFromWorktree } from './settingsSyn
 
 export function getGitRoot(cwd?: string): string | null {
   try {
-    return execSync('git rev-parse --show-toplevel', {
+    const workingDir = cwd || process.cwd();
+    const toplevel = execSync('git rev-parse --show-toplevel', {
       encoding: 'utf8',
       stdio: ['pipe', 'pipe', 'pipe'],
-      cwd: cwd || process.cwd()
+      cwd: workingDir
     }).trim();
+
+    const commonDir = execSync('git rev-parse --git-common-dir', {
+      encoding: 'utf8',
+      stdio: ['pipe', 'pipe', 'pipe'],
+      cwd: workingDir
+    }).trim();
+
+    if (commonDir.endsWith('/.git')) {
+      return path.dirname(commonDir);
+    }
+
+    return toplevel;
   } catch {
     return null;
   }
