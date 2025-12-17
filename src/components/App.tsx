@@ -9,7 +9,7 @@ import { getGitRoot, getCurrentBranch, getRepoName, generateUniqueBranchName, cr
 import type { WorktreeContext, WorkflowContext } from '../agent/systemPromptTemplates';
 import { genId } from '../utils/helpers';
 import { debug } from '../utils/logger';
-import { listArtifacts, deleteArtifact, findArtifactByWorkflowStage } from '../utils/artifacts';
+import { listArtifacts, deleteArtifact, findArtifactByWorkflowStage, findArtifactWithFallback, type ArtifactSearchResult } from '../utils/artifacts';
 import { listTemplates } from '../utils/templates';
 import { listAgentTypes } from '../utils/agentTypes';
 import { listWorkflows, createWorkflowExecution, canSkipStage, shouldAutoApprove, getLastArtifactPath, getStageArtifactTemplate } from '../utils/workflows';
@@ -22,6 +22,7 @@ import { QuitConfirmationPrompt } from './QuitConfirmationPrompt';
 import { DeleteConfirmationPrompt } from './DeleteConfirmationPrompt';
 import { WorkflowDeleteConfirmationPrompt } from './WorkflowDeleteConfirmationPrompt';
 import { ArtifactDeleteConfirmationPrompt } from './ArtifactDeleteConfirmationPrompt';
+import { ArtifactSelectionPrompt } from './ArtifactSelectionPrompt';
 import { CommandResult } from './CommandResult';
 import { CommandLoader } from '../commands/loader';
 import { CommandExecutor } from '../commands/executor';
@@ -68,6 +69,9 @@ export const App = () => {
   const [workflowSelectStep, setWorkflowSelectStep] = useState<'workflow' | 'prompt' | 'branchName'>('workflow');
   const [workflowAgentId, setWorkflowAgentId] = useState<string | null>(null);
   const [expandedWorkflows, setExpandedWorkflows] = useState<Set<string>>(new Set());
+  const [showArtifactSelection, setShowArtifactSelection] = useState(false);
+  const [artifactSearchResult, setArtifactSearchResult] = useState<ArtifactSearchResult | null>(null);
+  const [pendingWorkflowApproval, setPendingWorkflowApproval] = useState<{ executionId: string; stageIndex: number; stageName: string; stageId: string } | null>(null);
 
   const stateRef = useRef(state);
   const modeRef = useRef(mode);
@@ -1047,9 +1051,23 @@ export const App = () => {
     const currentIdx = execution.currentStageIndex;
     const currentStage = workflow.stages[currentIdx];
 
-    const artifactPath = currentStage
-      ? await findArtifactByWorkflowStage(currentExecutionId, currentStage.id)
-      : undefined;
+    if (!currentStage) return;
+
+    const searchResult = await findArtifactWithFallback(currentExecutionId, currentStage.id);
+
+    if (!searchResult.found && searchResult.recentAlternatives && searchResult.recentAlternatives.length > 0) {
+      setPendingWorkflowApproval({
+        executionId: currentExecutionId,
+        stageIndex: currentIdx,
+        stageName: currentStage.name,
+        stageId: currentStage.id
+      });
+      setArtifactSearchResult(searchResult);
+      setShowArtifactSelection(true);
+      return;
+    }
+
+    const artifactPath = searchResult.artifactPath;
 
     dispatch({ type: 'UPDATE_STAGE_STATE', executionId: currentExecutionId, stageIndex: currentIdx, updates: { status: 'approved', completedAt: new Date(), artifactPath } });
 
@@ -1149,6 +1167,131 @@ export const App = () => {
     debug('Workflow stage rejected:', feedback);
   };
 
+  const completeWorkflowStageApproval = async (artifactPath: string | undefined) => {
+    if (!pendingWorkflowApproval) return;
+
+    const { executionId, stageIndex } = pendingWorkflowApproval;
+
+    dispatch({ type: 'UPDATE_STAGE_STATE', executionId, stageIndex, updates: { status: 'approved', completedAt: new Date(), artifactPath } });
+
+    if (workflowAgentId) {
+      agentManager.kill(workflowAgentId);
+      dispatch({ type: 'UPDATE_AGENT', id: workflowAgentId, updates: { status: 'done' } });
+    }
+
+    const execution = state.workflowExecutions.find(e => e.executionId === executionId);
+    if (!execution) return;
+
+    const workflow = state.workflows.find(w => w.id === execution.workflowId);
+    if (!workflow) return;
+
+    const nextIdx = stageIndex + 1;
+    if (nextIdx >= workflow.stages.length) {
+      dispatch({ type: 'UPDATE_WORKFLOW_EXECUTION', executionId, updates: { status: 'completed', currentStageIndex: nextIdx } });
+      setWorkflowAgentId(null);
+
+      if (execution.images && execution.images.length > 0) {
+        const fs = await import('fs/promises');
+        for (const image of execution.images) {
+          try {
+            await fs.unlink(image.path);
+          } catch (err) {
+            // Image might already be cleaned up, ignore error
+          }
+        }
+      }
+
+      setPendingWorkflowApproval(null);
+      setShowArtifactSelection(false);
+      setArtifactSearchResult(null);
+      return;
+    }
+
+    dispatch({ type: 'UPDATE_WORKFLOW_EXECUTION', executionId, updates: { currentStageIndex: nextIdx, status: 'running' } });
+
+    const nextStage = workflow.stages[nextIdx];
+    const agentType = state.agentTypes.find(a => a.id === nextStage.agentType);
+    if (!agentType) return;
+
+    const lastArtifactPath = getLastArtifactPath(execution, nextIdx);
+
+    const prompt = execution.initialPrompt;
+
+    let worktreeContext: WorktreeContext | undefined;
+    let effectiveWorkDir = execution.repository?.path || process.cwd();
+
+    if (execution.worktreePath && execution.worktreeBranchName && execution.worktreeGitRoot && execution.worktreeCurrentBranch) {
+      const repoName = getRepoName(execution.worktreeGitRoot);
+      worktreeContext = {
+        enabled: true,
+        suggestedName: execution.worktreeBranchName,
+        gitRoot: execution.worktreeGitRoot,
+        currentBranch: execution.worktreeCurrentBranch,
+        repoName,
+        worktreePath: execution.worktreePath,
+        branchName: execution.worktreeBranchName,
+      };
+      effectiveWorkDir = execution.worktreePath;
+    }
+
+    const id = genId();
+    setWorkflowAgentId(id);
+
+    const agent: Agent = {
+      id,
+      title: `[${workflow.name}] ${nextStage.name}`,
+      prompt,
+      status: 'working',
+      output: [],
+      workDir: effectiveWorkDir,
+      worktreePath: execution.worktreePath,
+      worktreeName: execution.worktreeBranchName,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      agentType: 'normal',
+      permissionMode: 'default',
+      permissionQueue: [],
+      customAgentTypeId: agentType.id,
+      repository: execution.repository ? { name: execution.repository.name, path: execution.repository.path } : undefined
+    };
+
+    dispatch({ type: 'ADD_AGENT', agent });
+    dispatch({ type: 'UPDATE_STAGE_STATE', executionId, stageIndex: nextIdx, updates: { status: 'running', agentId: id, startedAt: new Date() } });
+
+    const workflowContext: WorkflowContext = {
+      workflowName: workflow.name,
+      stageName: nextStage.name,
+      stageDescription: nextStage.description,
+      stageIndex: nextIdx,
+      totalStages: workflow.stages.length,
+      previousArtifact: lastArtifactPath,
+      expectedOutput: getStageArtifactTemplate(nextStage, state.agentTypes),
+      executionId,
+      stageId: nextStage.id
+    };
+
+    const stageImages = shouldStageReceiveImages(nextStage, execution.images);
+    agentManager.spawn(id, prompt, effectiveWorkDir, 'normal', worktreeContext, agent.title, stageImages, agentType, workflowContext, state.agentTypes);
+
+    setPendingWorkflowApproval(null);
+    setShowArtifactSelection(false);
+    setArtifactSearchResult(null);
+  };
+
+  const handleArtifactSelect = (artifactPath: string) => {
+    completeWorkflowStageApproval(artifactPath);
+  };
+
+  const handleArtifactSkip = () => {
+    completeWorkflowStageApproval(undefined);
+  };
+
+  const handleArtifactSelectionCancel = () => {
+    setShowArtifactSelection(false);
+    setArtifactSearchResult(null);
+    setPendingWorkflowApproval(null);
+  };
+
   const handleWorkflowSkip = () => {
     if (!currentExecutionId) return;
 
@@ -1206,6 +1349,20 @@ export const App = () => {
   };
 
   useInput((input, key) => {
+    if (showArtifactSelection && artifactSearchResult) {
+      if (input === 's') {
+        handleArtifactSkip();
+      } else if (input === 'c' || key.escape) {
+        handleArtifactSelectionCancel();
+      } else if (input >= '1' && input <= '9') {
+        const idx = parseInt(input) - 1;
+        if (artifactSearchResult.recentAlternatives && idx < artifactSearchResult.recentAlternatives.length && idx < 3) {
+          handleArtifactSelect(artifactSearchResult.recentAlternatives[idx].path);
+        }
+      }
+      return;
+    }
+
     if (showQuitConfirmation) {
       if (input === 'y') {
         handleQuitConfirm();
@@ -1667,6 +1824,18 @@ export const App = () => {
     />
   ) : undefined;
 
+  const artifactSelectionPromptEl = showArtifactSelection && artifactSearchResult && pendingWorkflowApproval ? (
+    <ArtifactSelectionPrompt
+      executionId={pendingWorkflowApproval.executionId}
+      stageId={pendingWorkflowApproval.stageId}
+      stageName={pendingWorkflowApproval.stageName}
+      recentArtifacts={artifactSearchResult.recentAlternatives || []}
+      onSelect={handleArtifactSelect}
+      onSkip={handleArtifactSkip}
+      onCancel={handleArtifactSelectionCancel}
+    />
+  ) : undefined;
+
 
   return (
     <Layout
@@ -1678,6 +1847,7 @@ export const App = () => {
       deletePrompt={deletePrompt}
       artifactDeletePrompt={artifactDeletePromptEl}
       workflowDeletePrompt={workflowDeletePromptEl}
+      artifactSelectionPrompt={artifactSelectionPromptEl}
       commandMode={commandMode}
       commands={commands}
       onCommandExecute={handleVimCommandExecute}

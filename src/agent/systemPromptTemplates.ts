@@ -206,16 +206,34 @@ function buildWorkflowInstructions(context: WorkflowContext): string {
   if (context.expectedOutput) {
     parts.push('');
     parts.push(`## Expected Output`);
+    parts.push('');
     parts.push(`This stage should produce a **${context.expectedOutput}** artifact.`);
     parts.push(`Save your output to \`~/.agent-manager/artifacts/\` using the appropriate template.`);
     if (context.executionId && context.stageId) {
       parts.push('');
-      parts.push(`**IMPORTANT:** When creating the artifact, include these workflow tracking fields in the YAML frontmatter:`);
+      parts.push(`### CRITICAL REQUIREMENT: Workflow Tracking Frontmatter`);
+      parts.push('');
+      parts.push(`**YOU MUST include the following fields in your artifact's YAML frontmatter. This is MANDATORY for workflow continuity:**`);
+      parts.push('');
       parts.push('```yaml');
       parts.push(`workflowExecutionId: ${context.executionId}`);
       parts.push(`workflowStageId: ${context.stageId}`);
       parts.push('```');
-      parts.push(`This allows the next stage to automatically find your output.`);
+      parts.push('');
+      parts.push(`**Without these exact field names and values, the next stage will NOT be able to find your artifact.**`);
+      parts.push(`The system uses these fields to automatically locate artifacts between workflow stages.`);
+      parts.push('');
+      parts.push(`Example artifact with required frontmatter:`);
+      parts.push('```markdown');
+      parts.push(`---`);
+      parts.push(`template: ${context.expectedOutput}`);
+      parts.push(`title: Your Title Here`);
+      parts.push(`workflowExecutionId: ${context.executionId}`);
+      parts.push(`workflowStageId: ${context.stageId}`);
+      parts.push(`---`);
+      parts.push('');
+      parts.push(`# Your Content Here`);
+      parts.push('```');
     }
   }
 

@@ -20,6 +20,7 @@ interface LayoutProps {
   deletePrompt?: ReactNode;
   artifactDeletePrompt?: ReactNode;
   workflowDeletePrompt?: ReactNode;
+  artifactSelectionPrompt?: ReactNode;
   hoverWindows?: ReactNode;
   commandMode?: boolean;
   commands?: Command[];
@@ -37,6 +38,7 @@ export const Layout = ({
   deletePrompt,
   artifactDeletePrompt,
   workflowDeletePrompt,
+  artifactSelectionPrompt,
   hoverWindows,
   commandMode,
   commands,
@@ -82,6 +84,12 @@ export const Layout = ({
         {workflowDeletePrompt && (
           <Box flexShrink={0}>
             {workflowDeletePrompt}
+          </Box>
+        )}
+
+        {artifactSelectionPrompt && (
+          <Box flexShrink={0}>
+            {artifactSelectionPrompt}
           </Box>
         )}
 

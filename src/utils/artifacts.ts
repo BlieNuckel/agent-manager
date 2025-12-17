@@ -156,3 +156,34 @@ export async function findArtifactByWorkflowStage(
 
   return undefined;
 }
+
+export async function findRecentArtifacts(limit: number = 5): Promise<ArtifactInfo[]> {
+  const artifacts = await listArtifacts();
+  return artifacts.slice(0, limit);
+}
+
+export interface ArtifactSearchResult {
+  found: boolean;
+  artifactPath?: string;
+  recentAlternatives?: ArtifactInfo[];
+  error?: string;
+}
+
+export async function findArtifactWithFallback(
+  executionId: string,
+  stageId: string
+): Promise<ArtifactSearchResult> {
+  const artifactPath = await findArtifactByWorkflowStage(executionId, stageId);
+
+  if (artifactPath) {
+    return { found: true, artifactPath };
+  }
+
+  const recentArtifacts = await findRecentArtifacts(5);
+
+  return {
+    found: false,
+    recentAlternatives: recentArtifacts,
+    error: `No artifact found with workflowExecutionId="${executionId}" and workflowStageId="${stageId}"`
+  };
+}
