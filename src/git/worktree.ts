@@ -3,17 +3,25 @@ import * as path from 'path';
 import { debug } from '../utils/logger';
 import { copySettingsToWorktree, mergeSettingsFromWorktree } from './settingsSync';
 
-export function getGitRoot(): string | null {
+export function getGitRoot(cwd?: string): string | null {
   try {
-    return execSync('git rev-parse --show-toplevel', { encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] }).trim();
+    return execSync('git rev-parse --show-toplevel', {
+      encoding: 'utf8',
+      stdio: ['pipe', 'pipe', 'pipe'],
+      cwd: cwd || process.cwd()
+    }).trim();
   } catch {
     return null;
   }
 }
 
-export function getCurrentBranch(): string {
+export function getCurrentBranch(cwd?: string): string {
   try {
-    return execSync('git rev-parse --abbrev-ref HEAD', { encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] }).trim();
+    return execSync('git rev-parse --abbrev-ref HEAD', {
+      encoding: 'utf8',
+      stdio: ['pipe', 'pipe', 'pipe'],
+      cwd: cwd || process.cwd()
+    }).trim();
   } catch {
     return 'main';
   }
@@ -331,14 +339,17 @@ export async function performMerge(
 
 export async function cleanupWorktree(
   worktreePath: string,
-  branchName: string
+  branchName: string,
+  gitRoot?: string
 ): Promise<{ success: boolean; error?: string; settingsMerged?: boolean; newPermissions?: string[] }> {
   try {
     debug('Cleaning up worktree:', { worktreePath, branchName });
 
-    const gitRoot = getGitRoot();
     if (!gitRoot) {
-      return { success: false, error: 'Not in a git repository' };
+      gitRoot = getGitRoot();
+      if (!gitRoot) {
+        return { success: false, error: 'Not in a git repository' };
+      }
     }
 
     const settingsResult = mergeSettingsFromWorktree(gitRoot, worktreePath);

@@ -27,6 +27,7 @@ describe("getGitRoot", () => {
     expect(execSync).toHaveBeenCalledWith("git rev-parse --show-toplevel", {
       encoding: "utf8",
       stdio: ["pipe", "pipe", "pipe"],
+      cwd: process.cwd()
     });
   });
 
@@ -46,6 +47,19 @@ describe("getGitRoot", () => {
     const result = getGitRoot();
 
     expect(result).toBeNull();
+  });
+
+  it("uses custom cwd when provided", () => {
+    vi.mocked(execSync).mockReturnValue("/custom/project/path\n");
+
+    const result = getGitRoot("/custom/working/dir");
+
+    expect(result).toBe("/custom/project/path");
+    expect(execSync).toHaveBeenCalledWith("git rev-parse --show-toplevel", {
+      encoding: "utf8",
+      stdio: ["pipe", "pipe", "pipe"],
+      cwd: "/custom/working/dir"
+    });
   });
 
   it("returns null when git command fails", () => {
@@ -73,6 +87,7 @@ describe("getCurrentBranch", () => {
     expect(execSync).toHaveBeenCalledWith("git rev-parse --abbrev-ref HEAD", {
       encoding: "utf8",
       stdio: ["pipe", "pipe", "pipe"],
+      cwd: process.cwd()
     });
   });
 
@@ -102,6 +117,19 @@ describe("getCurrentBranch", () => {
     const result = getCurrentBranch();
 
     expect(result).toBe("main");
+  });
+
+  it("uses custom cwd when provided", () => {
+    vi.mocked(execSync).mockReturnValue("develop\n");
+
+    const result = getCurrentBranch("/custom/project");
+
+    expect(result).toBe("develop");
+    expect(execSync).toHaveBeenCalledWith("git rev-parse --abbrev-ref HEAD", {
+      encoding: "utf8",
+      stdio: ["pipe", "pipe", "pipe"],
+      cwd: "/custom/project"
+    });
   });
 
   it("handles branch names with slashes", () => {
