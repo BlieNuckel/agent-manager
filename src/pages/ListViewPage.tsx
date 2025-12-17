@@ -8,7 +8,7 @@ import { ArtifactItem } from '../components/ArtifactItem';
 import { WorkflowItem } from '../components/WorkflowItem';
 
 interface ListViewPageProps {
-  tab: 'inbox' | 'history' | 'artifacts';
+  tab: 'inbox' | 'artifacts' | 'history' | 'library';
   inboxItems: InboxItem[];
   history: HistoryEntry[];
   artifacts: ArtifactInfo[];
@@ -25,6 +25,7 @@ export const ListViewPage = ({ tab, inboxItems, history, artifacts, inboxIdx, hi
         <Tab label="Inbox" active={tab === 'inbox'} count={inboxItems.length} />
         <Tab label="Artifacts" active={tab === 'artifacts'} count={artifacts.length} />
         <Tab label="History" active={tab === 'history'} />
+        <Tab label="Library" active={tab === 'library'} />
       </Box>
 
       <Box flexDirection="column" flexGrow={1} minHeight={0}>
@@ -78,7 +79,7 @@ export const ListViewPage = ({ tab, inboxItems, history, artifacts, inboxIdx, hi
   );
 };
 
-export const getListViewHelp = (tab: 'inbox' | 'history' | 'artifacts') => {
+export const getListViewHelp = (tab: 'inbox' | 'artifacts' | 'history' | 'library') => {
   return (
     <>
       <Text color="cyan">Tab/Shift+Tab</Text>{' '}Switch{'  '}

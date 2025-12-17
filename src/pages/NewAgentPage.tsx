@@ -18,17 +18,23 @@ interface NewAgentPageProps {
   initialHistoryEntry?: HistoryEntry | null;
   initialArtifactPath?: string | null;
   customAgentTypes?: CustomAgentType[];
+  initialCustomAgentType?: CustomAgentType | null;
 }
 
-export const NewAgentPage = ({ onSubmit, onCancel, onStateChange, initialHistoryEntry, initialArtifactPath, customAgentTypes = [] }: NewAgentPageProps) => {
+export const NewAgentPage = ({ onSubmit, onCancel, onStateChange, initialHistoryEntry, initialArtifactPath, customAgentTypes = [], initialCustomAgentType }: NewAgentPageProps) => {
   const availableAgentTypes = customAgentTypes.filter(at => !at.isSubagent);
+
+  // Find initial custom agent type index
+  const initialIndex = initialCustomAgentType
+    ? availableAgentTypes.findIndex(at => at.id === initialCustomAgentType.id)
+    : -1;
 
   const [repositories, setRepositories] = useState<Repository[]>([]);
   const [selectedRepositoryIndex, setSelectedRepositoryIndex] = useState(0);
   const [title, setTitle] = useState(initialHistoryEntry?.title || '');
   const [prompt, setPrompt] = useState(initialHistoryEntry?.prompt || '');
   const [agentType, setAgentType] = useState<AgentType>('normal');
-  const [selectedCustomTypeIndex, setSelectedCustomTypeIndex] = useState(-1);
+  const [selectedCustomTypeIndex, setSelectedCustomTypeIndex] = useState(initialIndex);
   const [useWorktree, setUseWorktree] = useState(true);
   const [worktreeName, setWorktreeName] = useState('');
   const [step, setStep] = useState<InputStep>(initialHistoryEntry ? 'prompt' : 'repository');
