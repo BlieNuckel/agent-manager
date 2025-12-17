@@ -1,11 +1,16 @@
 import React from 'react';
 import { Box, Text } from 'ink';
 import type { HistoryEntry, ArtifactInfo, InboxItem } from '../types';
+import type { CustomAgentType } from '../types/agentTypes';
+import type { Template } from '../types/templates';
+import type { Workflow } from '../types/workflows';
+import type { LibraryItem, LibraryFilters } from '../types/library';
 import { Tab } from '../components/Tab';
 import { AgentItem } from '../components/AgentItem';
 import { HistoryItem } from '../components/HistoryItem';
 import { ArtifactItem } from '../components/ArtifactItem';
 import { WorkflowItem } from '../components/WorkflowItem';
+import { LibraryPage } from './LibraryPage';
 
 interface ListViewPageProps {
   tab: 'inbox' | 'artifacts' | 'history' | 'library';
@@ -16,9 +21,45 @@ interface ListViewPageProps {
   histIdx: number;
   artifactsIdx: number;
   expandedWorkflows: Set<string>;
+  // Library props
+  agentTypes?: CustomAgentType[];
+  templates?: Template[];
+  workflows?: Workflow[];
+  libraryIdx?: number;
+  onLibraryIdxChange?: (idx: number) => void;
+  libraryFilters?: LibraryFilters;
+  onLibraryFiltersChange?: (filters: LibraryFilters) => void;
+  librarySearchQuery?: string;
+  onLibrarySearchQueryChange?: (query: string) => void;
+  showLibraryPreview?: boolean;
+  onLibraryPreviewToggle?: () => void;
+  onLibrarySelect?: (item: LibraryItem) => void;
+  onLibraryBack?: () => void;
 }
 
-export const ListViewPage = ({ tab, inboxItems, history, artifacts, inboxIdx, histIdx, artifactsIdx, expandedWorkflows }: ListViewPageProps) => {
+export const ListViewPage = ({
+  tab,
+  inboxItems,
+  history,
+  artifacts,
+  inboxIdx,
+  histIdx,
+  artifactsIdx,
+  expandedWorkflows,
+  agentTypes,
+  templates,
+  workflows,
+  libraryIdx,
+  onLibraryIdxChange,
+  libraryFilters,
+  onLibraryFiltersChange,
+  librarySearchQuery,
+  onLibrarySearchQueryChange,
+  showLibraryPreview,
+  onLibraryPreviewToggle,
+  onLibrarySelect,
+  onLibraryBack
+}: ListViewPageProps) => {
   return (
     <Box flexDirection="column" flexGrow={1} minHeight={0}>
       <Box>
@@ -64,6 +105,30 @@ export const ListViewPage = ({ tab, inboxItems, history, artifacts, inboxIdx, hi
             history.slice(0, 5).map((h, i) => (
               <HistoryItem key={h.id} entry={h} selected={i === histIdx} />
             ))
+          )
+        ) : tab === 'library' ? (
+          agentTypes && templates && workflows && libraryIdx !== undefined &&
+          onLibraryIdxChange && libraryFilters && onLibraryFiltersChange &&
+          librarySearchQuery !== undefined && onLibrarySearchQueryChange &&
+          showLibraryPreview !== undefined && onLibraryPreviewToggle &&
+          onLibrarySelect && onLibraryBack ? (
+            <LibraryPage
+              agentTypes={agentTypes}
+              templates={templates}
+              workflows={workflows}
+              selectedIdx={libraryIdx}
+              onIdxChange={onLibraryIdxChange}
+              filters={libraryFilters}
+              onFiltersChange={onLibraryFiltersChange}
+              searchQuery={librarySearchQuery}
+              onSearchQueryChange={onLibrarySearchQueryChange}
+              showPreview={showLibraryPreview}
+              onPreviewToggle={onLibraryPreviewToggle}
+              onSelect={onLibrarySelect}
+              onBack={onLibraryBack}
+            />
+          ) : (
+            <Text dimColor>Library not available</Text>
           )
         ) : (
           artifacts.length === 0 ? (
