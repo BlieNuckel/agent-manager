@@ -235,7 +235,7 @@ export const App = () => {
         const shouldShowMergePrompt = !workflowExecution || isLastWorkflowStage;
 
         if (shouldShowMergePrompt) {
-          const gitRoot = getGitRoot();
+          const gitRoot = getGitRoot(agent.workDir);
           if (gitRoot) {
             dispatch({
               type: 'APPEND_OUTPUT',
@@ -395,9 +395,9 @@ export const App = () => {
     const permissionMode: PermissionMode = agentType === 'auto-accept' ? 'acceptEdits' : 'default';
 
     if (worktree.enabled) {
-      const gitRoot = getGitRoot();
+      const gitRoot = getGitRoot(workDir);
       if (gitRoot) {
-        const currentBranch = getCurrentBranch();
+        const currentBranch = getCurrentBranch(workDir);
         const repoName = getRepoName(gitRoot);
         const branchName = worktree.name || generateUniqueBranchName(prompt, gitRoot);
 
@@ -681,7 +681,8 @@ export const App = () => {
         });
 
         if (agent.worktreePath) {
-          const cleanupResult = await cleanupWorktree(agent.worktreePath, agent.pendingMerge.branchName);
+          const gitRoot = getGitRoot(agent.workDir);
+          const cleanupResult = await cleanupWorktree(agent.worktreePath, agent.pendingMerge.branchName, gitRoot || undefined);
 
           if (cleanupResult.success) {
             dispatch({
@@ -710,7 +711,7 @@ export const App = () => {
     }
 
     if (approved && agent.pendingMerge.status === 'ready') {
-      const gitRoot = getGitRoot();
+      const gitRoot = getGitRoot(agent.workDir);
       if (!gitRoot) {
         debug('Cannot merge: not in a git repository');
         dispatch({ type: 'SET_MERGE_STATE', id: detailAgentId, mergeState: undefined });
@@ -737,7 +738,8 @@ export const App = () => {
         });
 
         if (agent.worktreePath) {
-          const cleanupResult = await cleanupWorktree(agent.worktreePath, agent.pendingMerge.branchName);
+          const gitRoot = getGitRoot(agent.workDir);
+          const cleanupResult = await cleanupWorktree(agent.worktreePath, agent.pendingMerge.branchName, gitRoot || undefined);
 
           if (cleanupResult.success) {
             dispatch({
@@ -779,7 +781,7 @@ export const App = () => {
 
     const conflictInfo = agent.pendingMerge.error || 'Unknown merge issue';
     const branchName = agent.pendingMerge.branchName;
-    const currentBranch = getCurrentBranch();
+    const currentBranch = getCurrentBranch(agent.workDir);
 
     dispatch({
       type: 'SET_MERGE_STATE',
@@ -911,9 +913,9 @@ export const App = () => {
         let effectiveWorkDir = repository?.path || process.cwd();
 
         if (worktree?.enabled && worktree.name) {
-          const gitRoot = getGitRoot();
+          const gitRoot = getGitRoot(effectiveWorkDir);
           if (gitRoot) {
-            const currentBranch = getCurrentBranch();
+            const currentBranch = getCurrentBranch(effectiveWorkDir);
             const repoName = getRepoName(gitRoot);
             const branchName = worktree.name;
 
