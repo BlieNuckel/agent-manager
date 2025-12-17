@@ -272,6 +272,7 @@ export const DetailViewPage = ({
         <PermissionPrompt
           permission={agent.pendingPermission}
           queueCount={agent.permissionQueue.length}
+          hasPendingMerge={!!agent.pendingMerge}
         />
       )}
 
@@ -279,6 +280,7 @@ export const DetailViewPage = ({
         <QuestionPrompt
           questionRequest={agent.pendingQuestion}
           onResponse={onQuestionResponse}
+          hasPendingMerge={!!agent.pendingMerge}
         />
       )}
 
