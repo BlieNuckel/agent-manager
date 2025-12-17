@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { Box, Text, useInput } from 'ink';
 import fs from 'fs';
 import type { CustomAgentType } from '../types/agentTypes';
@@ -137,7 +137,27 @@ export const LibraryPage = ({
     });
   }, [allItems, filters, searchQuery]);
 
-  // Load preview content when selection changes
+  // Track previous filtered items length to detect actual list changes
+  const prevFilteredLengthRef = useRef(filteredItems.length);
+
+  // Adjust index only when the filtered list size actually changes
+  useEffect(() => {
+    const currentLength = filteredItems.length;
+    const prevLength = prevFilteredLengthRef.current;
+
+    // Only adjust if the list size changed (not during normal scrolling)
+    if (prevLength !== currentLength) {
+      prevFilteredLengthRef.current = currentLength;
+
+      if (currentLength > 0 && selectedIdx >= currentLength) {
+        onIdxChange(currentLength - 1);
+      } else if (currentLength === 0 && selectedIdx !== 0) {
+        onIdxChange(0);
+      }
+    }
+  }, [filteredItems.length, selectedIdx, onIdxChange]);
+
+  // Load preview content when selection changes with debounce
   useEffect(() => {
     if (!showPreview || selectedIdx >= filteredItems.length) {
       return;
@@ -146,27 +166,27 @@ export const LibraryPage = ({
     const item = filteredItems[selectedIdx];
     if (!item) return;
 
-    const loadPreview = async () => {
-      setLoadingPreview(true);
-      try {
-        const content = await fs.promises.readFile(item.path, 'utf-8');
-        setPreviewContent(content);
-      } catch (err) {
-        setPreviewContent(`Error loading preview: ${err}`);
-      } finally {
-        setLoadingPreview(false);
-      }
-    };
+    // Debounce preview loading to reduce state updates during rapid scrolling
+    const timeoutId = setTimeout(() => {
+      const loadPreview = async () => {
+        setLoadingPreview(true);
+        try {
+          const content = await fs.promises.readFile(item.path, 'utf-8');
+          setPreviewContent(content);
+        } catch (err) {
+          setPreviewContent(`Error loading preview: ${err}`);
+        } finally {
+          setLoadingPreview(false);
+        }
+      };
 
-    loadPreview();
+      loadPreview();
+    }, 150); // 150ms debounce delay
+
+    // Clean up timeout if selection changes before loading
+    return () => clearTimeout(timeoutId);
   }, [selectedIdx, filteredItems, showPreview]);
 
-  // Ensure selectedIdx is within bounds
-  useEffect(() => {
-    if (selectedIdx >= filteredItems.length && filteredItems.length > 0) {
-      onIdxChange(filteredItems.length - 1);
-    }
-  }, [filteredItems.length, selectedIdx, onIdxChange]);
 
   useInput((input, key) => {
     if (filterMenuOpen) {
