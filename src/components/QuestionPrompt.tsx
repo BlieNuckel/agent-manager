@@ -2,9 +2,10 @@ import React, { useState } from 'react';
 import { Box, Text, useInput } from 'ink';
 import type { QuestionRequest } from '../types';
 
-export const QuestionPrompt = ({ questionRequest, onResponse }: {
+export const QuestionPrompt = ({ questionRequest, onResponse, hasPendingMerge = false }: {
   questionRequest: QuestionRequest;
   onResponse: (answers: Record<string, string | string[]>) => void;
+  hasPendingMerge?: boolean;
 }) => {
   const [currentQuestionIdx, setCurrentQuestionIdx] = useState(0);
   const [answers, setAnswers] = useState<Record<number, Set<number>>>({});
@@ -15,6 +16,11 @@ export const QuestionPrompt = ({ questionRequest, onResponse }: {
   const currentAnswers = answers[currentQuestionIdx] || new Set<number>();
 
   useInput((input, key) => {
+    // Skip merge-related keys if there's a pending merge
+    if (hasPendingMerge && (input === 'y' || input === 'n' || input === 'p')) {
+      return;
+    }
+
     if (key.upArrow || input === 'k') {
       setSelectedOptionIdx(s => Math.max(0, s - 1));
     }
@@ -38,7 +44,7 @@ export const QuestionPrompt = ({ questionRequest, onResponse }: {
       }
     }
 
-    if (key.return || input === 'n') {
+    if (key.return || (!hasPendingMerge && input === 'n')) {
       let currentQuestionAnswer = currentAnswers;
       if (!currentQuestion.multiSelect && currentQuestionAnswer.size === 0) {
         currentQuestionAnswer = new Set([selectedOptionIdx]);
@@ -68,7 +74,7 @@ export const QuestionPrompt = ({ questionRequest, onResponse }: {
       }
     }
 
-    if (key.leftArrow || input === 'p') {
+    if (key.leftArrow || (!hasPendingMerge && input === 'p')) {
       if (currentQuestionIdx > 0) {
         setCurrentQuestionIdx(idx => idx - 1);
         setSelectedOptionIdx(0);

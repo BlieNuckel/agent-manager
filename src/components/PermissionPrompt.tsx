@@ -42,9 +42,11 @@ function isSuggestion(value: unknown): value is PermissionSuggestion {
 export const PermissionPrompt = ({
   permission,
   queueCount = 0,
+  hasPendingMerge = false,
 }: {
   permission: PermissionRequest;
   queueCount?: number;
+  hasPendingMerge?: boolean;
 }) => {
   const groupedSuggestions = useMemo(() => {
     if (!permission.suggestions || permission.suggestions.length === 0) {
@@ -73,6 +75,11 @@ export const PermissionPrompt = ({
 
   const handleInput = useCallback(
     (input: string, key: any) => {
+      // Skip merge-related keys if there's a pending merge
+      if (hasPendingMerge && (input === 'y' || input === 'n' || input === 'p')) {
+        return;
+      }
+
       if (input === 'y' || input === 'Y') {
         permission.resolve({ allowed: true });
         return;
@@ -122,6 +129,7 @@ export const PermissionPrompt = ({
       hasUserSuggestions,
       hasSessionSuggestions,
       groupedSuggestions,
+      hasPendingMerge,
     ]
   );
 

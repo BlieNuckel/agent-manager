@@ -198,6 +198,7 @@ export const WorkflowDetailPage = ({
         <PermissionPrompt
           permission={currentAgent.pendingPermission}
           queueCount={currentAgent.permissionQueue.length}
+          hasPendingMerge={!!currentAgent.pendingMerge}
         />
       )}
 
@@ -205,6 +206,7 @@ export const WorkflowDetailPage = ({
         <QuestionPrompt
           questionRequest={currentAgent.pendingQuestion}
           onResponse={onQuestionResponse}
+          hasPendingMerge={!!currentAgent.pendingMerge}
         />
       )}
 
