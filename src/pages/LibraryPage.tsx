@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useMemo, useEffect, useRef, useCallback, memo } from 'react';
 import { Box, Text, useInput, useStdout } from 'ink';
 import fs from 'fs';
 import type { CustomAgentType } from '../types/agentTypes';
@@ -41,6 +41,11 @@ const getSourceLabel = (source: 'system' | 'user' | 'project'): string => {
     case 'project': return 'Project';
   }
 };
+
+// Memoized spacer components to prevent re-renders
+const Spacer = memo(({ height }: { height: number }) => {
+  return <Box height={height} />;
+});
 
 export const LibraryPage = ({
   agentTypes,
@@ -146,6 +151,8 @@ export const LibraryPage = ({
 
   // Track previous filtered items to detect actual list changes
   const prevFilteredItemsRef = useRef(filteredItems);
+  const selectedIdxRef = useRef(selectedIdx);
+  selectedIdxRef.current = selectedIdx;
 
   // More intelligent index adjustment that preserves selection when possible
   useEffect(() => {
@@ -157,20 +164,20 @@ export const LibraryPage = ({
       prevFilteredItemsRef.current = filteredItems;
 
       // If we have items and current index is out of bounds
-      if (currentLength > 0 && selectedIdx >= currentLength) {
+      if (currentLength > 0 && selectedIdxRef.current >= currentLength) {
         // Try to maintain relative position instead of jumping to end
-        const relativePosition = selectedIdx / (prevItems.length || 1);
+        const relativePosition = selectedIdxRef.current / (prevItems.length || 1);
         const newIdx = Math.min(
           Math.floor(relativePosition * currentLength),
           currentLength - 1
         );
         onIdxChange(newIdx);
-      } else if (currentLength === 0 && selectedIdx !== 0) {
+      } else if (currentLength === 0 && selectedIdxRef.current !== 0) {
         onIdxChange(0);
       }
       // If selected item still exists at same index, don't adjust
     }
-  }, [filteredItems, selectedIdx, onIdxChange]);
+  }, [filteredItems, onIdxChange]);
 
   // Load preview content only when entering preview mode
   const loadPreviewContent = useCallback(async (item: LibraryItem) => {
@@ -331,16 +338,27 @@ export const LibraryPage = ({
   const availableHeight = termHeight - 5 - headerHeight - filterMenuHeight - statusBarHeight; // -5 for app header/help
   const visibleItemCount = Math.floor(availableHeight / itemHeight);
 
-  // Calculate viewport window
-  const viewportStart = useMemo(() => {
-    if (selectedIdx < visibleItemCount / 2) {
-      return 0;
+  // Calculate viewport window with hysteresis to reduce re-renders
+  const [viewportStart, setViewportStart] = useState(0);
+
+  // Reset viewport when filtered items change
+  useEffect(() => {
+    setViewportStart(0);
+  }, [filteredItems]);
+
+  useEffect(() => {
+    // Only update viewport when selected item moves outside visible range
+    const currentEnd = viewportStart + visibleItemCount;
+
+    if (selectedIdx < viewportStart) {
+      // Selected item is above viewport - scroll up
+      setViewportStart(Math.max(0, selectedIdx));
+    } else if (selectedIdx >= currentEnd) {
+      // Selected item is below viewport - scroll down
+      setViewportStart(Math.max(0, selectedIdx - visibleItemCount + 1));
     }
-    if (selectedIdx > filteredItems.length - visibleItemCount / 2) {
-      return Math.max(0, filteredItems.length - visibleItemCount);
-    }
-    return Math.floor(selectedIdx - visibleItemCount / 2);
-  }, [selectedIdx, visibleItemCount, filteredItems.length]);
+    // Otherwise, keep the viewport stable (no update)
+  }, [selectedIdx, viewportStart, visibleItemCount]);
 
   const viewportEnd = Math.min(viewportStart + visibleItemCount, filteredItems.length);
   const visibleItems = filteredItems.slice(viewportStart, viewportEnd);
@@ -445,7 +463,7 @@ export const LibraryPage = ({
             <>
               {/* Spacer for items above viewport */}
               {viewportStart > 0 && (
-                <Box height={viewportStart * itemHeight} />
+                <Spacer height={viewportStart * itemHeight} />
               )}
 
               {/* Render only visible items */}
@@ -463,7 +481,7 @@ export const LibraryPage = ({
 
               {/* Spacer for items below viewport */}
               {viewportEnd < filteredItems.length && (
-                <Box height={(filteredItems.length - viewportEnd) * itemHeight} />
+                <Spacer height={(filteredItems.length - viewportEnd) * itemHeight} />
               )}
             </>
           )}
