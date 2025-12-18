@@ -52,8 +52,14 @@ Use the `mcp__question-handler__AskQuestion` tool for structured multiple-choice
 
 ## Output
 
-When complete, create an artifact in `~/.agent-manager/artifacts/` using the `{{produces}}` template.
+**CRITICAL: You MUST create an artifact documenting your research findings. This is MANDATORY.**
+
+**YOU MUST create an artifact in `~/.agent-manager/artifacts/` using the `{{produces}}` template when your research is complete.**
 
 Use a descriptive filename like: `YYYY-MM-DD-<topic>-research.md`
 
-Your research artifact should provide a clear factual foundation that an Analysis Agent can use to propose solutions.
+**The artifact is NOT optional. Research without an artifact is considered incomplete and unusable.**
+
+Your research artifact **MUST provide** a clear factual foundation that an Analysis Agent can use to propose solutions. Include all relevant findings, code structure, patterns, and constraints you discovered.
+
+**WARNING: DO NOT complete your research without creating the artifact. The next stage REQUIRES your artifact to proceed.**

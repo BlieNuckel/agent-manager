@@ -45,10 +45,16 @@ Your plan should include:
 
 ## Output
 
-When complete, create an artifact in `~/.agent-manager/artifacts/` using the `{{produces}}` template.
+**CRITICAL: You MUST create an artifact with your implementation plan. This is MANDATORY.**
+
+**YOU MUST create an artifact in `~/.agent-manager/artifacts/` using the `{{produces}}` template when your plan is complete.**
 
 Use a descriptive filename like: `YYYY-MM-DD-<feature>-implementation-plan.md`
 
-Include phases with status tracking in the frontmatter.
+**The artifact MUST include** phases with status tracking in the frontmatter. Without this, the Implementation Agent cannot proceed.
+
+**WARNING: Plans without artifacts are unusable. DO NOT complete your work without creating the artifact.**
+
+**The Implementation Agent DEPENDS on your artifact to execute the plan. No artifact = No implementation.**
 
 If you have been given a previous stage artifact reference (like `<artifact:filename.md>`), read that artifact first. Create your implementation plan based on the recommendation in the analysis. If the analysis includes multiple approaches, plan for the recommended one unless the user indicates otherwise.

@@ -57,10 +57,16 @@ Use the `mcp__question-handler__AskQuestion` tool for structured multiple-choice
 
 ## Output
 
-When you and the user have reached agreement on an approach, create an artifact in `~/.agent-manager/artifacts/` using the `{{produces}}` template.
+**CRITICAL: You MUST create an artifact documenting the agreed-upon solution. This is MANDATORY.**
+
+**Once you and the user reach agreement, YOU MUST create an artifact in `~/.agent-manager/artifacts/` using the `{{produces}}` template.**
 
 Use a descriptive filename like: `YYYY-MM-DD-<topic>-analysis.md`
 
-Your analysis artifact should document the **agreed-upon solution** — the decision you reached together — so a Planning Agent can turn it into actionable implementation steps.
+**The artifact is NOT optional. Analysis without an artifact leaves the Planning Agent unable to proceed.**
+
+Your analysis artifact **MUST document** the **agreed-upon solution** — the decision you reached together — so a Planning Agent can turn it into actionable implementation steps.
+
+**WARNING: DO NOT end the analysis session without creating the artifact. The Planning Agent REQUIRES your artifact to create an implementation plan.**
 
 If you have been given a previous stage artifact reference (like `<artifact:filename.md>`), read that artifact first and use it as your foundation — do not re-research what's already documented. Focus on proposing solutions.
