@@ -6,6 +6,8 @@ import type { Template } from '../types/templates';
 import type { Workflow } from '../types/workflows';
 import type { LibraryItem, LibraryItemType, LibraryFilters } from '../types/library';
 import ScrollableMarkdown from '../components/ScrollableMarkdown';
+import { LibraryItem as LibraryItemComponent } from '../components/LibraryItem';
+import { useDebounce } from '../utils/useDebounce';
 
 interface LibraryPageProps {
   agentTypes: CustomAgentType[];
@@ -23,19 +25,12 @@ interface LibraryPageProps {
   onBack: () => void;
 }
 
+// Helper functions for UI display
 const getItemTypeTag = (type: LibraryItemType): { text: string; color: string } => {
   switch (type) {
     case 'agent': return { text: '[agent]', color: 'green' };
     case 'template': return { text: '[artifact]', color: 'yellow' };
     case 'workflow': return { text: '[workflow]', color: 'blue' };
-  }
-};
-
-const getItemTypeLabel = (type: LibraryItemType): string => {
-  switch (type) {
-    case 'agent': return 'Agent';
-    case 'template': return 'Template';
-    case 'workflow': return 'Workflow';
   }
 };
 
@@ -68,6 +63,9 @@ export const LibraryPage = ({
   const [previewMode, setPreviewMode] = useState(false);
   const [previewContent, setPreviewContent] = useState<string>('');
   const [loadingPreview, setLoadingPreview] = useState(false);
+
+  // Debounce search query to prevent excessive re-renders
+  const debouncedSearchQuery = useDebounce(localSearchQuery, 150);
 
   // Convert all items to LibraryItem format
   const allItems = useMemo(() => {
@@ -115,6 +113,13 @@ export const LibraryPage = ({
     return items;
   }, [agentTypes, templates, workflows]);
 
+  // Sync debounced search query with parent component
+  useEffect(() => {
+    if (!searchMode && debouncedSearchQuery !== searchQuery) {
+      onSearchQueryChange(debouncedSearchQuery);
+    }
+  }, [debouncedSearchQuery, searchQuery, onSearchQueryChange, searchMode]);
+
   // Filter items
   const filteredItems = useMemo(() => {
     return allItems.filter(item => {
@@ -124,42 +129,51 @@ export const LibraryPage = ({
       // Source filter
       if (!filters.sources.has(item.source)) return false;
 
-      // Search filter
-      if (searchQuery) {
-        const query = searchQuery.toLowerCase();
+      // Search filter - use debounced query during search mode
+      const query = searchMode ? debouncedSearchQuery : searchQuery;
+      if (query) {
+        const lowerQuery = query.toLowerCase();
         return (
-          item.name.toLowerCase().includes(query) ||
-          item.description.toLowerCase().includes(query) ||
-          item.id.toLowerCase().includes(query)
+          item.name.toLowerCase().includes(lowerQuery) ||
+          item.description.toLowerCase().includes(lowerQuery) ||
+          item.id.toLowerCase().includes(lowerQuery)
         );
       }
 
       return true;
     });
-  }, [allItems, filters, searchQuery]);
+  }, [allItems, filters, searchQuery, searchMode, debouncedSearchQuery]);
 
-  // Track previous filtered items length to detect actual list changes
-  const prevFilteredLengthRef = useRef(filteredItems.length);
+  // Track previous filtered items to detect actual list changes
+  const prevFilteredItemsRef = useRef(filteredItems);
 
-  // Adjust index only when the filtered list size actually changes
+  // More intelligent index adjustment that preserves selection when possible
   useEffect(() => {
+    const prevItems = prevFilteredItemsRef.current;
     const currentLength = filteredItems.length;
-    const prevLength = prevFilteredLengthRef.current;
 
-    // Only adjust if the list size changed (not during normal scrolling)
-    if (prevLength !== currentLength) {
-      prevFilteredLengthRef.current = currentLength;
+    // Only adjust index if the list actually changed
+    if (prevItems !== filteredItems) {
+      prevFilteredItemsRef.current = filteredItems;
 
+      // If we have items and current index is out of bounds
       if (currentLength > 0 && selectedIdx >= currentLength) {
-        onIdxChange(currentLength - 1);
+        // Try to maintain relative position instead of jumping to end
+        const relativePosition = selectedIdx / (prevItems.length || 1);
+        const newIdx = Math.min(
+          Math.floor(relativePosition * currentLength),
+          currentLength - 1
+        );
+        onIdxChange(newIdx);
       } else if (currentLength === 0 && selectedIdx !== 0) {
         onIdxChange(0);
       }
+      // If selected item still exists at same index, don't adjust
     }
-  }, [filteredItems.length, selectedIdx, onIdxChange]);
+  }, [filteredItems, selectedIdx, onIdxChange]);
 
   // Load preview content only when entering preview mode
-  const loadPreviewContent = async (item: LibraryItem) => {
+  const loadPreviewContent = useCallback(async (item: LibraryItem) => {
     setLoadingPreview(true);
     try {
       const content = await fs.promises.readFile(item.path, 'utf-8');
@@ -169,7 +183,7 @@ export const LibraryPage = ({
     } finally {
       setLoadingPreview(false);
     }
-  };
+  }, []);
 
 
   useInput((input, key) => {
@@ -250,13 +264,13 @@ export const LibraryPage = ({
     if (searchMode) {
       if (key.escape) {
         setSearchMode(false);
-        onSearchQueryChange(localSearchQuery);
+        setLocalSearchQuery(searchQuery); // Reset to original search query
         return;
       }
 
       if (key.return) {
         setSearchMode(false);
-        onSearchQueryChange(localSearchQuery);
+        // Let the debounced effect handle the actual update
         return;
       }
 
@@ -308,6 +322,28 @@ export const LibraryPage = ({
   const selectedItem = filteredItems[selectedIdx];
   const { stdout } = useStdout();
   const termHeight = stdout?.rows || 24;
+
+  // Viewport calculations for virtualization
+  const itemHeight = 3; // Each library item takes 3 lines (title + description + margin)
+  const headerHeight = searchMode || searchQuery ? 2 : 0; // Search bar height
+  const filterMenuHeight = filterMenuOpen ? 7 : 0;
+  const statusBarHeight = 1;
+  const availableHeight = termHeight - 5 - headerHeight - filterMenuHeight - statusBarHeight; // -5 for app header/help
+  const visibleItemCount = Math.floor(availableHeight / itemHeight);
+
+  // Calculate viewport window
+  const viewportStart = useMemo(() => {
+    if (selectedIdx < visibleItemCount / 2) {
+      return 0;
+    }
+    if (selectedIdx > filteredItems.length - visibleItemCount / 2) {
+      return Math.max(0, filteredItems.length - visibleItemCount);
+    }
+    return Math.floor(selectedIdx - visibleItemCount / 2);
+  }, [selectedIdx, visibleItemCount, filteredItems.length]);
+
+  const viewportEnd = Math.min(viewportStart + visibleItemCount, filteredItems.length);
+  const visibleItems = filteredItems.slice(viewportStart, viewportEnd);
 
   // If in preview mode, show full-screen preview
   if (previewMode && selectedItem) {
@@ -361,9 +397,9 @@ export const LibraryPage = ({
             <Text>{localSearchQuery}</Text>
             <Text color="gray" dimColor>_</Text>
           </Box>
-        ) : searchQuery ? (
+        ) : (searchQuery || debouncedSearchQuery) ? (
           <Box marginBottom={1}>
-            <Text dimColor>Search: {searchQuery}</Text>
+            <Text dimColor>Search: {searchQuery || debouncedSearchQuery}</Text>
           </Box>
         ) : null}
 
@@ -401,30 +437,35 @@ export const LibraryPage = ({
           </Box>
         )}
 
-        {/* Item list */}
+        {/* Item list - virtualized rendering */}
         <Box flexDirection="column" flexGrow={1}>
           {filteredItems.length === 0 ? (
             <Text dimColor>No items match your filters</Text>
           ) : (
-            filteredItems.map((item, idx) => (
-              <Box key={item.id} flexDirection="column" marginBottom={1}>
-                <Box>
-                  {idx === selectedIdx && <Text color="cyan">▶ </Text>}
-                  {idx !== selectedIdx && <Text>  </Text>}
-                  <Text color={getItemTypeTag(item.type).color} bold>
-                    {getItemTypeTag(item.type).text}
-                  </Text>
-                  <Text> </Text>
-                  <Text color={idx === selectedIdx ? 'cyan' : undefined} bold={idx === selectedIdx}>
-                    {item.name}
-                  </Text>
-                  <Text dimColor> [{getSourceLabel(item.source)}]</Text>
-                </Box>
-                <Box paddingLeft={2}>
-                  <Text dimColor wrap="truncate-end">{item.description}</Text>
-                </Box>
-              </Box>
-            ))
+            <>
+              {/* Spacer for items above viewport */}
+              {viewportStart > 0 && (
+                <Box height={viewportStart * itemHeight} />
+              )}
+
+              {/* Render only visible items */}
+              {visibleItems.map((item, localIdx) => {
+                const globalIdx = viewportStart + localIdx;
+                return (
+                  <LibraryItemComponent
+                    key={item.id}
+                    item={item}
+                    isSelected={globalIdx === selectedIdx}
+                    index={globalIdx}
+                  />
+                );
+              })}
+
+              {/* Spacer for items below viewport */}
+              {viewportEnd < filteredItems.length && (
+                <Box height={(filteredItems.length - viewportEnd) * itemHeight} />
+              )}
+            </>
           )}
         </Box>
 
