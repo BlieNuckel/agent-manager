@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
-import { Box, Text, useInput } from 'ink';
+import { Box, Text, useInput, useStdout } from 'ink';
 import fs from 'fs';
 import type { CustomAgentType } from '../types/agentTypes';
 import type { Template } from '../types/templates';
@@ -65,6 +65,7 @@ export const LibraryPage = ({
   const [filterMenuOpen, setFilterMenuOpen] = useState(false);
   const [searchMode, setSearchMode] = useState(false);
   const [localSearchQuery, setLocalSearchQuery] = useState(searchQuery);
+  const [previewMode, setPreviewMode] = useState(false);
   const [previewContent, setPreviewContent] = useState<string>('');
   const [loadingPreview, setLoadingPreview] = useState(false);
 
@@ -157,38 +158,32 @@ export const LibraryPage = ({
     }
   }, [filteredItems.length, selectedIdx, onIdxChange]);
 
-  // Load preview content when selection changes with debounce
-  useEffect(() => {
-    if (!showPreview || selectedIdx >= filteredItems.length) {
-      return;
+  // Load preview content only when entering preview mode
+  const loadPreviewContent = async (item: LibraryItem) => {
+    setLoadingPreview(true);
+    try {
+      const content = await fs.promises.readFile(item.path, 'utf-8');
+      setPreviewContent(content);
+    } catch (err) {
+      setPreviewContent(`Error loading preview: ${err}`);
+    } finally {
+      setLoadingPreview(false);
     }
-
-    const item = filteredItems[selectedIdx];
-    if (!item) return;
-
-    // Debounce preview loading to reduce state updates during rapid scrolling
-    const timeoutId = setTimeout(() => {
-      const loadPreview = async () => {
-        setLoadingPreview(true);
-        try {
-          const content = await fs.promises.readFile(item.path, 'utf-8');
-          setPreviewContent(content);
-        } catch (err) {
-          setPreviewContent(`Error loading preview: ${err}`);
-        } finally {
-          setLoadingPreview(false);
-        }
-      };
-
-      loadPreview();
-    }, 150); // 150ms debounce delay
-
-    // Clean up timeout if selection changes before loading
-    return () => clearTimeout(timeoutId);
-  }, [selectedIdx, filteredItems, showPreview]);
+  };
 
 
   useInput((input, key) => {
+    // Handle preview mode navigation first
+    if (previewMode) {
+      if (key.escape || input === 'q') {
+        setPreviewMode(false);
+        onPreviewToggle(); // Notify parent that we're exiting preview
+        return;
+      }
+      // Let ScrollableMarkdown handle other keys in preview mode
+      return;
+    }
+
     if (filterMenuOpen) {
       if (key.escape || input === 'f') {
         setFilterMenuOpen(false);
@@ -294,11 +289,6 @@ export const LibraryPage = ({
       return;
     }
 
-    if (input === 'p') {
-      onPreviewToggle();
-      return;
-    }
-
     if ((key.upArrow || input === 'k') && selectedIdx > 0) {
       onIdxChange(selectedIdx - 1);
     }
@@ -308,19 +298,62 @@ export const LibraryPage = ({
     }
 
     if (key.return && filteredItems[selectedIdx]) {
-      onSelect(filteredItems[selectedIdx]);
+      const item = filteredItems[selectedIdx];
+      setPreviewMode(true);
+      onPreviewToggle(); // Notify parent that we're entering preview
+      loadPreviewContent(item);
     }
   });
 
   const selectedItem = filteredItems[selectedIdx];
+  const { stdout } = useStdout();
+  const termHeight = stdout?.rows || 24;
 
+  // If in preview mode, show full-screen preview
+  if (previewMode && selectedItem) {
+    // Calculate available height for preview
+    const appHeaderHeight = 1;
+    const appHelpBarHeight = 3;
+    const availableForPage = termHeight - appHeaderHeight - appHelpBarHeight;
+    const previewHeaderHeight = 3;
+    const scrollIndicatorHeight = 1;
+    const visibleLines = Math.max(1, availableForPage - previewHeaderHeight - scrollIndicatorHeight);
+
+    return (
+      <Box flexDirection="column" flexGrow={1} minHeight={0}>
+        <Box flexDirection="column" marginBottom={1}>
+          <Box>
+            <Text bold color="cyan">{selectedItem.name}</Text>
+            <Text> </Text>
+            <Text color={getItemTypeTag(selectedItem.type).color} bold>
+              {getItemTypeTag(selectedItem.type).text}
+            </Text>
+            <Text dimColor> [{getSourceLabel(selectedItem.source)}]</Text>
+          </Box>
+          <Text dimColor>{selectedItem.description}</Text>
+          <Text dimColor>{selectedItem.path}</Text>
+        </Box>
+
+        {loadingPreview ? (
+          <Text dimColor>Loading preview...</Text>
+        ) : (
+          <ScrollableMarkdown
+            content={previewContent}
+            height={visibleLines}
+            keybindings="vi"
+            onBack={() => {
+              setPreviewMode(false);
+              onPreviewToggle(); // Notify parent that we're exiting preview
+            }}
+          />
+        )}
+      </Box>
+    );
+  }
+
+  // Otherwise show the list view
   return (
-    <Box flexDirection="row" height="100%">
-      <Box
-        flexDirection="column"
-        width={showPreview ? "40%" : "100%"}
-        paddingRight={showPreview ? 1 : 0}
-      >
+    <Box flexDirection="column" height="100%">
         {/* Search bar */}
         {searchMode ? (
           <Box marginBottom={1}>
@@ -402,34 +435,6 @@ export const LibraryPage = ({
             {searchQuery && ` (filtered from ${allItems.length})`}
           </Text>
         </Box>
-      </Box>
-
-      {/* Preview pane */}
-      {showPreview && (
-        <Box
-          width="60%"
-          flexDirection="column"
-        >
-          <Box flexDirection="column" marginBottom={1}>
-            <Text bold color="cyan">{selectedItem?.name || 'No selection'}</Text>
-            {selectedItem && (
-              <Text dimColor>{getItemTypeTag(selectedItem.type).text} - {getSourceLabel(selectedItem.source)}</Text>
-            )}
-          </Box>
-          {selectedItem && (
-            <Box flexGrow={1} paddingX={1}>
-              {loadingPreview ? (
-                <Text dimColor>Loading preview...</Text>
-              ) : (
-                <ScrollableMarkdown
-                  content={previewContent}
-                  keybindings="vi"
-                />
-              )}
-            </Box>
-          )}
-        </Box>
-      )}
     </Box>
   );
 };
@@ -440,9 +445,19 @@ export const getLibraryHelp = () => {
       <Text color="cyan">↑↓jk</Text> Navigate{' '}
       <Text color="cyan">/</Text> Search{' '}
       <Text color="cyan">f</Text> Filters{' '}
-      <Text color="cyan">p</Text> Preview{' '}
-      <Text color="cyan">Enter</Text> Select{' '}
+      <Text color="cyan">Enter</Text> Preview{' '}
       <Text color="cyan">Esc/q</Text> Back
+    </>
+  );
+};
+
+export const getLibraryPreviewHelp = () => {
+  return (
+    <>
+      <Text color="cyan">↑↓jk</Text> Scroll{' '}
+      <Text color="cyan">^D/^U</Text> Half-page{' '}
+      <Text color="cyan">g/G</Text> Top/Bottom{' '}
+      <Text color="cyan">Esc/q</Text> Back to list
     </>
   );
 };
