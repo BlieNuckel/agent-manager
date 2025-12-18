@@ -105,7 +105,7 @@ Artifacts support YAML frontmatter for structured metadata. When creating artifa
 template: plan
 version: 1
 title: Authentication Implementation
-created: 2024-03-15
+created: 2025-03-15
 agent: auth-agent-001
 phases:
   - name: Research
@@ -127,7 +127,7 @@ Architecture decisions...
 
 ## Usage Guidelines
 
-- Use descriptive filenames with dates: \`2024-03-15-auth-implementation-plan.md\`
+- Use descriptive filenames with dates: \`2025-03-15-auth-implementation-plan.md\`
 - Prefer markdown format with YAML frontmatter
 - Include timestamps and author information in the frontmatter
 - Reference related artifacts by filename when applicable
@@ -142,7 +142,7 @@ You have access to dedicated artifact tools that automatically handle the shared
 - **Tool:** \`mcp__artifacts__Read\`
 - **Usage:** Read an artifact file by name
 - **Parameters:**
-  - \`artifactName\` - The filename only (e.g., "2024-03-15-user-auth-plan.md")
+  - \`artifactName\` - The filename only (e.g., "2025-03-15-user-auth-plan.md")
 - **Returns:** File contents or null if file doesn't exist
 - **Note:** No need to include directory paths - the tool handles this automatically
 
@@ -150,7 +150,7 @@ You have access to dedicated artifact tools that automatically handle the shared
 - **Tool:** \`mcp__artifacts__Write\`
 - **Usage:** Write content to an artifact file
 - **Parameters:**
-  - \`artifactName\` - The filename only (e.g., "2024-03-15-user-auth-plan.md")
+  - \`artifactName\` - The filename only (e.g., "2025-03-15-user-auth-plan.md")
   - \`content\` - The content to write
   - \`mode\` - Either "overwrite" or "append" (defaults to "overwrite")
 - **Note:** The artifacts directory is created automatically if it doesn't exist
@@ -160,13 +160,13 @@ You have access to dedicated artifact tools that automatically handle the shared
 \`\`\`
 # Write an implementation plan using ArtifactWrite
 Use mcp__artifacts__Write with:
-- artifactName: "2024-03-15-user-auth-plan.md"
+- artifactName: "2025-03-15-user-auth-plan.md"
 - content: "---\ntemplate: plan\n..."
 - mode: "overwrite"
 
 # Read an existing artifact using ArtifactRead
 Use mcp__artifacts__Read with:
-- artifactName: "2024-03-15-user-auth-plan.md"
+- artifactName: "2025-03-15-user-auth-plan.md"
 \`\`\`
 
 This shared directory helps maintain continuity across different agent sessions and enables collaboration between agents working on related tasks.
