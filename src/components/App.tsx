@@ -266,7 +266,49 @@ export const App = () => {
 
             const mergeResult = await testMerge(gitRoot, agent.worktreeName);
 
-            if (mergeResult.canMerge && !mergeResult.hasConflicts) {
+            // Auto-merge for last workflow stage if possible
+            if (workflowExecution && isLastWorkflowStage && mergeResult.canMerge && !mergeResult.hasConflicts) {
+              dispatch({
+                type: 'APPEND_OUTPUT',
+                id,
+                line: { text: '[i] Auto-merging last workflow stage...', isSubagent: false }
+              });
+
+              const actualMergeResult = await performMerge(
+                gitRoot,
+                agent.worktreeName,
+                `Merge worktree: ${agent.worktreeName} (auto-merged last workflow stage)`
+              );
+
+              if (actualMergeResult.success) {
+                dispatch({
+                  type: 'APPEND_OUTPUT',
+                  id,
+                  line: { text: '[✓] Auto-merge completed successfully', isSubagent: false }
+                });
+
+                // Cleanup the worktree
+                const cleanupResult = await cleanupWorktree(agent.worktreePath, agent.worktreeName, gitRoot);
+                if (cleanupResult.success) {
+                  dispatch({
+                    type: 'APPEND_OUTPUT',
+                    id,
+                    line: { text: '[✓] Worktree cleanup completed', isSubagent: false }
+                  });
+                }
+
+                // Don't set pendingMerge - just proceed to mark workflow as completed
+              } else {
+                // If auto-merge fails, fall back to manual merge prompt
+                dispatch({
+                  type: 'SET_MERGE_STATE',
+                  id,
+                  mergeState: { branchName: agent.worktreeName, status: 'ready' }
+                });
+                process.stdout.write('\u0007');
+              }
+            } else if (mergeResult.canMerge && !mergeResult.hasConflicts) {
+              // For non-workflow or non-last stage, show merge prompt as usual
               dispatch({
                 type: 'SET_MERGE_STATE',
                 id,
@@ -1081,21 +1123,30 @@ export const App = () => {
 
     if (!currentStage) return;
 
-    const searchResult = await findArtifactWithFallback(currentExecutionId, currentStage.id);
+    // Check if this is the last stage
+    const nextIdx = currentIdx + 1;
+    const isLastStage = nextIdx >= workflow.stages.length;
 
-    if (!searchResult.found && searchResult.recentAlternatives && searchResult.recentAlternatives.length > 0) {
-      setPendingWorkflowApproval({
-        executionId: currentExecutionId,
-        stageIndex: currentIdx,
-        stageName: currentStage.name,
-        stageId: currentStage.id
-      });
-      setArtifactSearchResult(searchResult);
-      setShowArtifactSelection(true);
-      return;
+    let artifactPath: string | undefined;
+
+    // Skip artifact lookup for the last stage since there's no next stage to pass artifacts to
+    if (!isLastStage) {
+      const searchResult = await findArtifactWithFallback(currentExecutionId, currentStage.id);
+
+      if (!searchResult.found && searchResult.recentAlternatives && searchResult.recentAlternatives.length > 0) {
+        setPendingWorkflowApproval({
+          executionId: currentExecutionId,
+          stageIndex: currentIdx,
+          stageName: currentStage.name,
+          stageId: currentStage.id
+        });
+        setArtifactSearchResult(searchResult);
+        setShowArtifactSelection(true);
+        return;
+      }
+
+      artifactPath = searchResult.artifactPath;
     }
-
-    const artifactPath = searchResult.artifactPath;
 
     dispatch({ type: 'UPDATE_STAGE_STATE', executionId: currentExecutionId, stageIndex: currentIdx, updates: { status: 'approved', completedAt: new Date(), artifactPath } });
 
@@ -1104,8 +1155,7 @@ export const App = () => {
       dispatch({ type: 'UPDATE_AGENT', id: workflowAgentId, updates: { status: 'done' } });
     }
 
-    const nextIdx = currentIdx + 1;
-    if (nextIdx >= workflow.stages.length) {
+    if (isLastStage) {
       dispatch({ type: 'UPDATE_WORKFLOW_EXECUTION', executionId: currentExecutionId, updates: { status: 'completed', currentStageIndex: nextIdx } });
       setWorkflowAgentId(null);
 
