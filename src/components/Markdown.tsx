@@ -1,32 +1,16 @@
 import React, { useMemo } from 'react';
-import { marked } from 'marked';
-import { markedTerminal } from 'marked-terminal';
+import { renderMarkdown } from '../utils/markdownTerminalRenderer';
 import { AnsiText } from '../utils/ansiToInk';
-import chalk from 'chalk';
 
 interface MarkdownProps {
   children: string;
   wrap?: 'wrap' | 'truncate' | 'truncate-end' | 'truncate-middle' | 'truncate-start';
 }
 
-chalk.level = 3;
-
-marked.use(markedTerminal({
-  code: chalk.yellow,
-  codespan: chalk.yellow,
-  tableOptions: {
-    style: {
-      head: ['cyan'],
-      border: ['gray']
-    }
-  }
-}));
-
 export const Markdown = ({ children, wrap = 'wrap' }: MarkdownProps) => {
   const text = useMemo(() => {
     try {
-      const rendered = marked.parse(children);
-      return typeof rendered === 'string' ? rendered.trim() : '';
+      return renderMarkdown(children);
     } catch {
       return children;
     }

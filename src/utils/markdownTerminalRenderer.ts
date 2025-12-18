@@ -1,0 +1,291 @@
+import MarkdownIt from 'markdown-it';
+import chalk from 'chalk';
+import type { StateCore, StateInline, StateBlock } from 'markdown-it/lib/rules_core/state_core.js';
+import type Renderer from 'markdown-it/lib/renderer.js';
+import type Token from 'markdown-it/lib/token.js';
+
+// Enable full color support
+chalk.level = 3;
+
+// Track list state
+interface ListState {
+  depth: number;
+  ordered: boolean;
+  counter: number;
+}
+
+const listStack: ListState[] = [];
+let currentIndent = 0;
+
+// Helper to get list marker
+function getListMarker(ordered: boolean, counter: number): string {
+  return ordered ? `${counter}. ` : '• ';
+}
+
+// Helper to get indentation
+function getIndent(depth: number): string {
+  return '  '.repeat(depth);
+}
+
+export function createTerminalRenderer() {
+  const md = new MarkdownIt({
+    html: false,
+    linkify: false,
+    typographer: false,
+    breaks: true
+  });
+
+  const renderer = md.renderer;
+
+  // Inline styles
+  renderer.rules.strong_open = () => '\x1b[1m';
+  renderer.rules.strong_close = () => '\x1b[22m';
+
+  renderer.rules.em_open = () => '\x1b[3m';
+  renderer.rules.em_close = () => '\x1b[23m';
+
+  renderer.rules.code_inline = (tokens, idx) => {
+    const token = tokens[idx];
+    return chalk.yellow(token.content);
+  };
+
+  // Links
+  renderer.rules.link_open = (tokens, idx) => {
+    const token = tokens[idx];
+    const href = token.attrGet('href') || '';
+    return chalk.blue('[');
+  };
+
+  renderer.rules.link_close = (tokens, idx, options, env, renderer) => {
+    // Find the link_open token
+    let linkOpenIdx = idx;
+    for (let i = idx - 1; i >= 0; i--) {
+      if (tokens[i].type === 'link_open') {
+        linkOpenIdx = i;
+        break;
+      }
+    }
+    const href = tokens[linkOpenIdx].attrGet('href') || '';
+    return chalk.blue(`](${href})`);
+  };
+
+  // Block elements
+  renderer.rules.paragraph_open = () => '';
+  renderer.rules.paragraph_close = () => '\n\n';
+
+  // Headings
+  renderer.rules.heading_open = (tokens, idx) => {
+    const token = tokens[idx];
+    const level = parseInt(token.tag.slice(1));
+    const prefix = '#'.repeat(level) + ' ';
+
+    switch (level) {
+      case 1:
+        return chalk.bold.underline(prefix);
+      case 2:
+        return chalk.bold(prefix);
+      default:
+        return chalk.bold(prefix);
+    }
+  };
+
+  renderer.rules.heading_close = (tokens, idx) => {
+    const token = tokens[idx];
+    const level = parseInt(token.tag.slice(1));
+    return '\n' + (level === 1 ? '\n' : '\n');
+  };
+
+  // Blockquotes
+  renderer.rules.blockquote_open = () => '';
+  renderer.rules.blockquote_close = () => '';
+
+  // Override paragraph rendering inside blockquotes
+  const originalParagraphOpen = renderer.rules.paragraph_open;
+  const originalParagraphClose = renderer.rules.paragraph_close;
+
+  renderer.rules.paragraph_open = (tokens, idx, options, env, renderer) => {
+    // Check if we're inside a blockquote
+    let insideBlockquote = false;
+    for (let i = idx - 1; i >= 0; i--) {
+      if (tokens[i].type === 'blockquote_close') break;
+      if (tokens[i].type === 'blockquote_open') {
+        insideBlockquote = true;
+        break;
+      }
+    }
+
+    if (insideBlockquote) {
+      return chalk.gray('│ ');
+    }
+    return originalParagraphOpen ? originalParagraphOpen(tokens, idx, options, env, renderer) : '';
+  };
+
+  renderer.rules.paragraph_close = (tokens, idx, options, env, renderer) => {
+    // Check if we're inside a blockquote
+    let insideBlockquote = false;
+    for (let i = idx - 1; i >= 0; i--) {
+      if (tokens[i].type === 'blockquote_close') break;
+      if (tokens[i].type === 'blockquote_open') {
+        insideBlockquote = true;
+        break;
+      }
+    }
+
+    if (insideBlockquote) {
+      return '\n';
+    }
+    return originalParagraphClose ? originalParagraphClose(tokens, idx, options, env, renderer) : '\n\n';
+  };
+
+  // Horizontal rule
+  renderer.rules.hr = () => chalk.gray('─'.repeat(40)) + '\n\n';
+
+  // Lists
+  renderer.rules.bullet_list_open = () => {
+    listStack.push({ depth: currentIndent, ordered: false, counter: 0 });
+    currentIndent++;
+    return '';
+  };
+
+  renderer.rules.bullet_list_close = () => {
+    listStack.pop();
+    currentIndent--;
+    return currentIndent === 0 ? '\n' : '';
+  };
+
+  renderer.rules.ordered_list_open = (tokens, idx) => {
+    const token = tokens[idx];
+    const start = token.attrGet('start') ? parseInt(token.attrGet('start')!) : 1;
+    listStack.push({ depth: currentIndent, ordered: true, counter: start - 1 });
+    currentIndent++;
+    return '';
+  };
+
+  renderer.rules.ordered_list_close = () => {
+    listStack.pop();
+    currentIndent--;
+    return currentIndent === 0 ? '\n' : '';
+  };
+
+  renderer.rules.list_item_open = () => {
+    if (listStack.length > 0) {
+      const current = listStack[listStack.length - 1];
+      current.counter++;
+    }
+    return '';
+  };
+
+  renderer.rules.list_item_close = (tokens, idx, options, env, renderer) => {
+    // Find the corresponding list_item_open
+    let openIdx = idx;
+    for (let i = idx - 1; i >= 0; i--) {
+      if (tokens[i].type === 'list_item_open') {
+        openIdx = i;
+        break;
+      }
+    }
+
+    // Render all content between open and close
+    let content = '';
+    for (let i = openIdx + 1; i < idx; i++) {
+      const token = tokens[i];
+
+      // Skip paragraph tags but render their content
+      if (token.type === 'paragraph_open' || token.type === 'paragraph_close') {
+        continue;
+      }
+
+      if (token.type === 'inline' && token.children) {
+        content += renderer.renderInline(token.children, options, env);
+      } else {
+        const rule = renderer.rules[token.type];
+        if (rule) {
+          content += rule(tokens, i, options, env, renderer);
+        } else if (token.content) {
+          content += token.content;
+        }
+      }
+    }
+
+    // Apply list formatting
+    if (listStack.length > 0) {
+      const current = listStack[listStack.length - 1];
+      const indent = getIndent(current.depth);
+      const marker = getListMarker(current.ordered, current.counter);
+
+      // Handle multi-line content
+      const lines = content.trim().split('\n');
+      const firstLine = lines[0];
+      const restLines = lines.slice(1).map(line =>
+        line ? indent + '  '.repeat(marker.length) + line : ''
+      ).join('\n');
+
+      return indent + marker + firstLine + (restLines ? '\n' + restLines : '') + '\n';
+    }
+
+    return content + '\n';
+  };
+
+  // Code blocks
+  renderer.rules.fence = (tokens, idx) => {
+    const token = tokens[idx];
+    const info = token.info || '';
+    const lang = info.split(/\s+/)[0];
+    const code = token.content;
+
+    // For now, just use yellow background for all code
+    // In the future, we could integrate with a syntax highlighter
+    const lines = code.split('\n');
+    const formattedLines = lines
+      .filter((_, i) => i < lines.length - 1 || lines[i] !== '')
+      .map(line => chalk.bgYellow.black(' ' + line + ' '));
+
+    return formattedLines.join('\n') + '\n\n';
+  };
+
+  renderer.rules.code_block = renderer.rules.fence;
+
+  // Tables
+  renderer.rules.table_open = () => '';
+  renderer.rules.table_close = () => '\n';
+  renderer.rules.thead_open = () => '';
+  renderer.rules.thead_close = () => '';
+  renderer.rules.tbody_open = () => '';
+  renderer.rules.tbody_close = () => '';
+  renderer.rules.tr_open = () => '';
+  renderer.rules.tr_close = () => '\n';
+
+  renderer.rules.th_open = () => chalk.cyan('');
+  renderer.rules.th_close = () => chalk.gray(' │ ');
+
+  renderer.rules.td_open = () => '';
+  renderer.rules.td_close = () => chalk.gray(' │ ');
+
+  // Line breaks
+  renderer.rules.softbreak = () => '\n';
+  renderer.rules.hardbreak = () => '\n';
+
+  // Text
+  renderer.rules.text = (tokens, idx) => {
+    return tokens[idx].content;
+  };
+
+  return md;
+}
+
+export function renderMarkdown(markdown: string): string {
+  try {
+    // Reset list state
+    listStack.length = 0;
+    currentIndent = 0;
+
+    const renderer = createTerminalRenderer();
+    const result = renderer.render(markdown);
+
+    // Clean up any trailing newlines
+    return result.trimEnd();
+  } catch (error) {
+    // If rendering fails, return the original markdown
+    return markdown;
+  }
+}

@@ -1,8 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Box, Text, useInput, useStdout } from 'ink';
-import { marked } from 'marked';
-import { markedTerminal } from 'marked-terminal';
-import chalk from 'chalk';
+import { renderMarkdown } from '../utils/markdownTerminalRenderer';
 import { AnsiText } from '../utils/ansiToInk';
 
 interface ScrollableMarkdownProps {
@@ -13,26 +11,12 @@ interface ScrollableMarkdownProps {
   onBack?: () => void;
 }
 
-chalk.level = 3;
-
-marked.use(markedTerminal({
-  code: chalk.yellow,
-  codespan: chalk.yellow,
-  tableOptions: {
-    style: {
-      head: ['cyan'],
-      border: ['gray']
-    }
-  }
-}));
-
 const useRenderedMarkdown = (content: string): string[] => {
   return useMemo(() => {
     if (!content) return [];
     try {
-      const rendered = marked.parse(content);
-      const output = typeof rendered === 'string' ? rendered : '';
-      const lines = output.split('\n');
+      const rendered = renderMarkdown(content);
+      const lines = rendered.split('\n');
       while (lines.length > 0 && lines[lines.length - 1].trim() === '') {
         lines.pop();
       }
