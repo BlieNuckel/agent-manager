@@ -293,8 +293,8 @@ export const DetailViewPage = ({
         />
       )}
 
-      {showTodos && agent.todos && (
-        <TodoOverlay todos={agent.todos} />
+      {showTodos && (
+        <TodoOverlay todos={agent.todos || []} />
       )}
 
       {chatMode && (
