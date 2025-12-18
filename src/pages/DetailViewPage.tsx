@@ -105,6 +105,11 @@ export const DetailViewPage = ({
       return;
     }
 
+    if (input === 't') {
+      setShowTodos(prev => !prev);
+      return;
+    }
+
     if (key.escape || input === 'q') {
       onBack();
       return;
@@ -141,10 +146,6 @@ export const DetailViewPage = ({
 
     if (input === 'p') setPromptScrollOffset(o => Math.max(0, o - 1));
     if (input === 'P') setPromptScrollOffset(o => Math.min(Math.max(0, promptLines.length - maxPromptHeight), o + 1));
-
-    if (input === 't') {
-      setShowTodos(prev => !prev);
-    }
   });
 
   const handleChatSubmit = (value: string) => {
