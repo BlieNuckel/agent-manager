@@ -20,20 +20,17 @@ const createMockAgent = (overrides?: Partial<Agent>): Agent => ({
 });
 
 describe('ContextHealthIndicator', () => {
-  it('should render with estimated tokens', () => {
+  it('should return null when status is healthy', () => {
     const agent = createMockAgent();
     const { lastFrame } = render(<ContextHealthIndicator agent={agent} />);
 
-    expect(lastFrame()).toContain('Context:');
-    expect(lastFrame()).toContain('~');
-    expect(lastFrame()).toContain('%');
-    expect(lastFrame()).toContain('tokens');
+    expect(lastFrame()).toBe('');
   });
 
-  it('should render with actual tokens when available', () => {
+  it('should render with actual tokens when in warning state', () => {
     const tokenUsage: TokenTracking = {
-      cumulativeInputTokens: 10000,
-      cumulativeOutputTokens: 5000,
+      cumulativeInputTokens: 50000,
+      cumulativeOutputTokens: 20000,
       cacheReadInputTokens: 0,
       cacheCreationInputTokens: 0,
       contextWindow: 200000,
@@ -45,40 +42,48 @@ describe('ContextHealthIndicator', () => {
 
     const output = lastFrame();
     expect(output).toContain('Context:');
-    expect(output).toContain('%');
+    expect(output).toContain('35%');
     expect(output).toContain('tokens');
     expect(output).not.toContain('~');
   });
 
-  it('should render compact mode', () => {
-    const agent = createMockAgent();
+  it('should render compact mode when in warning state', () => {
+    const tokenUsage: TokenTracking = {
+      cumulativeInputTokens: 50000,
+      cumulativeOutputTokens: 20000,
+      cacheReadInputTokens: 0,
+      cacheCreationInputTokens: 0,
+      contextWindow: 200000,
+      lastUpdated: new Date()
+    };
+
+    const agent = createMockAgent({ tokenUsage });
     const { lastFrame } = render(<ContextHealthIndicator agent={agent} compact />);
 
     const output = lastFrame();
-    expect(output).toContain('%');
+    expect(output).toContain('35%');
     expect(output).not.toContain('Context:');
     expect(output).not.toContain('tokens');
   });
 
-  it('should show correct bar length in compact mode', () => {
-    const agent = createMockAgent();
+  it('should return null in compact mode when healthy', () => {
+    const tokenUsage: TokenTracking = {
+      cumulativeInputTokens: 10000,
+      cumulativeOutputTokens: 5000,
+      cacheReadInputTokens: 0,
+      cacheCreationInputTokens: 0,
+      contextWindow: 200000,
+      lastUpdated: new Date()
+    };
+
+    const agent = createMockAgent({ tokenUsage });
     const { lastFrame } = render(<ContextHealthIndicator agent={agent} compact />);
 
-    const output = lastFrame();
-    const barChars = (output.match(/[█░]/g) || []).length;
-    expect(barChars).toBe(5);
+    expect(lastFrame()).toBe('');
   });
 
-  it('should show correct bar length in full mode', () => {
-    const agent = createMockAgent();
-    const { lastFrame } = render(<ContextHealthIndicator agent={agent} />);
 
-    const output = lastFrame();
-    const barChars = (output.match(/[█░]/g) || []).length;
-    expect(barChars).toBe(10);
-  });
-
-  it('should display percentage for low usage', () => {
+  it('should return null for low usage (healthy)', () => {
     const tokenUsage: TokenTracking = {
       cumulativeInputTokens: 10000,
       cumulativeOutputTokens: 5000,
@@ -92,7 +97,7 @@ describe('ContextHealthIndicator', () => {
     const { lastFrame } = render(<ContextHealthIndicator agent={agent} />);
 
     const output = lastFrame();
-    expect(output).toContain('8%');
+    expect(output).toBe('');
   });
 
   it('should display percentage for medium usage', () => {
@@ -147,18 +152,25 @@ describe('ContextHealthIndicator', () => {
     expect(output).toContain('200k');
   });
 
-  it('should display tilde for estimates', () => {
-    const agent = createMockAgent({ prompt: 'a'.repeat(10000) });
+  it('should display tilde for estimates when in warning/critical', () => {
+    // Create a very large prompt that would result in warning/critical status
+    // 500k characters should be roughly 125k tokens (assuming 4 chars per token)
+    const agent = createMockAgent({
+      prompt: 'a'.repeat(500000),
+      output: ['b'.repeat(100000)] // Add output to increase total tokens
+    });
     const { lastFrame } = render(<ContextHealthIndicator agent={agent} />);
 
     const output = lastFrame();
+    expect(output).toContain('~');
+    expect(output).toContain('%');
     expect(output).toMatch(/~\d+k\/200k/);
   });
 
   it('should not display tilde for actual counts', () => {
     const tokenUsage: TokenTracking = {
-      cumulativeInputTokens: 10000,
-      cumulativeOutputTokens: 5000,
+      cumulativeInputTokens: 50000,
+      cumulativeOutputTokens: 20000,
       cacheReadInputTokens: 0,
       cacheCreationInputTokens: 0,
       contextWindow: 200000,
@@ -169,7 +181,7 @@ describe('ContextHealthIndicator', () => {
     const { lastFrame } = render(<ContextHealthIndicator agent={agent} />);
 
     const output = lastFrame();
-    expect(output).toMatch(/15k\/200k/);
-    expect(output).not.toMatch(/~15k\/200k/);
+    expect(output).toMatch(/70k\/200k/);
+    expect(output).not.toMatch(/~70k\/200k/);
   });
 });
