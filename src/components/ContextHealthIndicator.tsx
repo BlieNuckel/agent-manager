@@ -11,21 +11,20 @@ interface ContextHealthIndicatorProps {
 export const ContextHealthIndicator = ({ agent, compact = false }: ContextHealthIndicatorProps) => {
   const health = getContextHealth(agent);
 
-  const barLength = compact ? 5 : 10;
-  const filledBlocks = Math.floor((health.percentUsed / 100) * barLength);
-  const bar = '█'.repeat(filledBlocks) + '░'.repeat(barLength - filledBlocks);
+  // Hide if healthy (below critical amount)
+  if (health.status === 'healthy') {
+    return null;
+  }
 
-  const color = health.status === 'critical' ? 'red'
-              : health.status === 'warning' ? 'yellow'
-              : 'white';
-
+  const color = health.status === 'critical' ? 'red' : 'yellow';
   const percentDisplay = Math.round(health.percentUsed);
   const prefix = health.isEstimate ? '~' : '';
 
+  // Show only percentage number (no bar) when warning or critical
   if (compact) {
     return (
       <Text color={color}>
-        {bar} {prefix}{percentDisplay}%
+        {prefix}{percentDisplay}%
       </Text>
     );
   }
@@ -37,7 +36,7 @@ export const ContextHealthIndicator = ({ agent, compact = false }: ContextHealth
   return (
     <Box>
       <Text dimColor>Context: </Text>
-      <Text color={color}>{bar} {percentDisplay}%</Text>
+      <Text color={color}>{percentDisplay}%</Text>
       <Text dimColor> ({tokenDisplay} tokens)</Text>
     </Box>
   );
