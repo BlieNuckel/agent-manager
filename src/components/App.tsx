@@ -16,7 +16,7 @@ import { listWorkflows, createWorkflowExecution, canSkipStage, shouldAutoApprove
 import { ensureTempImageDir } from '../utils/imageStorage';
 import { cleanupOldTempImages } from '../utils/imageCleanup';
 import { Layout } from './Layout';
-import { ListViewPage, getListViewHelp, NewAgentPage, getNewAgentHelp, DetailViewPage, getDetailViewHelp, ArtifactDetailPage, getArtifactDetailHelp, NewArtifactPage, getNewArtifactHelp, WorkflowDetailPage, getWorkflowDetailHelp, LibraryPage, getLibraryHelp } from '../pages';
+import { ListViewPage, getListViewHelp, NewAgentPage, getNewAgentHelp, DetailViewPage, getDetailViewHelp, ArtifactDetailPage, getArtifactDetailHelp, NewArtifactPage, getNewArtifactHelp, WorkflowDetailPage, getWorkflowDetailHelp, LibraryPage, getLibraryHelp, getLibraryPreviewHelp } from '../pages';
 import { WorkflowSelectPage, getWorkflowSelectHelp } from '../pages/WorkflowSelectPage';
 import { QuitConfirmationPrompt } from './QuitConfirmationPrompt';
 import { DeleteConfirmationPrompt } from './DeleteConfirmationPrompt';
@@ -1796,7 +1796,7 @@ export const App = () => {
           onLibraryBack={() => setTab('inbox')}
         />
       ),
-      help: tab === 'library' ? getLibraryHelp() : getListViewHelp(tab),
+      help: tab === 'library' ? (showLibraryPreview ? getLibraryPreviewHelp() : getLibraryHelp()) : getListViewHelp(tab),
     };
   };
 
