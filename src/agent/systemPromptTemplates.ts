@@ -46,11 +46,15 @@ You are working in an isolated git worktree for this task.
 }
 
 function buildArtifactsInstructions(): string {
+  const today = new Date().toISOString().split('T')[0];
+
   return `
 # Artifacts Directory
 
 When working with this agent manager, you have access to a shared artifacts directory at:
 \`~/.agent-manager/artifacts/\`
+
+**IMPORTANT: Today's date is ${today}. Use this date when creating new artifacts.**
 
 ## What are Artifacts?
 
@@ -105,7 +109,7 @@ Artifacts support YAML frontmatter for structured metadata. When creating artifa
 template: plan
 version: 1
 title: Authentication Implementation
-created: 2025-03-15
+created: ${today}
 agent: auth-agent-001
 phases:
   - name: Research
@@ -127,7 +131,7 @@ Architecture decisions...
 
 ## Usage Guidelines
 
-- Use descriptive filenames with dates: \`2025-03-15-auth-implementation-plan.md\`
+- **ALWAYS use today's date (${today}) in filenames**: \`${today}-descriptive-name.md\`
 - Prefer markdown format with YAML frontmatter
 - Include timestamps and author information in the frontmatter
 - Reference related artifacts by filename when applicable
@@ -142,7 +146,7 @@ You have access to dedicated artifact tools that automatically handle the shared
 - **Tool:** \`mcp__artifacts__Read\`
 - **Usage:** Read an artifact file by name
 - **Parameters:**
-  - \`artifactName\` - The filename only (e.g., "2025-03-15-user-auth-plan.md")
+  - \`artifactName\` - The filename only (e.g., "${today}-user-auth-plan.md")
 - **Returns:** File contents or null if file doesn't exist
 - **Note:** No need to include directory paths - the tool handles this automatically
 
@@ -150,7 +154,7 @@ You have access to dedicated artifact tools that automatically handle the shared
 - **Tool:** \`mcp__artifacts__Write\`
 - **Usage:** Write content to an artifact file
 - **Parameters:**
-  - \`artifactName\` - The filename only (e.g., "2025-03-15-user-auth-plan.md")
+  - \`artifactName\` - The filename only (e.g., "${today}-user-auth-plan.md")
   - \`content\` - The content to write
   - \`mode\` - Either "overwrite" or "append" (defaults to "overwrite")
 - **Note:** The artifacts directory is created automatically if it doesn't exist
@@ -158,15 +162,15 @@ You have access to dedicated artifact tools that automatically handle the shared
 ## Example Usage
 
 \`\`\`
-# Write an implementation plan using ArtifactWrite
+# Write an implementation plan using ArtifactWrite (use today's date: ${today})
 Use mcp__artifacts__Write with:
-- artifactName: "2025-03-15-user-auth-plan.md"
+- artifactName: "${today}-user-auth-plan.md"
 - content: "---\ntemplate: plan\n..."
 - mode: "overwrite"
 
 # Read an existing artifact using ArtifactRead
 Use mcp__artifacts__Read with:
-- artifactName: "2025-03-15-user-auth-plan.md"
+- artifactName: "${today}-user-auth-plan.md"
 \`\`\`
 
 This shared directory helps maintain continuity across different agent sessions and enables collaboration between agents working on related tasks.
