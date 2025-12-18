@@ -1131,7 +1131,7 @@ export const App = () => {
       const id = genId();
       setWorkflowAgentId(id);
 
-      const lastArtifactPath = getLastArtifactPath(execution, nextIdx);
+      const lastArtifactPath = artifactPath || getLastArtifactPath(execution, nextIdx);
       let prompt = execution.initialPrompt;
       if (nextStage.promptAdditions) {
         prompt = `${nextStage.promptAdditions}\n\n${prompt}`;
@@ -1241,7 +1241,7 @@ export const App = () => {
     const agentType = state.agentTypes.find(a => a.id === nextStage.agentType);
     if (!agentType) return;
 
-    const lastArtifactPath = getLastArtifactPath(execution, nextIdx);
+    const lastArtifactPath = artifactPath || getLastArtifactPath(execution, nextIdx);
 
     const prompt = execution.initialPrompt;
 
