@@ -3,16 +3,10 @@
 exports[`PermissionPrompt > snapshots > renders Bash permission correctly 1`] = `
 "╭──────────────────────────────────────────────────────────────────────────────────────────────────╮
 │                                                                                                  │
-│ [!] Permission Request                                                                           │
+│ [!] Bash: {"command":"npm test"}                                                                 │
 │                                                                                                  │
-│ Tool: Bash                                                                                       │
-│ Input: {"command":"npm test"}                                                                    │
-│                                                                                                  │
-│ Available Actions:                                                                               │
-│ [Y]es - Allow once                                                                               │
-│ [N]o - Deny                                                                                      │
-│                                                                                                  │
-│ y/n to choose                                                                                    │
+│ ▸ [y]es - Allow once                                                                             │
+│   [n]o - Deny                                                                                    │
 │                                                                                                  │
 ╰──────────────────────────────────────────────────────────────────────────────────────────────────╯"
 `;
@@ -20,16 +14,10 @@ exports[`PermissionPrompt > snapshots > renders Bash permission correctly 1`] = 
 exports[`PermissionPrompt > snapshots > renders Write permission correctly 1`] = `
 "╭──────────────────────────────────────────────────────────────────────────────────────────────────╮
 │                                                                                                  │
-│ [!] Permission Request                                                                           │
+│ [!] Write: {"file_path":"/test.ts"}                                                              │
 │                                                                                                  │
-│ Tool: Write                                                                                      │
-│ Input: {"file_path":"/test.ts"}                                                                  │
-│                                                                                                  │
-│ Available Actions:                                                                               │
-│ [Y]es - Allow once                                                                               │
-│ [N]o - Deny                                                                                      │
-│                                                                                                  │
-│ y/n to choose                                                                                    │
+│ ▸ [y]es - Allow once                                                                             │
+│   [n]o - Deny                                                                                    │
 │                                                                                                  │
 ╰──────────────────────────────────────────────────────────────────────────────────────────────────╯"
 `;
@@ -37,16 +25,12 @@ exports[`PermissionPrompt > snapshots > renders Write permission correctly 1`] =
 exports[`PermissionPrompt > snapshots > renders permission with queue count correctly 1`] = `
 "╭──────────────────────────────────────────────────────────────────────────────────────────────────╮
 │                                                                                                  │
-│ [!] Permission Request (+5 more pending)                                                         │
+│ [!] Edit: {"file_path":"/test/file.ts","content":"test conte                                     │
 │                                                                                                  │
-│ Tool: Edit                                                                                       │
-│ Input: {"file_path":"/test/file.ts","content":"test conte                                        │
+│ ▸ [y]es - Allow once                                                                             │
+│   [n]o - Deny                                                                                    │
 │                                                                                                  │
-│ Available Actions:                                                                               │
-│ [Y]es - Allow once                                                                               │
-│ [N]o - Deny                                                                                      │
-│                                                                                                  │
-│ y/n to choose                                                                                    │
+│ (+5 more pending)                                                                                │
 │                                                                                                  │
 ╰──────────────────────────────────────────────────────────────────────────────────────────────────╯"
 `;
@@ -54,26 +38,11 @@ exports[`PermissionPrompt > snapshots > renders permission with queue count corr
 exports[`PermissionPrompt > snapshots > renders permission with suggestions correctly 1`] = `
 "╭──────────────────────────────────────────────────────────────────────────────────────────────────╮
 │                                                                                                  │
-│ [!] Permission Request                                                                           │
+│ [!] Write: {"file_path":"/test/file.ts","content":"test conte                                    │
 │                                                                                                  │
-│ Tool: Write                                                                                      │
-│ Input: {"file_path":"/test/file.ts","content":"test conte                                        │
-│                                                                                                  │
-│ Available Actions:                                                                               │
-│ [Y]es - Allow once                                                                               │
-│ [N]o - Deny                                                                                      │
-│                                                                                                  │
-│ Save for future (always allow):                                                                  │
-│                                                                                                  │
-│ ┌──────────────────────────────────────────────────────────────────────────────────────────────┐ │
-│ │ [L]ocal (.claude/settings.local.json):                                                       │ │
-│ │ This will be saved to: .claude/settings.local.json                                           │ │
-│ │                                                                                              │ │
-│ │ 1. Add allow rule:                                                                           │ │
-│ │    • Write(*)                                                                                │ │
-│ └──────────────────────────────────────────────────────────────────────────────────────────────┘ │
-│                                                                                                  │
-│ y/n/l to choose                                                                                  │
+│ ▸ [y]es - Allow once                                                                             │
+│   [n]o - Deny                                                                                    │
+│   [l]ocal - Save locally .claude/settings.local.json                                             │
 │                                                                                                  │
 ╰──────────────────────────────────────────────────────────────────────────────────────────────────╯"
 `;
@@ -81,26 +50,11 @@ exports[`PermissionPrompt > snapshots > renders permission with suggestions corr
 exports[`PermissionPrompt > snapshots > renders userSettings suggestion correctly 1`] = `
 "╭──────────────────────────────────────────────────────────────────────────────────────────────────╮
 │                                                                                                  │
-│ [!] Permission Request                                                                           │
+│ [!] Write: {"file_path":"/test/file.ts","content":"test conte                                    │
 │                                                                                                  │
-│ Tool: Write                                                                                      │
-│ Input: {"file_path":"/test/file.ts","content":"test conte                                        │
-│                                                                                                  │
-│ Available Actions:                                                                               │
-│ [Y]es - Allow once                                                                               │
-│ [N]o - Deny                                                                                      │
-│                                                                                                  │
-│ Save for future (always allow):                                                                  │
-│                                                                                                  │
-│ ┌──────────────────────────────────────────────────────────────────────────────────────────────┐ │
-│ │ [U]ser (~/.claude/settings.json):                                                            │ │
-│ │ This will be saved to: ~/.claude/settings.json                                               │ │
-│ │                                                                                              │ │
-│ │ 1. Add allow rule:                                                                           │ │
-│ │    • Write(*)                                                                                │ │
-│ └──────────────────────────────────────────────────────────────────────────────────────────────┘ │
-│                                                                                                  │
-│ y/n/u to choose                                                                                  │
+│ ▸ [y]es - Allow once                                                                             │
+│   [n]o - Deny                                                                                    │
+│   [u]ser - Save globally ~/.claude/settings.json                                                 │
 │                                                                                                  │
 ╰──────────────────────────────────────────────────────────────────────────────────────────────────╯"
 `;

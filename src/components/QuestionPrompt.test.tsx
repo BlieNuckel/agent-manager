@@ -111,7 +111,8 @@ describe('QuestionPrompt', () => {
       const { lastFrame } = render(
         <QuestionPrompt questionRequest={questionRequest} onResponse={onResponse} />
       );
-      expect(lastFrame()).toContain('User Input Required');
+      expect(lastFrame()).toContain('[?]');
+      expect(lastFrame()).toContain('Which framework do you prefer?');
     });
 
     it('shows navigation hints', () => {
@@ -209,7 +210,7 @@ describe('QuestionPrompt', () => {
 
   describe('unchecked state', () => {
     it('shows unchecked boxes initially', () => {
-      const questionRequest = createQuestionRequest();
+      const questionRequest = createMultiSelectQuestion();
       const { lastFrame } = render(
         <QuestionPrompt questionRequest={questionRequest} onResponse={onResponse} />
       );
