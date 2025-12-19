@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Box, Text, useInput, useStdout } from 'ink';
 import { renderMarkdown } from '../utils/markdownTerminalRenderer';
 import { AnsiText } from '../utils/ansiToInk';
+import { wrapTextToWidth } from '../utils/textWidth';
 
 interface ScrollableMarkdownProps {
   content: string;
@@ -11,7 +12,7 @@ interface ScrollableMarkdownProps {
   onBack?: () => void;
 }
 
-const useRenderedMarkdown = (content: string): string[] => {
+const useRenderedMarkdown = (content: string, terminalWidth: number): string[] => {
   return useMemo(() => {
     if (!content) return [];
     try {
@@ -20,12 +21,28 @@ const useRenderedMarkdown = (content: string): string[] => {
       while (lines.length > 0 && lines[lines.length - 1].trim() === '') {
         lines.pop();
       }
-      return lines;
+
+      // Account for padding and border when calculating available width
+      // Border takes 2 chars (left + right), padding takes 2 chars (left + right)
+      const availableWidth = Math.max(1, terminalWidth - 4);
+
+      // Wrap each line based on available width
+      const wrappedLines: string[] = [];
+      for (const line of lines) {
+        if (line === '') {
+          wrappedLines.push(line);
+        } else {
+          const wrapped = wrapTextToWidth(line, availableWidth);
+          wrappedLines.push(...wrapped);
+        }
+      }
+
+      return wrappedLines;
     } catch (error) {
       console.error('Error in useRenderedMarkdown:', error);
       return content.split('\n');
     }
-  }, [content]);
+  }, [content, terminalWidth]);
 };
 
 export const ScrollableMarkdown = ({
@@ -39,13 +56,14 @@ export const ScrollableMarkdown = ({
   const [scrollOffset, setScrollOffset] = useState(0);
 
   const termHeight = stdout?.rows || 24;
+  const termWidth = stdout?.columns || 80;
   const totalAvailableHeight = height || Math.max(1, termHeight - 10);
 
   useEffect(() => {
     setScrollOffset(0);
   }, [content]);
 
-  const renderedLines = useRenderedMarkdown(content);
+  const renderedLines = useRenderedMarkdown(content, termWidth);
 
   // Calculate space needed for UI elements
   const borderSpace = 2; // borderStyle="round" takes 1 line top + 1 line bottom
@@ -121,8 +139,8 @@ export const ScrollableMarkdown = ({
           <Text dimColor>Empty content</Text>
         ) : (
           visibleContent.map((line, idx) => (
-            <Box key={scrollOffset + idx} height={1} flexShrink={0}>
-              <AnsiText wrap="truncate-end">{line || ' '}</AnsiText>
+            <Box key={scrollOffset + idx} flexShrink={0}>
+              <AnsiText wrap="wrap">{line || ' '}</AnsiText>
             </Box>
           ))
         )}
