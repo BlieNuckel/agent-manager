@@ -267,49 +267,8 @@ export const App = () => {
 
             const mergeResult = await testMerge(gitRoot, agent.worktreeName);
 
-            // Auto-merge for last workflow stage if possible
-            if (workflowExecution && isLastWorkflowStage && mergeResult.canMerge && !mergeResult.hasConflicts) {
-              dispatch({
-                type: 'APPEND_OUTPUT',
-                id,
-                line: { text: '[i] Auto-merging last workflow stage...', isSubagent: false }
-              });
-
-              const actualMergeResult = await performMerge(
-                gitRoot,
-                agent.worktreeName,
-                `Merge worktree: ${agent.worktreeName} (auto-merged last workflow stage)`
-              );
-
-              if (actualMergeResult.success) {
-                dispatch({
-                  type: 'APPEND_OUTPUT',
-                  id,
-                  line: { text: '[✓] Auto-merge completed successfully', isSubagent: false }
-                });
-
-                // Cleanup the worktree
-                const cleanupResult = await cleanupWorktree(agent.worktreePath, agent.worktreeName, gitRoot);
-                if (cleanupResult.success) {
-                  dispatch({
-                    type: 'APPEND_OUTPUT',
-                    id,
-                    line: { text: '[✓] Worktree cleanup completed', isSubagent: false }
-                  });
-                }
-
-                // Don't set pendingMerge - just proceed to mark workflow as completed
-              } else {
-                // If auto-merge fails, fall back to manual merge prompt
-                dispatch({
-                  type: 'SET_MERGE_STATE',
-                  id,
-                  mergeState: { branchName: agent.worktreeName, status: 'ready' }
-                });
-                process.stdout.write('\u0007');
-              }
-            } else if (mergeResult.canMerge && !mergeResult.hasConflicts) {
-              // For non-workflow or non-last stage, show merge prompt as usual
+            if (mergeResult.canMerge && !mergeResult.hasConflicts) {
+              // Always show merge prompt for all cases
               dispatch({
                 type: 'SET_MERGE_STATE',
                 id,
@@ -348,20 +307,10 @@ export const App = () => {
       if (workflowExecution) {
         const stageIdx = workflowExecution.stageStates.findIndex(s => s.agentId === id);
         if (stageIdx >= 0 && workflowExecution.stageStates[stageIdx]?.status === 'running') {
-          const workflow = state.workflows.find(w => w.id === workflowExecution.workflowId);
-          const isLastStage = workflow && stageIdx === workflow.stages.length - 1;
-
-          if (isLastStage) {
-            // For the last stage, mark as completed directly without approval
-            dispatch({ type: 'UPDATE_STAGE_STATE', executionId: workflowExecution.executionId, stageIndex: stageIdx, updates: { status: 'approved', completedAt: new Date() } });
-            dispatch({ type: 'UPDATE_WORKFLOW_EXECUTION', executionId: workflowExecution.executionId, updates: { status: 'completed' } });
-            process.stdout.write('\u0007');
-          } else {
-            // For non-last stages, request approval as before
-            dispatch({ type: 'UPDATE_STAGE_STATE', executionId: workflowExecution.executionId, stageIndex: stageIdx, updates: { status: 'awaiting_approval' } });
-            dispatch({ type: 'UPDATE_WORKFLOW_EXECUTION', executionId: workflowExecution.executionId, updates: { status: 'awaiting_approval' } });
-            process.stdout.write('\u0007');
-          }
+          // Request approval for all stages, including the last one
+          dispatch({ type: 'UPDATE_STAGE_STATE', executionId: workflowExecution.executionId, stageIndex: stageIdx, updates: { status: 'awaiting_approval' } });
+          dispatch({ type: 'UPDATE_WORKFLOW_EXECUTION', executionId: workflowExecution.executionId, updates: { status: 'awaiting_approval' } });
+          process.stdout.write('\u0007');
         }
       }
     };
@@ -747,6 +696,21 @@ export const App = () => {
     const agent = state.agents.find(a => a.id === detailAgentId);
     if (!agent?.pendingMerge) return;
 
+    // Check if this is the last workflow stage
+    let isLastWorkflowStage = false;
+    let workflowExecution: WorkflowExecutionState | undefined;
+    for (const execution of state.workflowExecutions) {
+      const stageIdx = execution.stageStates.findIndex(s => s.agentId === detailAgentId);
+      if (stageIdx >= 0) {
+        workflowExecution = execution;
+        const workflow = state.workflows.find(w => w.id === execution.workflowId);
+        if (workflow) {
+          isLastWorkflowStage = stageIdx === workflow.stages.length - 1;
+        }
+        break;
+      }
+    }
+
     if (agent.pendingMerge.status === 'pr-created') {
       if (approved) {
         dispatch({
@@ -836,6 +800,29 @@ export const App = () => {
           id: detailAgentId,
           updates: { worktreeName: undefined, worktreePath: undefined }
         });
+
+        // Auto-approve the workflow stage if this is the last stage
+        if (approved && isLastWorkflowStage && workflowExecution) {
+          const stageIdx = workflowExecution.stageStates.findIndex(s => s.agentId === detailAgentId);
+          if (stageIdx >= 0 && workflowExecution.stageStates[stageIdx]?.status === 'awaiting_approval') {
+            dispatch({
+              type: 'UPDATE_STAGE_STATE',
+              executionId: workflowExecution.executionId,
+              stageIndex: stageIdx,
+              updates: { status: 'approved', completedAt: new Date() }
+            });
+            dispatch({
+              type: 'UPDATE_WORKFLOW_EXECUTION',
+              executionId: workflowExecution.executionId,
+              updates: { status: 'completed' }
+            });
+            dispatch({
+              type: 'APPEND_OUTPUT',
+              id: detailAgentId,
+              line: { text: '[i] Auto-approved last workflow stage after merge', isSubagent: false }
+            });
+          }
+        }
       } else {
         dispatch({
           type: 'APPEND_OUTPUT',
@@ -894,6 +881,21 @@ export const App = () => {
     const agent = state.agents.find(a => a.id === detailAgentId);
     if (!agent?.pendingMerge || agent.pendingMerge.status !== 'ready') return;
 
+    // Check if this is the last workflow stage
+    let isLastWorkflowStage = false;
+    let workflowExecution: WorkflowExecutionState | undefined;
+    for (const execution of state.workflowExecutions) {
+      const stageIdx = execution.stageStates.findIndex(s => s.agentId === detailAgentId);
+      if (stageIdx >= 0) {
+        workflowExecution = execution;
+        const workflow = state.workflows.find(w => w.id === execution.workflowId);
+        if (workflow) {
+          isLastWorkflowStage = stageIdx === workflow.stages.length - 1;
+        }
+        break;
+      }
+    }
+
     const branchName = agent.pendingMerge.branchName;
 
     dispatch({
@@ -913,6 +915,29 @@ export const App = () => {
     try {
       await agentManager.sendFollowUpMessage(detailAgentId, prMessage);
       dispatch({ type: 'UPDATE_AGENT', id: detailAgentId, updates: { status: 'working' } });
+
+      // Auto-approve the workflow stage if this is the last stage
+      if (isLastWorkflowStage && workflowExecution) {
+        const stageIdx = workflowExecution.stageStates.findIndex(s => s.agentId === detailAgentId);
+        if (stageIdx >= 0 && workflowExecution.stageStates[stageIdx]?.status === 'awaiting_approval') {
+          dispatch({
+            type: 'UPDATE_STAGE_STATE',
+            executionId: workflowExecution.executionId,
+            stageIndex: stageIdx,
+            updates: { status: 'approved', completedAt: new Date() }
+          });
+          dispatch({
+            type: 'UPDATE_WORKFLOW_EXECUTION',
+            executionId: workflowExecution.executionId,
+            updates: { status: 'completed' }
+          });
+          dispatch({
+            type: 'APPEND_OUTPUT',
+            id: detailAgentId,
+            line: { text: '[i] Auto-approved last workflow stage after drafting PR', isSubagent: false }
+          });
+        }
+      }
     } catch (error: any) {
       debug('Error sending PR draft request:', error);
       dispatch({
