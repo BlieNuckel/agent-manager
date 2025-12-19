@@ -66,6 +66,11 @@ describe('reducer', () => {
       agentTypes: [],
       workflows: [],
       workflowExecutions: [],
+      graphView: {
+        selectedWorkflowId: null,
+        selectedNodeId: null,
+        graphData: null
+      },
     };
   });
 
