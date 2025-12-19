@@ -87,14 +87,19 @@ describe('markdownTerminalRenderer', () => {
   describe('code blocks', () => {
     it('renders fenced code blocks', () => {
       const result = renderMarkdown('```\ncode block\n```');
-      expect(result).toContain('\x1b[43m');
+      expect(result).toContain('┌─ code');
+      expect(result).toContain('│ ');
       expect(result).toContain('code block');
+      expect(result).toContain('└─');
     });
 
     it('renders code blocks with language', () => {
       const result = renderMarkdown('```javascript\nconst x = 5;\n```');
-      expect(result).toContain('\x1b[43m');
+      expect(result).toContain('┌─ ');
+      expect(result).toContain('javascript');
+      expect(result).toContain('│ ');
       expect(result).toContain('const x = 5;');
+      expect(result).toContain('└─');
     });
   });
 
