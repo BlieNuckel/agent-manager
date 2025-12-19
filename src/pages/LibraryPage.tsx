@@ -338,30 +338,38 @@ export const LibraryPage = ({
   const availableHeight = termHeight - 5 - headerHeight - filterMenuHeight - statusBarHeight; // -5 for app header/help
   const visibleItemCount = Math.floor(availableHeight / itemHeight);
 
-  // Calculate viewport window with hysteresis to reduce re-renders
+  // Track the last filtered items to detect when list changes
+  const prevFilteredItemsLengthRef = useRef(filteredItems.length);
   const [viewportStart, setViewportStart] = useState(0);
 
-  // Reset viewport when filtered items change
-  useEffect(() => {
-    setViewportStart(0);
-  }, [filteredItems]);
+  // Calculate viewport position synchronously to prevent jumping
+  let calculatedViewportStart = viewportStart;
 
-  useEffect(() => {
-    // Only update viewport when selected item moves outside visible range
+  // Reset viewport when filtered items list changes (not just length)
+  if (prevFilteredItemsLengthRef.current !== filteredItems.length) {
+    calculatedViewportStart = 0;
+    prevFilteredItemsLengthRef.current = filteredItems.length;
+  } else {
+    // Calculate viewport based on selected item position
     const currentEnd = viewportStart + visibleItemCount;
 
     if (selectedIdx < viewportStart) {
       // Selected item is above viewport - scroll up
-      setViewportStart(Math.max(0, selectedIdx));
+      calculatedViewportStart = Math.max(0, selectedIdx);
     } else if (selectedIdx >= currentEnd) {
       // Selected item is below viewport - scroll down
-      setViewportStart(Math.max(0, selectedIdx - visibleItemCount + 1));
+      calculatedViewportStart = Math.max(0, selectedIdx - visibleItemCount + 1);
     }
-    // Otherwise, keep the viewport stable (no update)
-  }, [selectedIdx, viewportStart, visibleItemCount]);
+    // Otherwise, keep the viewport stable (no change needed)
+  }
 
-  const viewportEnd = Math.min(viewportStart + visibleItemCount, filteredItems.length);
-  const visibleItems = filteredItems.slice(viewportStart, viewportEnd);
+  // Update state only if viewport actually changed
+  if (calculatedViewportStart !== viewportStart) {
+    setViewportStart(calculatedViewportStart);
+  }
+
+  const viewportEnd = Math.min(calculatedViewportStart + visibleItemCount, filteredItems.length);
+  const visibleItems = filteredItems.slice(calculatedViewportStart, viewportEnd);
 
   // If in preview mode, show full-screen preview
   if (previewMode && selectedItem) {
@@ -462,13 +470,13 @@ export const LibraryPage = ({
           ) : (
             <>
               {/* Spacer for items above viewport */}
-              {viewportStart > 0 && (
-                <Spacer height={viewportStart * itemHeight} />
+              {calculatedViewportStart > 0 && (
+                <Spacer height={calculatedViewportStart * itemHeight} />
               )}
 
               {/* Render only visible items */}
               {visibleItems.map((item, localIdx) => {
-                const globalIdx = viewportStart + localIdx;
+                const globalIdx = calculatedViewportStart + localIdx;
                 return (
                   <LibraryItemComponent
                     key={item.id}
