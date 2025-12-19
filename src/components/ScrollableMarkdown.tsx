@@ -21,7 +21,8 @@ const useRenderedMarkdown = (content: string): string[] => {
         lines.pop();
       }
       return lines;
-    } catch {
+    } catch (error) {
+      console.error('Error in useRenderedMarkdown:', error);
       return content.split('\n');
     }
   }, [content]);
