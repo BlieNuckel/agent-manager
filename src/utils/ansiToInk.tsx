@@ -47,7 +47,8 @@ export function parseAnsiToSegments(text: string): TextSegment[] {
     }
 
     const codes = match[1].split(';').map(Number);
-    for (const code of codes) {
+    for (let i = 0; i < codes.length; i++) {
+      const code = codes[i];
       if (code === 0) {
         currentStyle = {};
       } else if (code === 1) {
@@ -75,6 +76,13 @@ export function parseAnsiToSegments(text: string): TextSegment[] {
         currentStyle.color = ANSI_COLOR_MAP[code];
       } else if (code === 39) {
         currentStyle.color = undefined;
+      } else if (code === 38 && codes[i + 1] === 2) {
+        // 24-bit TrueColor foreground: 38;2;R;G;B
+        const r = codes[i + 2] ?? 0;
+        const g = codes[i + 3] ?? 0;
+        const b = codes[i + 4] ?? 0;
+        currentStyle.color = `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
+        i += 4; // Skip the next 4 codes (2, R, G, B)
       }
     }
 
