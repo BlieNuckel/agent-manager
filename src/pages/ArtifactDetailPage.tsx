@@ -16,10 +16,13 @@ export const ArtifactDetailPage = ({ artifact, onBack }: ArtifactDetailPageProps
   const appHeaderHeight = 1;
   const appHelpBarHeight = 3;
   const availableForPage = termHeight - appHeaderHeight - appHelpBarHeight;
+
+  // The artifact header (name, modified date, title) takes up exactly 3 lines
   const artifactHeaderHeight = 3;
-  const contentPadding = 2; // padding={1} adds 1 line top + 1 line bottom
-  const contentBorder = 2; // borderStyle="round" adds 1 line top + 1 line bottom
-  const visibleLines = Math.max(1, availableForPage - artifactHeaderHeight - contentPadding - contentBorder);
+
+  // Pass the remaining height to ScrollableMarkdown
+  // ScrollableMarkdown will handle its own border, padding, and scroll indicator
+  const contentHeight = Math.max(1, availableForPage - artifactHeaderHeight);
 
   useEffect(() => {
     const loadContent = async () => {
@@ -57,7 +60,7 @@ export const ArtifactDetailPage = ({ artifact, onBack }: ArtifactDetailPageProps
 
       <ScrollableMarkdown
         content={content}
-        height={visibleLines}
+        height={contentHeight}
         keybindings="vi"
         onBack={onBack}
       />

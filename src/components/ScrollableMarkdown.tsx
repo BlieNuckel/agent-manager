@@ -47,9 +47,20 @@ export const ScrollableMarkdown = ({
 
   const renderedLines = useRenderedMarkdown(content);
 
-  // Reserve space for scroll indicator when needed (1 line + 1 margin)
-  const scrollIndicatorSpace = renderedLines.length > totalAvailableHeight ? 2 : 0;
-  const visibleLines = Math.max(1, totalAvailableHeight - scrollIndicatorSpace);
+  // Calculate space needed for UI elements
+  const borderSpace = 2; // borderStyle="round" takes 1 line top + 1 line bottom
+  const paddingSpace = 2; // padding={1} takes 1 line top + 1 line bottom
+  const contentAreaSpace = borderSpace + paddingSpace; // Total: 4 lines
+
+  // Check if we need scroll indicator based on total content vs available space
+  const contentLinesAvailable = Math.max(1, totalAvailableHeight - contentAreaSpace);
+  const needsScrollIndicator = renderedLines.length > contentLinesAvailable;
+  const scrollIndicatorSpace = needsScrollIndicator ? 2 : 0; // indicator + margin
+
+  // Actual content lines that can be displayed after accounting for all UI elements
+  const visibleLines = Math.max(1, totalAvailableHeight - contentAreaSpace - scrollIndicatorSpace);
+
+  // Allow scrolling to show all lines, including the very last ones
   const maxScroll = Math.max(0, renderedLines.length - visibleLines);
 
   useEffect(() => {
@@ -105,7 +116,7 @@ export const ScrollableMarkdown = ({
 
   return (
     <Box flexDirection="column" height={totalAvailableHeight} overflow="hidden">
-      <Box flexDirection="column" borderStyle="round" borderColor="gray" padding={1} height={visibleLines + 4} overflow="hidden">
+      <Box flexDirection="column" borderStyle="round" borderColor="gray" padding={1} flexGrow={1} minHeight={0} overflow="hidden">
         {visibleContent.length === 0 ? (
           <Text dimColor>Empty content</Text>
         ) : (
@@ -117,8 +128,8 @@ export const ScrollableMarkdown = ({
         )}
       </Box>
 
-      {maxScroll > 0 && (
-        <Box marginTop={1} height={1}>
+      {needsScrollIndicator && (
+        <Box marginTop={1} height={1} flexShrink={0}>
           <Text dimColor>
             Line {scrollOffset + 1}-{Math.min(scrollOffset + visibleLines, renderedLines.length)} of {renderedLines.length}
             {scrollOffset > 0 && ' ↑'}
