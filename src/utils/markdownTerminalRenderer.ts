@@ -77,22 +77,22 @@ export function createTerminalRenderer() {
   renderer.rules.heading_open = (tokens, idx) => {
     const token = tokens[idx];
     const level = parseInt(token.tag.slice(1));
-    const prefix = '#'.repeat(level) + ' ';
 
     switch (level) {
       case 1:
-        return chalk.bold.underline(prefix);
+        return '\x1b[1m\x1b[4m'; // bold + underline
       case 2:
-        return chalk.bold(prefix);
+        return '\x1b[1m'; // bold
       default:
-        return chalk.bold(prefix);
+        return '\x1b[1m'; // bold
     }
   };
 
   renderer.rules.heading_close = (tokens, idx) => {
     const token = tokens[idx];
     const level = parseInt(token.tag.slice(1));
-    return '\n' + (level === 1 ? '\n' : '\n');
+    const resetCodes = level === 1 ? '\x1b[22m\x1b[24m' : '\x1b[22m'; // reset bold (and underline for h1)
+    return resetCodes + '\n' + (level === 1 ? '\n' : '\n');
   };
 
   // Blockquotes
