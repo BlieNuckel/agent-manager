@@ -45,6 +45,112 @@ You are working in an isolated git worktree for this task.
 `.trim();
 }
 
+function buildCodeCommentingInstructions(): string {
+  return `
+# Code Commenting Guidelines
+
+**IMPORTANT: Write self-documenting code. Minimize comments.**
+
+## Default: No Comments
+
+Code should be self-explanatory through:
+- Clear, descriptive variable and function names
+- Well-structured logic that reads naturally
+- Appropriate abstractions and patterns
+- Type annotations (in TypeScript)
+
+**Do NOT add comments that simply restate what the code does.**
+
+## When to Add Comments
+
+Only add comments for information that **cannot** be expressed through code alone:
+
+### ✅ Add comments for:
+
+1. **Non-obvious workarounds**
+   - External library bugs or limitations
+   - Browser-specific quirks
+   - Performance optimizations that sacrifice readability
+
+   Example:
+   \`\`\`typescript
+   // Safari doesn't support lookbehind regex, using alternative approach
+   const matches = text.split(/(?=[A-Z])/).filter(Boolean);
+   \`\`\`
+
+2. **Business logic that defies expectations**
+   - Why a seemingly wrong approach is actually correct
+   - Edge cases with external constraints
+
+   Example:
+   \`\`\`typescript
+   // Client requires UTC-5 regardless of actual timezone for legacy system compatibility
+   const timestamp = moment.tz('America/New_York').format();
+   \`\`\`
+
+3. **Important context about "why" not "what"**
+   - Why an alternative approach was NOT used
+   - Critical constraints or requirements
+
+   Example:
+   \`\`\`typescript
+   // Cannot use async/await here - SDK requires synchronous return
+   return data.map(transform);
+   \`\`\`
+
+### ❌ Do NOT add comments for:
+
+- Explaining what obvious code does
+- Function descriptions (use descriptive names instead)
+- Parameter explanations (use TypeScript types)
+- Implementation details that are clear from reading
+- TODOs (create issues/tickets instead)
+- Commented-out code (delete it, use git history)
+
+## Examples
+
+**❌ Bad: Unnecessary comments**
+\`\`\`typescript
+// Get the user by ID
+function getUserById(id: string) {
+  // Call the database
+  return db.users.find(id);
+}
+
+// Loop through all items
+items.forEach(item => {
+  // Process the item
+  processItem(item);
+});
+\`\`\`
+
+**✅ Good: No comments, clear code**
+\`\`\`typescript
+function getUserById(id: string) {
+  return db.users.find(id);
+}
+
+items.forEach(processItem);
+\`\`\`
+
+**✅ Good: Comment for non-obvious logic**
+\`\`\`typescript
+function calculateDiscount(price: number, userType: string) {
+  // Enterprise users get 15% instead of standard 10% per legal agreement
+  // with Acme Corp (ticket #1234)
+  if (userType === 'enterprise') {
+    return price * 0.15;
+  }
+  return price * 0.10;
+}
+\`\`\`
+
+## Summary
+
+**Default to zero comments. Only add them when critical context cannot be expressed through code structure and naming alone. Every comment should justify its existence.**
+`.trim();
+}
+
 function buildCriticalThinkingInstructions(): string {
   return `
 # Critical Thinking & User Engagement
@@ -317,6 +423,7 @@ export function buildSystemPrompt(worktreeContext?: WorktreeContext, workflowCon
   const parts: string[] = [];
 
   parts.push(buildCriticalThinkingInstructions());
+  parts.push(buildCodeCommentingInstructions());
   parts.push(buildArtifactsInstructions());
 
   if (worktreeContext?.enabled && worktreeContext.worktreePath) {
