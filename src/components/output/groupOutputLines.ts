@@ -1,5 +1,6 @@
 import type { OutputLine, SubagentStats } from '../../types';
 import type { OutputBlockData } from './types';
+import { getVisualWidth } from '../../utils/textWidth';
 
 interface GroupingState {
   currentMessages: string[];
@@ -215,11 +216,14 @@ function estimateWrappedLines(text: string, width: number): number {
   let totalLines = 0;
 
   for (const line of lines) {
+    // Strip ANSI escape codes before calculating visual width
     const cleanLine = line.replace(/\u001b\[[0-9;]+m/g, '');
     if (cleanLine.length === 0) {
       totalLines += 1;
     } else {
-      totalLines += Math.ceil(cleanLine.length / width);
+      // Use visual width instead of character count
+      const visualWidth = getVisualWidth(cleanLine);
+      totalLines += Math.ceil(visualWidth / width);
     }
   }
 

@@ -3,16 +3,10 @@ import { Box, Text, useInput } from 'ink';
 import type { OutputLine, SubagentStats } from '../types';
 import {
   groupOutputLines,
-  getBlockLineCount,
   isCollapsibleBlock,
-  convertBlockViewport,
-  StatusLine,
-  UserInputLine,
-  MessageBlock,
-  ToolGroupBlock,
-  SubagentBlock,
-  type OutputBlockData
 } from './output';
+import { renderBlocksToLines, type RenderedLine } from './output/viewportRenderer';
+import { AnsiText } from '../utils/ansiToInk';
 
 interface AgentOutputViewportProps {
   output: OutputLine[];
@@ -61,14 +55,16 @@ export const AgentOutputViewport = ({
     });
   }, [blocks, showToolCalls]);
 
-  const totalLines = useMemo(() => {
-    let count = 0;
-    for (const block of blocks) {
-      count += getBlockLineCount(block, collapsedBlocks.has(block.id), width);
-    }
-    return count;
-  }, [blocks, collapsedBlocks, width]);
+  // Pre-render all blocks into lines
+  const renderedLines = useMemo(() => {
+    return renderBlocksToLines(blocks, {
+      width,
+      collapsed: collapsedBlocks,
+      showToolCalls
+    });
+  }, [blocks, width, collapsedBlocks, showToolCalls]);
 
+  const totalLines = renderedLines.length;
   const maxScroll = Math.max(0, totalLines - height);
 
   useEffect(() => {
@@ -207,114 +203,28 @@ export const AgentOutputViewport = ({
     }
   });
 
-  const renderBlocks = useMemo(() => {
-    const result: { block: OutputBlockData; lineIndex: number; collapsed: boolean; blockNumber: number }[] = [];
-    let lineIndex = 0;
-    let collapsibleIndex = 0;
+  // Get visible lines to render
+  const visibleLines = useMemo(() => {
+    const startIdx = scrollOffset;
+    const endIdx = Math.min(scrollOffset + height, renderedLines.length);
+    return renderedLines.slice(startIdx, endIdx);
+  }, [renderedLines, scrollOffset, height]);
 
-    for (const block of blocks) {
-      const isCollapsible = isCollapsibleBlock(block);
-      const collapsed = collapsedBlocks.has(block.id);
-      const blockNumber = isCollapsible ? ++collapsibleIndex : 0;
-
-      result.push({ block, lineIndex, collapsed, blockNumber });
-      lineIndex += getBlockLineCount(block, collapsed, width);
-    }
-
-    return result;
-  }, [blocks, collapsedBlocks, width]);
-
-  const visibleBlocks = useMemo(() => {
-    const visible: { block: OutputBlockData; collapsed: boolean; blockNumber: number; skipLines: number; maxLines?: number; showHeader: boolean }[] = [];
-    const endLine = scrollOffset + height;
-
-    for (const { block, lineIndex, collapsed, blockNumber } of renderBlocks) {
-      const blockLines = getBlockLineCount(block, collapsed, width);
-      const blockEnd = lineIndex + blockLines;
-
-      if (blockEnd > scrollOffset && lineIndex < endLine) {
-        const skipWrappedLines = Math.max(0, scrollOffset - lineIndex);
-        const maxWrappedLines = Math.min(blockLines - skipWrappedLines, height - (lineIndex + skipWrappedLines - scrollOffset));
-
-        const viewport = convertBlockViewport(block, collapsed, width, skipWrappedLines, maxWrappedLines);
-
-        visible.push({
-          block,
-          collapsed,
-          blockNumber,
-          skipLines: viewport.skipLines,
-          maxLines: viewport.maxLines,
-          showHeader: viewport.showHeader,
-        });
+  const renderLine = (line: RenderedLine) => {
+    // Special handling for different line types
+    if (line.isHeader) {
+      if (line.blockType === 'user-input') {
+        return <Text bold color="blue">{line.content}</Text>;
+      } else if (line.blockType === 'status') {
+        const isSuccess = line.content.includes('[✓]');
+        return <Text color={isSuccess ? 'green' : 'red'} bold>{line.content}</Text>;
+      } else if (line.blockType === 'tool-group' || line.blockType === 'subagent') {
+        return <Text bold dimColor>{line.content}</Text>;
       }
     }
 
-    return visible;
-  }, [renderBlocks, scrollOffset, height, width]);
-
-  const renderBlock = (
-    block: OutputBlockData,
-    collapsed: boolean,
-    blockNumber: number,
-    skipLines: number,
-    maxLines: number | undefined,
-    showHeader: boolean
-  ) => {
-    switch (block.type) {
-      case 'messages':
-        return (
-          <MessageBlock
-            key={block.id}
-            lines={block.lines}
-            width={width}
-            skipLines={skipLines}
-            maxLines={maxLines}
-          />
-        );
-
-      case 'user-input':
-        return <UserInputLine key={block.id} text={block.text} />;
-
-      case 'status':
-        return (
-          <Box key={block.id}>
-            <StatusLine line={block.line} variant={block.variant} />
-          </Box>
-        );
-
-      case 'tool-group':
-        return (
-          <ToolGroupBlock
-            key={block.id}
-            count={block.count}
-            errorCount={block.errorCount}
-            lines={block.lines}
-            collapsed={collapsed}
-            blockNumber={blockNumber}
-            skipLines={skipLines}
-            maxLines={maxLines}
-            showHeader={showHeader}
-          />
-        );
-
-      case 'subagent':
-        return (
-          <SubagentBlock
-            key={block.id}
-            id={block.id}
-            subagentType={block.subagentType}
-            status={block.status}
-            output={block.output}
-            stats={block.stats}
-            collapsed={collapsed}
-            blockNumber={blockNumber}
-            width={width}
-            skipLines={skipLines}
-            maxLines={maxLines}
-            showHeader={showHeader}
-          />
-        );
-    }
+    // Regular content lines - use AnsiText for proper ANSI support
+    return <AnsiText wrap="wrap">{line.content}</AnsiText>;
   };
 
   if (output.length === 0) {
@@ -327,9 +237,11 @@ export const AgentOutputViewport = ({
 
   return (
     <Box flexDirection="column" height={height} overflow="hidden">
-      {visibleBlocks.map(({ block, collapsed, blockNumber, skipLines, maxLines, showHeader }) =>
-        renderBlock(block, collapsed, blockNumber, skipLines, maxLines, showHeader)
-      )}
+      {visibleLines.map((line, idx) => (
+        <Box key={`${line.blockId}-${scrollOffset + idx}`}>
+          {renderLine(line)}
+        </Box>
+      ))}
     </Box>
   );
 };
