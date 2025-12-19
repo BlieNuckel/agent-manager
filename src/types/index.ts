@@ -10,7 +10,7 @@ import type { Workflow, WorkflowExecutionState, StageExecutionState } from './wo
 export type { CustomAgentType, AgentToolConfig, AgentArtifactConfig };
 export type { Workflow, WorkflowExecutionState, StageExecutionState };
 export type Status = 'working' | 'waiting' | 'idle' | 'done' | 'error';
-export type Mode = 'normal' | 'input' | 'detail' | 'detail-chat' | 'command-result' | 'new-artifact' | 'workflow-select' | 'workflow-detail';
+export type Mode = 'normal' | 'input' | 'detail' | 'detail-chat' | 'command-result' | 'new-artifact' | 'workflow-select' | 'workflow-detail' | 'workflow-graph';
 export type InputStep = 'repository' | 'title' | 'prompt' | 'agentType' | 'artifact' | 'worktree' | 'worktreeName';
 
 export interface Repository {
@@ -164,6 +164,25 @@ export interface ToolStatusUpdate {
   error?: string;
 }
 
+export interface GraphNode {
+  id: string;
+  type: 'workflow' | 'stage' | 'agent' | 'artifact';
+  label: string;
+  position: { x: number; y: number };
+  status?: 'pending' | 'active' | 'completed' | 'failed';
+}
+
+export interface GraphEdge {
+  from: string;
+  to: string;
+  type: 'depends-on' | 'produces' | 'consumes' | 'contains';
+}
+
+export interface GraphData {
+  nodes: GraphNode[];
+  edges: GraphEdge[];
+}
+
 export type Action =
   | { type: 'ADD_AGENT'; agent: Agent }
   | { type: 'UPDATE_AGENT'; id: string; updates: Partial<Agent> }
@@ -189,7 +208,10 @@ export type Action =
   | { type: 'UPDATE_STAGE_STATE'; executionId: string; stageIndex: number; updates: Partial<StageExecutionState> }
   | { type: 'CANCEL_WORKFLOW'; executionId: string }
   | { type: 'REMOVE_WORKFLOW'; executionId: string; agentIds: string[] }
-  | { type: 'SET_SUBAGENT_STATS'; id: string; subagentId: string; stats: SubagentStats };
+  | { type: 'SET_SUBAGENT_STATS'; id: string; subagentId: string; stats: SubagentStats }
+  | { type: 'LOAD_GRAPH'; workflowId: string; graphData: GraphData }
+  | { type: 'SELECT_GRAPH_NODE'; nodeId: string | null }
+  | { type: 'CLOSE_GRAPH_VIEW' };
 
 export interface ArtifactInfo {
   name: string;
@@ -208,6 +230,11 @@ export interface State {
   agentTypes: CustomAgentType[];
   workflows: Workflow[];
   workflowExecutions: WorkflowExecutionState[];
+  graphView: {
+    selectedWorkflowId: string | null;
+    selectedNodeId: string | null;
+    graphData: GraphData | null;
+  };
 }
 
 export type InboxItem =

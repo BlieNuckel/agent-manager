@@ -194,6 +194,32 @@ export function reducer(state: State, action: Action): State {
             : a
         )
       };
+    case 'LOAD_GRAPH':
+      return {
+        ...state,
+        graphView: {
+          selectedWorkflowId: action.workflowId,
+          selectedNodeId: null,
+          graphData: action.graphData
+        }
+      };
+    case 'SELECT_GRAPH_NODE':
+      return {
+        ...state,
+        graphView: {
+          ...state.graphView,
+          selectedNodeId: action.nodeId
+        }
+      };
+    case 'CLOSE_GRAPH_VIEW':
+      return {
+        ...state,
+        graphView: {
+          selectedWorkflowId: null,
+          selectedNodeId: null,
+          graphData: null
+        }
+      };
     default:
       return state;
   }

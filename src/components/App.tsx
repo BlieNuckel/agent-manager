@@ -17,6 +17,7 @@ import { ensureTempImageDir } from '../utils/imageStorage';
 import { cleanupOldTempImages } from '../utils/imageCleanup';
 import { Layout } from './Layout';
 import { ListViewPage, getListViewHelp, NewAgentPage, getNewAgentHelp, DetailViewPage, getDetailViewHelp, ArtifactDetailPage, getArtifactDetailHelp, NewArtifactPage, getNewArtifactHelp, WorkflowDetailPage, getWorkflowDetailHelp, LibraryPage, getLibraryHelp, getLibraryPreviewHelp } from '../pages';
+import { GraphViewPage, getGraphViewHelp } from '../pages/GraphViewPage';
 import { WorkflowSelectPage, getWorkflowSelectHelp } from '../pages/WorkflowSelectPage';
 import { QuitConfirmationPrompt } from './QuitConfirmationPrompt';
 import { DeleteConfirmationPrompt } from './DeleteConfirmationPrompt';
@@ -51,7 +52,7 @@ const getPreviousTab = (current: TabType): TabType => {
 
 export const App = () => {
   const { exit } = useApp();
-  const [state, dispatch] = useReducer(reducer, { agents: [], history: loadHistory(), artifacts: [], templates: [], agentTypes: [], workflows: [], workflowExecutions: [] });
+  const [state, dispatch] = useReducer(reducer, { agents: [], history: loadHistory(), artifacts: [], templates: [], agentTypes: [], workflows: [], workflowExecutions: [], graphView: { selectedWorkflowId: null, selectedNodeId: null, graphData: null } });
   const [currentExecutionId, setCurrentExecutionId] = useState<string | null>(null);
   const [tab, setTab] = useState<TabType>('inbox');
   const [inboxIdx, setInboxIdx] = useState(0);
@@ -1477,7 +1478,7 @@ export const App = () => {
       return;
     }
 
-    if (mode === 'detail' || mode === 'input' || mode === 'command-result' || mode === 'new-artifact' || mode === 'workflow-select' || mode === 'workflow-detail' || commandMode) return
+    if (mode === 'detail' || mode === 'input' || mode === 'command-result' || mode === 'new-artifact' || mode === 'workflow-select' || mode === 'workflow-detail' || mode === 'workflow-graph' || commandMode) return
 
     if (key.tab) {
       if (key.shift) {
@@ -1686,6 +1687,9 @@ export const App = () => {
               onResolveMerge={handleResolveConflicts}
               onDraftPR={handleDraftPR}
               onClose={() => setMode('normal')}
+              onOpenGraphView={() => {
+                setMode('workflow-graph');
+              }}
             />
           );
 
@@ -1697,6 +1701,52 @@ export const App = () => {
             help: getWorkflowDetailHelp(isAwaitingApproval, canSkip, !!currentAgent?.pendingPermission, !!currentAgent?.pendingQuestion, !!currentAgent?.pendingMerge),
           };
         }
+      }
+    }
+
+    if (mode === 'workflow-graph' && state.graphView.selectedWorkflowId) {
+      const execution = state.workflowExecutions.find(e => e.workflowId === state.graphView.selectedWorkflowId);
+      const workflow = state.workflows.find(w => w.id === state.graphView.selectedWorkflowId);
+      if (execution && workflow) {
+        const workflowAgents = state.agents.filter(a =>
+          execution.stageStates.some(s => s.agentId === a.id)
+        );
+
+        const listContent = (
+          <ListViewPage
+            tab={tab}
+            inboxItems={buildInboxItems}
+            history={state.history}
+            artifacts={state.artifacts}
+            inboxIdx={inboxIdx}
+            histIdx={histIdx}
+            artifactsIdx={artifactsIdx}
+            expandedWorkflows={expandedWorkflows}
+          />
+        );
+
+        const graphContent = (
+          <GraphViewPage
+            state={state}
+            dispatch={dispatch}
+            workflow={workflow}
+            execution={execution}
+            agents={workflowAgents}
+            artifacts={state.artifacts}
+            onBack={() => {
+              dispatch({ type: 'CLOSE_GRAPH_VIEW' });
+              setMode('workflow-detail');
+            }}
+          />
+        );
+
+        return {
+          splitPanes: [
+            { content: listContent, widthPercent: 40 },
+            { content: graphContent, widthPercent: 60 }
+          ],
+          help: getGraphViewHelp(),
+        };
       }
     }
 

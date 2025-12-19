@@ -24,6 +24,7 @@ interface WorkflowDetailPageProps {
   onResolveMerge: () => void;
   onDraftPR: () => void;
   onClose: () => void;
+  onOpenGraphView?: () => void;
 }
 
 export const WorkflowDetailPage = ({
@@ -39,7 +40,8 @@ export const WorkflowDetailPage = ({
   onMergeResponse,
   onResolveMerge,
   onDraftPR,
-  onClose
+  onClose,
+  onOpenGraphView
 }: WorkflowDetailPageProps) => {
   const { stdout } = useStdout();
 
@@ -122,6 +124,11 @@ export const WorkflowDetailPage = ({
 
     if (input === 'c') {
       onCancelWorkflow();
+      return;
+    }
+
+    if (input === 'v' && onOpenGraphView) {
+      onOpenGraphView();
       return;
     }
 
@@ -243,6 +250,7 @@ export const getWorkflowDetailHelp = (isAwaitingApproval: boolean, canSkip: bool
       <>
         <Text color="cyan">↑↓jk</Text> Scroll{' '}
         <Text color="cyan">g/G</Text> Top/Bottom{' '}
+        <Text color="cyan">v</Text> Graph{' '}
         <Text color="cyan">1-9</Text> Toggle{' '}
         <Text color="cyan">Esc</Text> Close{' '}
         <Text color="gray">c</Text> Cancel
@@ -256,6 +264,7 @@ export const getWorkflowDetailHelp = (isAwaitingApproval: boolean, canSkip: bool
         <Text color="green">a</Text> Approve{' '}
         {canSkip && <><Text color="yellow">s</Text> Skip{' '}</>}
         <Text color="cyan">↑↓jk</Text> Scroll{' '}
+        <Text color="cyan">v</Text> Graph{' '}
         <Text color="cyan">Esc</Text> Close{' '}
         <Text color="gray">c</Text> Cancel
       </>
@@ -266,6 +275,7 @@ export const getWorkflowDetailHelp = (isAwaitingApproval: boolean, canSkip: bool
     <>
       <Text color="cyan">↑↓jk</Text> Scroll{' '}
       <Text color="cyan">g/G</Text> Top/Bottom{' '}
+      <Text color="cyan">v</Text> Graph{' '}
       <Text color="cyan">1-9</Text> Toggle{' '}
       <Text color="cyan">Esc/q</Text> Close{' '}
       <Text color="gray">c</Text> Cancel
