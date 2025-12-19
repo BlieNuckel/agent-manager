@@ -218,14 +218,22 @@ export function createTerminalRenderer() {
     const lang = info.split(/\s+/)[0];
     const code = token.content;
 
-    // For now, just use yellow background for all code
-    // In the future, we could integrate with a syntax highlighter
+    // Style code blocks with a vertical line and indentation
+    // This approach works without background colors and leaves room for syntax highlighting
     const lines = code.split('\n');
     const formattedLines = lines
       .filter((_, i) => i < lines.length - 1 || lines[i] !== '')
-      .map(line => chalk.bgYellow.black(' ' + line + ' '));
+      .map(line => chalk.gray('│ ') + chalk.gray(line));
 
-    return formattedLines.join('\n') + '\n\n';
+    // Add a header line with language info if available
+    const header = lang
+      ? chalk.gray('┌─ ') + chalk.cyan(lang) + '\n'
+      : chalk.gray('┌─ code\n');
+
+    // Add a footer line
+    const footer = chalk.gray('└─');
+
+    return header + formattedLines.join('\n') + '\n' + footer + '\n\n';
   };
 
   renderer.rules.code_block = renderer.rules.fence;
