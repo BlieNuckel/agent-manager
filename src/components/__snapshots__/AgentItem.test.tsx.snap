@@ -1,109 +1,109 @@
 // Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
 
 exports[`AgentItem > merge state indicators > renders merge conflicts indicator 1`] = `
-"  [*] Working  Test Agent (12:00) [!] Merge Conflicts ░░░░░ ~1%
+"  [*] Working  Test Agent (12:00) [!] Merge Conflicts
               This is a test prompt for the agent to work on
 "
 `;
 
 exports[`AgentItem > merge state indicators > renders merge failed indicator 1`] = `
-"  [*] Working  Test Agent (12:00) [x] Merge Failed ░░░░░ ~1%
+"  [*] Working  Test Agent (12:00) [x] Merge Failed
               This is a test prompt for the agent to work on
 "
 `;
 
 exports[`AgentItem > merge state indicators > renders merge ready indicator 1`] = `
-"  [*] Working  Test Agent (12:00) [✓] Merge Ready ░░░░░ ~1%
+"  [*] Working  Test Agent (12:00) [✓] Merge Ready
               This is a test prompt for the agent to work on
 "
 `;
 
 exports[`AgentItem > permission indicator > renders permission needed indicator 1`] = `
-"  [*] Working  Test Agent (12:00) [!] Permission needed ░░░░░ ~1%
+"  [*] Working  Test Agent (12:00) [!] Permission needed
               This is a test prompt for the agent to work on
 "
 `;
 
 exports[`AgentItem > prompt truncation > shows short prompts without truncation 1`] = `
-"  [*] Working  Test Agent (12:00) ░░░░░ ~1%
+"  [*] Working  Test Agent (12:00)
               Short prompt
 "
 `;
 
 exports[`AgentItem > prompt truncation > truncates long prompts to 60 characters 1`] = `
-"  [*] Working  Test Agent (12:00) ░░░░░ ~1%
+"  [*] Working  Test Agent (12:00)
               aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa...
 "
 `;
 
 exports[`AgentItem > question indicator > renders multiple question headers 1`] = `
-"  [*] Working  Test Agent (12:00) [?] Auth method, Library ░░░░░ ~1%
+"  [*] Working  Test Agent (12:00) [?] Auth method, Library
               This is a test prompt for the agent to work on
 "
 `;
 
 exports[`AgentItem > question indicator > renders question pending indicator with headers 1`] = `
-"  [*] Working  Test Agent (12:00) [?] Auth method ░░░░░ ~1%
+"  [*] Working  Test Agent (12:00) [?] Auth method
               This is a test prompt for the agent to work on
 "
 `;
 
 exports[`AgentItem > selection state > renders selected agent correctly 1`] = `
-"> [*] Working  Test Agent (12:00) ░░░░░ ~1%
+"> [*] Working  Test Agent (12:00)
               This is a test prompt for the agent to work on
 "
 `;
 
 exports[`AgentItem > selection state > renders unselected agent correctly 1`] = `
-"  [*] Working  Test Agent (12:00) ░░░░░ ~1%
+"  [*] Working  Test Agent (12:00)
               This is a test prompt for the agent to work on
 "
 `;
 
 exports[`AgentItem > status variations > renders agent with done status 1`] = `
-"  + Done       Test Agent (12:00) ░░░░░ ~1%
+"  + Done       Test Agent (12:00)
               This is a test prompt for the agent to work on
 "
 `;
 
 exports[`AgentItem > status variations > renders agent with error status 1`] = `
-"  x Error      Test Agent (12:00) ░░░░░ ~1%
+"  x Error      Test Agent (12:00)
               This is a test prompt for the agent to work on
 "
 `;
 
 exports[`AgentItem > status variations > renders agent with idle status 1`] = `
-"  ~ Idle       Test Agent (12:00) ░░░░░ ~1%
+"  ~ Idle       Test Agent (12:00)
               This is a test prompt for the agent to work on
 "
 `;
 
 exports[`AgentItem > status variations > renders agent with waiting status 1`] = `
-"  ? Waiting    Test Agent (12:00) ░░░░░ ~1%
+"  ? Waiting    Test Agent (12:00)
               This is a test prompt for the agent to work on
 "
 `;
 
 exports[`AgentItem > status variations > renders agent with working status 1`] = `
-"  [*] Working  Test Agent (12:00) ░░░░░ ~1%
+"  [*] Working  Test Agent (12:00)
               This is a test prompt for the agent to work on
 "
 `;
 
 exports[`AgentItem > title variations > renders normal title 1`] = `
-"  [*] Working  Implement User Authentication (12:00) ░░░░░ ~1%
+"  [*] Working  Implement User Authentication (12:00)
               This is a test prompt for the agent to work on
 "
 `;
 
 exports[`AgentItem > title variations > renders pending title with italic style 1`] = `
-"  [*] Working  Pending... (12:00) ░░░░░ ~1%
+"  [*] Working  Pending... (12:00)
               This is a test prompt for the agent to work on
 "
 `;
 
 exports[`AgentItem > worktree indicator > renders worktree branch name 1`] = `
-"  [*] Working  Test Agent (12:00) ░░░░░ ~1%
+"  [*] Working  Test Agent (12:00)
               This is a test prompt for the agent to work on
               * feature-auth
 "

@@ -76,7 +76,7 @@ describe('PermissionPrompt', () => {
         />
       );
       expect(lastFrame()).toContain('Write');
-      expect(lastFrame()).toContain('Permission Request');
+      expect(lastFrame()).toContain('[!]');
     });
 
     it('renders queue count when provided', () => {
@@ -101,8 +101,8 @@ describe('PermissionPrompt', () => {
           onAlwaysAllow={onAlwaysAllow}
         />
       );
-      expect(lastFrame()).toContain('[Y]es');
-      expect(lastFrame()).toContain('[N]o');
+      expect(lastFrame()).toContain('[y]es');
+      expect(lastFrame()).toContain('[n]o');
     });
 
     it('shows Local option when suggestions are provided', () => {
@@ -117,7 +117,7 @@ describe('PermissionPrompt', () => {
           onAlwaysAllowInRepo={onAlwaysAllowInRepo}
         />
       );
-      expect(lastFrame()).toContain('[L]ocal');
+      expect(lastFrame()).toContain('[l]ocal');
     });
 
     it('shows User option when suggestion destination is userSettings', () => {
@@ -132,7 +132,7 @@ describe('PermissionPrompt', () => {
           onAlwaysAllowInRepo={onAlwaysAllowInRepo}
         />
       );
-      expect(lastFrame()).toContain('[U]ser');
+      expect(lastFrame()).toContain('[u]ser');
     });
 
     it('shows basic shortcut hints without suggestions', () => {
@@ -144,8 +144,9 @@ describe('PermissionPrompt', () => {
           onAlwaysAllow={onAlwaysAllow}
         />
       );
-      expect(lastFrame()).toContain('y/n');
-      expect(lastFrame()).not.toContain('y/n/l');
+      expect(lastFrame()).toContain('[y]');
+      expect(lastFrame()).toContain('[n]');
+      expect(lastFrame()).not.toContain('[l]');
     });
 
     it('shows local shortcut hint when suggestions provided', () => {
@@ -160,7 +161,7 @@ describe('PermissionPrompt', () => {
           onAlwaysAllowInRepo={onAlwaysAllowInRepo}
         />
       );
-      expect(lastFrame()).toContain('y/n/l');
+      expect(lastFrame()).toContain('[l]');
     });
 
     it('shows user shortcut hint when userSettings suggestion provided', () => {
@@ -175,7 +176,7 @@ describe('PermissionPrompt', () => {
           onAlwaysAllowInRepo={onAlwaysAllowInRepo}
         />
       );
-      expect(lastFrame()).toContain('y/n/u');
+      expect(lastFrame()).toContain('[u]');
     });
 
     it('shows local settings explanation when suggestions provided', () => {
@@ -204,9 +205,9 @@ describe('PermissionPrompt', () => {
           onAlwaysAllow={onAlwaysAllow}
         />
       );
-      expect(lastFrame()).toContain('[Y]es');
-      expect(lastFrame()).toContain('[N]o');
-      expect(lastFrame()).not.toContain('[L]ocal');
+      expect(lastFrame()).toContain('[y]es');
+      expect(lastFrame()).toContain('[n]o');
+      expect(lastFrame()).not.toContain('[l]ocal');
     });
 
     it('renders yes/no for edit tool without suggestions', () => {
@@ -218,9 +219,9 @@ describe('PermissionPrompt', () => {
           onAlwaysAllow={onAlwaysAllow}
         />
       );
-      expect(lastFrame()).toContain('[Y]es');
-      expect(lastFrame()).toContain('[N]o');
-      expect(lastFrame()).not.toContain('[L]ocal');
+      expect(lastFrame()).toContain('[y]es');
+      expect(lastFrame()).toContain('[n]o');
+      expect(lastFrame()).not.toContain('[l]ocal');
     });
 
     it('renders suggestion options when provided', () => {
@@ -236,9 +237,9 @@ describe('PermissionPrompt', () => {
           onAlwaysAllowInRepo={onAlwaysAllowInRepo}
         />
       );
-      expect(lastFrame()).toContain('[Y]es');
-      expect(lastFrame()).toContain('[N]o');
-      expect(lastFrame()).toContain('[L]ocal');
+      expect(lastFrame()).toContain('[y]es');
+      expect(lastFrame()).toContain('[n]o');
+      expect(lastFrame()).toContain('[l]ocal');
     });
   });
 
@@ -254,7 +255,7 @@ describe('PermissionPrompt', () => {
           onAlwaysAllow={onAlwaysAllow}
         />
       );
-      expect(lastFrame()).toContain('Input:');
+      expect(lastFrame()).toContain('{"file_path":"/test/file.ts"}');
     });
   });
 

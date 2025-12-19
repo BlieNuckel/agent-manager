@@ -1,9 +1,10 @@
 import React, { useMemo, useCallback } from 'react';
 import { Box, Text, useInput } from 'ink';
 import type { PermissionRequest, PermissionSuggestion, PermissionDestination } from '../types';
+import type { CompactListItem } from '../types/prompts';
 import { formatToolInput } from '../utils/helpers';
 import { getDestinationInfo } from '../utils/permissions';
-import { SuggestionList } from './SuggestionList';
+import { CompactListSelect } from './CompactListSelect';
 
 function validateSuggestions(suggestions: unknown[]): PermissionSuggestion[] {
   const validated: PermissionSuggestion[] = [];
@@ -71,154 +72,116 @@ export const PermissionPrompt = ({
   const hasLocalSuggestions = 'localSettings' in groupedSuggestions;
   const hasUserSuggestions = 'userSettings' in groupedSuggestions;
   const hasSessionSuggestions = 'session' in groupedSuggestions;
-  const hasSuggestions = Object.keys(groupedSuggestions).length > 0;
 
-  const handleInput = useCallback(
-    (input: string, key: any) => {
-      // Skip merge-related keys if there's a pending merge
-      if (hasPendingMerge && (input === 'y' || input === 'n' || input === 'p')) {
-        return;
-      }
+  // Build items for CompactListSelect
+  const items = useMemo(() => {
+    const listItems: CompactListItem[] = [
+      {
+        key: 'allow',
+        shortcut: 'y',
+        label: 'Yes - Allow once',
+        disabled: hasPendingMerge,
+      },
+      {
+        key: 'deny',
+        shortcut: 'n',
+        label: 'No - Deny',
+        disabled: hasPendingMerge,
+      },
+    ];
 
-      if (input === 'y' || input === 'Y') {
-        permission.resolve({ allowed: true });
-        return;
-      }
+    if (hasRepoSuggestions) {
+      const info = getDestinationInfo('projectSettings');
+      listItems.push({
+        key: 'repo',
+        shortcut: 'r',
+        label: 'Repo - Save to project',
+        description: info.filePath,
+      });
+    }
 
-      if (input === 'n' || input === 'N') {
-        permission.resolve({ allowed: false });
-        return;
-      }
+    if (hasLocalSuggestions) {
+      const info = getDestinationInfo('localSettings');
+      listItems.push({
+        key: 'local',
+        shortcut: 'l',
+        label: 'Local - Save locally',
+        description: info.filePath,
+      });
+    }
 
-      if ((input === 'r' || input === 'R') && hasRepoSuggestions) {
-        permission.resolve({
-          allowed: true,
-          suggestions: groupedSuggestions.projectSettings,
-        });
-        return;
-      }
+    if (hasUserSuggestions) {
+      const info = getDestinationInfo('userSettings');
+      listItems.push({
+        key: 'user',
+        shortcut: 'u',
+        label: 'User - Save globally',
+        description: info.filePath,
+      });
+    }
 
-      if ((input === 'l' || input === 'L') && hasLocalSuggestions) {
-        permission.resolve({
-          allowed: true,
-          suggestions: groupedSuggestions.localSettings,
-        });
-        return;
-      }
+    if (hasSessionSuggestions) {
+      listItems.push({
+        key: 'session',
+        shortcut: 's',
+        label: 'Session - This session only',
+        description: 'not saved to file',
+      });
+    }
 
-      if ((input === 'u' || input === 'U') && hasUserSuggestions) {
-        permission.resolve({
-          allowed: true,
-          suggestions: groupedSuggestions.userSettings,
-        });
-        return;
-      }
+    return listItems;
+  }, [hasRepoSuggestions, hasLocalSuggestions, hasUserSuggestions, hasSessionSuggestions, hasPendingMerge]);
 
-      if ((input === 's' || input === 'S') && hasSessionSuggestions) {
-        permission.resolve({
-          allowed: true,
-          suggestions: groupedSuggestions.session,
-        });
-        return;
+  const handleSelect = useCallback(
+    (key: string) => {
+      switch (key) {
+        case 'allow':
+          permission.resolve({ allowed: true });
+          break;
+        case 'deny':
+          permission.resolve({ allowed: false });
+          break;
+        case 'repo':
+          permission.resolve({
+            allowed: true,
+            suggestions: groupedSuggestions.projectSettings,
+          });
+          break;
+        case 'local':
+          permission.resolve({
+            allowed: true,
+            suggestions: groupedSuggestions.localSettings,
+          });
+          break;
+        case 'user':
+          permission.resolve({
+            allowed: true,
+            suggestions: groupedSuggestions.userSettings,
+          });
+          break;
+        case 'session':
+          permission.resolve({
+            allowed: true,
+            suggestions: groupedSuggestions.session,
+          });
+          break;
       }
     },
-    [
-      permission,
-      hasRepoSuggestions,
-      hasLocalSuggestions,
-      hasUserSuggestions,
-      hasSessionSuggestions,
-      groupedSuggestions,
-      hasPendingMerge,
-    ]
+    [permission, groupedSuggestions]
   );
 
-  useInput(handleInput);
-
-  const getShortcutHint = () => {
-    const shortcuts = ['y/n'];
-    if (hasRepoSuggestions) shortcuts.push('r');
-    if (hasLocalSuggestions) shortcuts.push('l');
-    if (hasUserSuggestions) shortcuts.push('u');
-    if (hasSessionSuggestions) shortcuts.push('s');
-    return shortcuts.join('/');
-  };
+  const header = `[!] ${permission.toolName}: ${formatToolInput(permission.toolInput)}`;
+  const footer = queueCount > 0 ? `(+${queueCount} more pending)` : undefined;
 
   return (
-    <Box flexDirection="column" flexShrink={0} borderStyle="round" borderColor="yellow" padding={1}>
-      <Box>
-        <Text color="yellow" bold>
-          [!] Permission Request
-        </Text>
-        {queueCount > 0 && <Text dimColor> (+{queueCount} more pending)</Text>}
-      </Box>
-
-      <Box marginTop={1}>
-        <Text>Tool: </Text>
-        <Text color="cyan" bold>
-          {permission.toolName}
-        </Text>
-      </Box>
-
-      <Box>
-        <Text dimColor>Input: {formatToolInput(permission.toolInput)}</Text>
-      </Box>
-
-      <Box marginTop={1} flexDirection="column">
-        <Text bold>Available Actions:</Text>
-        <Text>
-          <Text color="green">[Y]</Text>es - Allow once
-        </Text>
-        <Text>
-          <Text color="red">[N]</Text>o - Deny
-        </Text>
-      </Box>
-
-      {hasSuggestions && (
-        <Box marginTop={1} flexDirection="column">
-          <Text bold>Save for future (always allow):</Text>
-
-          {hasRepoSuggestions && (
-            <Box marginTop={1} flexDirection="column" borderStyle="single" borderColor="blue" paddingX={1}>
-              <Text color="blue" bold>
-                [{getDestinationInfo('projectSettings').shortcut}]epo ({getDestinationInfo('projectSettings').filePath}):
-              </Text>
-              <SuggestionList suggestions={groupedSuggestions.projectSettings} destination="projectSettings" />
-            </Box>
-          )}
-
-          {hasLocalSuggestions && (
-            <Box marginTop={1} flexDirection="column" borderStyle="single" borderColor="blue" paddingX={1}>
-              <Text color="blue" bold>
-                [{getDestinationInfo('localSettings').shortcut}]ocal ({getDestinationInfo('localSettings').filePath}):
-              </Text>
-              <SuggestionList suggestions={groupedSuggestions.localSettings} destination="localSettings" />
-            </Box>
-          )}
-
-          {hasUserSuggestions && (
-            <Box marginTop={1} flexDirection="column" borderStyle="single" borderColor="blue" paddingX={1}>
-              <Text color="blue" bold>
-                [{getDestinationInfo('userSettings').shortcut}]ser ({getDestinationInfo('userSettings').filePath}):
-              </Text>
-              <SuggestionList suggestions={groupedSuggestions.userSettings} destination="userSettings" />
-            </Box>
-          )}
-
-          {hasSessionSuggestions && (
-            <Box marginTop={1} flexDirection="column" borderStyle="single" borderColor="blue" paddingX={1}>
-              <Text color="blue" bold>
-                [{getDestinationInfo('session').shortcut}]ession (not saved to file):
-              </Text>
-              <SuggestionList suggestions={groupedSuggestions.session} destination="session" />
-            </Box>
-          )}
-        </Box>
-      )}
-
-      <Box marginTop={1}>
-        <Text dimColor>{getShortcutHint()} to choose</Text>
-      </Box>
-    </Box>
+    <CompactListSelect
+      items={items}
+      selected=""
+      onSelect={handleSelect}
+      header={header}
+      footer={footer}
+      borderColor="yellow"
+      multiSelect={false}
+    />
   );
 };
