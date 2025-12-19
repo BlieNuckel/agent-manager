@@ -375,7 +375,7 @@ export const getDetailViewHelp = (promptNeedsScroll: boolean, canChat: boolean, 
       <>
         <Text color="cyan">↑↓/jk</Text>{' '}Scroll{'  '}
         <Text color="cyan">g/G</Text>{' '}Top/Bottom{'  '}
-        <Text color="cyan">1-9</Text>{' '}Toggle{'  '}
+        <Text color="cyan">1-99</Text>{' '}Toggle{'  '}
         {promptNeedsScroll && <><Text color="cyan">p/P</Text>{' '}Prompt{'  '}</>}
         <Text color="cyan">q/Esc</Text>{' '}Close
       </>
@@ -386,7 +386,7 @@ export const getDetailViewHelp = (promptNeedsScroll: boolean, canChat: boolean, 
     <>
       <Text color="cyan">↑↓/jk</Text>{' '}Scroll{'  '}
       <Text color="cyan">g/G</Text>{' '}Top/Bottom{'  '}
-      <Text color="cyan">1-9</Text>{' '}Toggle{'  '}
+      <Text color="cyan">1-99</Text>{' '}Toggle{'  '}
       {promptNeedsScroll && <><Text color="cyan">p/P</Text>{' '}Prompt{'  '}</>}
       <Text color="cyan">t</Text>{' '}Todos{'  '}
       {canChat && <><Text color="cyan">i</Text>{' '}Chat{'  '}</>}

@@ -251,7 +251,7 @@ export const getWorkflowDetailHelp = (isAwaitingApproval: boolean, canSkip: bool
         <Text color="cyan">↑↓jk</Text> Scroll{' '}
         <Text color="cyan">g/G</Text> Top/Bottom{' '}
         <Text color="cyan">v</Text> Graph{' '}
-        <Text color="cyan">1-9</Text> Toggle{' '}
+        <Text color="cyan">1-99</Text> Toggle{' '}
         <Text color="cyan">Esc</Text> Close{' '}
         <Text color="gray">c</Text> Cancel
       </>
@@ -276,7 +276,7 @@ export const getWorkflowDetailHelp = (isAwaitingApproval: boolean, canSkip: bool
       <Text color="cyan">↑↓jk</Text> Scroll{' '}
       <Text color="cyan">g/G</Text> Top/Bottom{' '}
       <Text color="cyan">v</Text> Graph{' '}
-      <Text color="cyan">1-9</Text> Toggle{' '}
+      <Text color="cyan">1-99</Text> Toggle{' '}
       <Text color="cyan">Esc/q</Text> Close{' '}
       <Text color="gray">c</Text> Cancel
     </>

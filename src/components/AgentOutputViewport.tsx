@@ -36,6 +36,8 @@ export const AgentOutputViewport = ({
   const [scrollOffset, setScrollOffset] = useState(0);
   const [collapsedBlocks, setCollapsedBlocks] = useState<Set<string>>(new Set());
   const [userScrolled, setUserScrolled] = useState(false);
+  const [pendingInput, setPendingInput] = useState<string>('');
+  const [inputTimeout, setInputTimeout] = useState<NodeJS.Timeout | null>(null);
 
   const blocks = useMemo(() => {
     return groupOutputLines(output, subagentStats);
@@ -85,8 +87,55 @@ export const AgentOutputViewport = ({
     return blocks.filter(isCollapsibleBlock);
   }, [blocks]);
 
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (inputTimeout) {
+        clearTimeout(inputTimeout);
+      }
+    };
+  }, [inputTimeout]);
+
+  // Helper function to toggle a block's collapsed state
+  const toggleBlock = (blockNumber: number) => {
+    const targetBlock = collapsibleBlocks[blockNumber - 1];
+    if (targetBlock) {
+      setCollapsedBlocks(prev => {
+        const next = new Set(prev);
+        if (next.has(targetBlock.id)) {
+          next.delete(targetBlock.id);
+        } else {
+          next.add(targetBlock.id);
+        }
+        return next;
+      });
+    }
+  };
+
+  // Helper function to check if there are any blocks that start with the given prefix
+  const hasBlocksStartingWith = (prefix: string) => {
+    const prefixNum = parseInt(prefix, 10);
+    if (isNaN(prefixNum)) return false;
+
+    // Check if there are any blocks with numbers that start with this prefix
+    for (let i = 0; i < collapsibleBlocks.length; i++) {
+      const blockNum = i + 1;
+      if (blockNum.toString().startsWith(prefix) && blockNum.toString() !== prefix) {
+        return true;
+      }
+    }
+    return false;
+  };
+
   useInput((input, key) => {
     if (!isActive) return;
+
+    // Clear any pending timeout if user presses a non-digit key
+    if (!/^\d$/.test(input) && inputTimeout) {
+      clearTimeout(inputTimeout);
+      setInputTimeout(null);
+      setPendingInput('');
+    }
 
     if (key.downArrow || input === 'j') {
       setScrollOffset(o => Math.min(maxScroll, o + 1));
@@ -109,19 +158,51 @@ export const AgentOutputViewport = ({
       return;
     }
 
-    const num = parseInt(input, 10);
-    if (num >= 1 && num <= 9) {
-      const targetBlock = collapsibleBlocks[num - 1];
-      if (targetBlock) {
-        setCollapsedBlocks(prev => {
-          const next = new Set(prev);
-          if (next.has(targetBlock.id)) {
-            next.delete(targetBlock.id);
-          } else {
-            next.add(targetBlock.id);
-          }
-          return next;
-        });
+    // Handle numeric input for block toggling
+    if (/^\d$/.test(input)) {
+      const currentInput = pendingInput + input;
+      const currentNum = parseInt(currentInput, 10);
+
+      // Clear any existing timeout
+      if (inputTimeout) {
+        clearTimeout(inputTimeout);
+        setInputTimeout(null);
+      }
+
+      // Check if this number exists as a block
+      if (currentNum >= 1 && currentNum <= collapsibleBlocks.length) {
+        // Check if there could be more digits (ambiguity)
+        if (hasBlocksStartingWith(currentInput)) {
+          // There's ambiguity, wait for more input
+          setPendingInput(currentInput);
+
+          // Set a timeout to execute after 500ms
+          const timeout = setTimeout(() => {
+            toggleBlock(currentNum);
+            setPendingInput('');
+            setInputTimeout(null);
+          }, 500);
+
+          setInputTimeout(timeout);
+        } else {
+          // No ambiguity, execute immediately
+          toggleBlock(currentNum);
+          setPendingInput('');
+        }
+      } else if (currentInput.length === 1 && hasBlocksStartingWith(currentInput)) {
+        // First digit of a potential multi-digit number
+        setPendingInput(currentInput);
+
+        // Set a timeout in case user doesn't input second digit
+        const timeout = setTimeout(() => {
+          setPendingInput('');
+          setInputTimeout(null);
+        }, 500);
+
+        setInputTimeout(timeout);
+      } else {
+        // Invalid number or no matching blocks
+        setPendingInput('');
       }
     }
   });
