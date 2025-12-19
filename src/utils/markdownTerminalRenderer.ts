@@ -1,11 +1,11 @@
 import MarkdownIt from 'markdown-it';
-import chalk from 'chalk';
+import { Chalk } from 'chalk';
 import type { StateCore, StateInline, StateBlock } from 'markdown-it/lib/rules_core/state_core.js';
 import type Renderer from 'markdown-it/lib/renderer.js';
 import type Token from 'markdown-it/lib/token.js';
 
-// Enable full color support
-chalk.level = 3;
+// Force chalk to always output colors
+const chalk = new Chalk({ level: 3 });
 
 // Track list state
 interface ListState {
@@ -104,6 +104,16 @@ export function createTerminalRenderer() {
   const originalParagraphClose = renderer.rules.paragraph_close;
 
   renderer.rules.paragraph_open = (tokens, idx, options, env, renderer) => {
+    // Check if we're inside a list item
+    let insideListItem = false;
+    for (let i = idx - 1; i >= 0; i--) {
+      if (tokens[i].type === 'list_item_close') break;
+      if (tokens[i].type === 'list_item_open') {
+        insideListItem = true;
+        break;
+      }
+    }
+
     // Check if we're inside a blockquote
     let insideBlockquote = false;
     for (let i = idx - 1; i >= 0; i--) {
@@ -112,6 +122,13 @@ export function createTerminalRenderer() {
         insideBlockquote = true;
         break;
       }
+    }
+
+    if (insideListItem && listStack.length > 0) {
+      const current = listStack[listStack.length - 1];
+      const indent = getIndent(current.depth);
+      const marker = getListMarker(current.ordered, current.counter);
+      return indent + marker;
     }
 
     if (insideBlockquote) {
@@ -121,6 +138,16 @@ export function createTerminalRenderer() {
   };
 
   renderer.rules.paragraph_close = (tokens, idx, options, env, renderer) => {
+    // Check if we're inside a list item
+    let insideListItem = false;
+    for (let i = idx - 1; i >= 0; i--) {
+      if (tokens[i].type === 'list_item_close') break;
+      if (tokens[i].type === 'list_item_open') {
+        insideListItem = true;
+        break;
+      }
+    }
+
     // Check if we're inside a blockquote
     let insideBlockquote = false;
     for (let i = idx - 1; i >= 0; i--) {
@@ -129,6 +156,10 @@ export function createTerminalRenderer() {
         insideBlockquote = true;
         break;
       }
+    }
+
+    if (insideListItem) {
+      return '\n';
     }
 
     if (insideBlockquote) {
@@ -175,55 +206,9 @@ export function createTerminalRenderer() {
     return '';
   };
 
-  renderer.rules.list_item_close = (tokens, idx, options, env, renderer) => {
-    // Find the corresponding list_item_open
-    let openIdx = idx;
-    for (let i = idx - 1; i >= 0; i--) {
-      if (tokens[i].type === 'list_item_open') {
-        openIdx = i;
-        break;
-      }
-    }
-
-    // Render all content between open and close
-    let content = '';
-    for (let i = openIdx + 1; i < idx; i++) {
-      const token = tokens[i];
-
-      // Skip paragraph tags but render their content
-      if (token.type === 'paragraph_open' || token.type === 'paragraph_close') {
-        continue;
-      }
-
-      if (token.type === 'inline' && token.children) {
-        content += renderer.renderInline(token.children, options, env);
-      } else {
-        const rule = renderer.rules[token.type];
-        if (rule) {
-          content += rule(tokens, i, options, env, renderer);
-        } else if (token.content) {
-          content += token.content;
-        }
-      }
-    }
-
-    // Apply list formatting
-    if (listStack.length > 0) {
-      const current = listStack[listStack.length - 1];
-      const indent = getIndent(current.depth);
-      const marker = getListMarker(current.ordered, current.counter);
-
-      // Handle multi-line content
-      const lines = content.trim().split('\n');
-      const firstLine = lines[0];
-      const restLines = lines.slice(1).map(line =>
-        line ? indent + '  '.repeat(marker.length) + line : ''
-      ).join('\n');
-
-      return indent + marker + firstLine + (restLines ? '\n' + restLines : '') + '\n';
-    }
-
-    return content + '\n';
+  renderer.rules.list_item_close = () => {
+    // List items are handled by custom paragraph rendering inside lists
+    return '';
   };
 
   // Code blocks
@@ -285,6 +270,7 @@ export function renderMarkdown(markdown: string): string {
     // Clean up any trailing newlines
     return result.trimEnd();
   } catch (error) {
+    console.error('Markdown rendering error:', error);
     // If rendering fails, return the original markdown
     return markdown;
   }
