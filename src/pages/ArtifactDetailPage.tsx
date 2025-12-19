@@ -17,8 +17,9 @@ export const ArtifactDetailPage = ({ artifact, onBack }: ArtifactDetailPageProps
   const appHelpBarHeight = 3;
   const availableForPage = termHeight - appHeaderHeight - appHelpBarHeight;
   const artifactHeaderHeight = 3;
-  const scrollIndicatorHeight = 1;
-  const visibleLines = Math.max(1, availableForPage - artifactHeaderHeight - scrollIndicatorHeight);
+  const contentPadding = 2; // padding={1} adds 1 line top + 1 line bottom
+  const contentBorder = 2; // borderStyle="round" adds 1 line top + 1 line bottom
+  const visibleLines = Math.max(1, availableForPage - artifactHeaderHeight - contentPadding - contentBorder);
 
   useEffect(() => {
     const loadContent = async () => {

@@ -39,13 +39,17 @@ export const ScrollableMarkdown = ({
   const [scrollOffset, setScrollOffset] = useState(0);
 
   const termHeight = stdout?.rows || 24;
-  const visibleLines = height || Math.max(1, termHeight - 10);
+  const totalAvailableHeight = height || Math.max(1, termHeight - 10);
 
   useEffect(() => {
     setScrollOffset(0);
   }, [content]);
 
   const renderedLines = useRenderedMarkdown(content);
+
+  // Reserve space for scroll indicator when needed (1 line + 1 margin)
+  const scrollIndicatorSpace = renderedLines.length > totalAvailableHeight ? 2 : 0;
+  const visibleLines = Math.max(1, totalAvailableHeight - scrollIndicatorSpace);
   const maxScroll = Math.max(0, renderedLines.length - visibleLines);
 
   useEffect(() => {
@@ -100,8 +104,8 @@ export const ScrollableMarkdown = ({
   const visibleContent = renderedLines.slice(scrollOffset, scrollOffset + visibleLines);
 
   return (
-    <Box flexDirection="column" minHeight={0} flexGrow={1}>
-      <Box flexDirection="column" borderStyle="round" borderColor="gray" padding={1} minHeight={0} flexGrow={1}>
+    <Box flexDirection="column" height={totalAvailableHeight} overflow="hidden">
+      <Box flexDirection="column" borderStyle="round" borderColor="gray" padding={1} height={visibleLines + 4} overflow="hidden">
         {visibleContent.length === 0 ? (
           <Text dimColor>Empty content</Text>
         ) : (
