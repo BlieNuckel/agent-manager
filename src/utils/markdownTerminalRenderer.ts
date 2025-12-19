@@ -74,25 +74,62 @@ export function createTerminalRenderer() {
   renderer.rules.paragraph_close = () => '\n\n';
 
   // Headings
-  renderer.rules.heading_open = (tokens, idx) => {
+  renderer.rules.heading_open = (tokens, idx, options, env, renderer) => {
     const token = tokens[idx];
     const level = parseInt(token.tag.slice(1));
 
+    // Find the inline content between heading_open and heading_close
+    let content = '';
+    for (let i = idx + 1; i < tokens.length; i++) {
+      if (tokens[i].type === 'heading_close') break;
+      if (tokens[i].type === 'inline' && tokens[i].children) {
+        // Render inline content
+        content += renderer.renderInline(tokens[i].children || [], options, env);
+      }
+    }
+
+    // Apply different shades of orange for different heading levels
+    let styledContent;
     switch (level) {
       case 1:
-        return '\x1b[1m\x1b[4m'; // bold + underline
+        // Bright orange + bold + underline
+        styledContent = chalk.hex('#FF6600').bold.underline(content);
+        break;
       case 2:
-        return '\x1b[1m'; // bold
+        // Medium orange + bold
+        styledContent = chalk.hex('#FF8533').bold(content);
+        break;
+      case 3:
+        // Lighter orange + bold
+        styledContent = chalk.hex('#FF9966').bold(content);
+        break;
+      case 4:
+      case 5:
+      case 6:
+        // Even lighter orange + bold
+        styledContent = chalk.hex('#FFB399').bold(content);
+        break;
       default:
-        return '\x1b[1m'; // bold
+        styledContent = chalk.hex('#FFB399').bold(content);
     }
+
+    // Skip the inline content tokens since we've already rendered them
+    for (let i = idx + 1; i < tokens.length; i++) {
+      if (tokens[i].type === 'heading_close') break;
+      if (tokens[i].type === 'inline') {
+        tokens[i].children = [];
+      }
+    }
+
+    return styledContent;
   };
+
 
   renderer.rules.heading_close = (tokens, idx) => {
     const token = tokens[idx];
     const level = parseInt(token.tag.slice(1));
-    const resetCodes = level === 1 ? '\x1b[22m\x1b[24m' : '\x1b[22m'; // reset bold (and underline for h1)
-    return resetCodes + '\n' + (level === 1 ? '\n' : '\n');
+    // Return newlines based on level
+    return '\n' + (level === 1 ? '\n' : '\n');
   };
 
   // Blockquotes
