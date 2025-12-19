@@ -374,7 +374,7 @@ export class AgentSDKManager extends EventEmitter {
         'question-handler': this.createQuestionMcpServer(id),
         'artifacts': createArtifactMcpServer()
       },
-      allowedTools: ['mcp__artifacts__Read', 'mcp__artifacts__Write']
+      allowedTools: ['mcp__artifacts__Read', 'mcp__artifacts__Write', 'mcp__question-handler__AskQuestion']
     };
 
     if (worktreeContext?.enabled && worktreeContext.worktreePath) {
@@ -784,7 +784,7 @@ export class AgentSDKManager extends EventEmitter {
         'question-handler': this.createQuestionMcpServer(id),
         'artifacts': createArtifactMcpServer()
       },
-      allowedTools: ['mcp__artifacts__Read', 'mcp__artifacts__Write']
+      allowedTools: ['mcp__artifacts__Read', 'mcp__artifacts__Write', 'mcp__question-handler__AskQuestion']
     };
 
     if (entry.systemPromptAppend) {
