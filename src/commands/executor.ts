@@ -1,8 +1,9 @@
-import { exec } from 'child_process';
+import { exec, execSync } from 'child_process';
 import { promisify } from 'util';
 import type { Command, CommandResult } from './types';
 import { debug } from '../utils/logger';
 import { RepositoryManager } from '../utils/repositoryManager';
+import { getGitRoot, listAllWorktrees } from '../git/worktree';
 
 const execAsync = promisify(exec);
 
@@ -82,6 +83,10 @@ export class CommandExecutor {
 		try {
 			if (command.id.startsWith('repo-')) {
 				return await this.executeRepoCommand(command.id, args);
+			}
+
+			if (command.id === 'clearworktrees') {
+				return await this.executeClearWorktrees();
 			}
 
 			return {
@@ -178,6 +183,91 @@ export class CommandExecutor {
 			return {
 				success: false,
 				message: `Error: ${error.message}`,
+				error: error.message,
+			};
+		}
+	}
+
+	private async executeClearWorktrees(): Promise<CommandResult> {
+		try {
+			const gitRoot = getGitRoot();
+			if (!gitRoot) {
+				return {
+					success: false,
+					message: 'Not in a git repository',
+					error: 'No git repository found',
+				};
+			}
+
+			const worktrees = listAllWorktrees(gitRoot);
+
+			if (worktrees.length === 0) {
+				return {
+					success: true,
+					message: 'No worktrees found to clean up',
+				};
+			}
+
+			debug(`Found ${worktrees.length} worktree(s) to clean up`);
+
+			let cleanedCount = 0;
+			let failedCount = 0;
+			const errors: string[] = [];
+
+			for (const worktree of worktrees) {
+				debug(`Cleaning up worktree: ${worktree.path} (branch: ${worktree.branch})`);
+
+				try {
+					// Remove the worktree
+					execSync(`git worktree remove --force "${worktree.path}"`, {
+						cwd: gitRoot,
+						encoding: 'utf8',
+						stdio: ['pipe', 'pipe', 'pipe']
+					});
+
+					// Delete the branch
+					try {
+						execSync(`git branch -D "${worktree.branch}"`, {
+							cwd: gitRoot,
+							encoding: 'utf8',
+							stdio: ['pipe', 'pipe', 'pipe']
+						});
+					} catch (branchError) {
+						// Branch might already be deleted or merged, which is OK
+						debug(`Could not delete branch ${worktree.branch}:`, branchError);
+					}
+
+					cleanedCount++;
+				} catch (error: any) {
+					failedCount++;
+					errors.push(`${worktree.path}: ${error.message}`);
+					debug(`Failed to clean up worktree ${worktree.path}:`, error);
+				}
+			}
+
+			if (failedCount === 0) {
+				return {
+					success: true,
+					message: `Successfully cleaned up ${cleanedCount} worktree(s)`,
+				};
+			} else if (cleanedCount > 0) {
+				return {
+					success: true,
+					message: `Cleaned up ${cleanedCount} worktree(s), ${failedCount} failed`,
+					error: errors.join('\n'),
+				};
+			} else {
+				return {
+					success: false,
+					message: `Failed to clean up all ${failedCount} worktree(s)`,
+					error: errors.join('\n'),
+				};
+			}
+		} catch (error: any) {
+			debug('Error in clearworktrees:', error);
+			return {
+				success: false,
+				message: 'Failed to clear worktrees',
 				error: error.message,
 			};
 		}

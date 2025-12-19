@@ -51,6 +51,14 @@ export class CommandLoader {
 					{ name: 'name', description: 'Repository name', required: true, type: 'string' },
 				],
 			},
+			{
+				id: 'clearworktrees',
+				name: 'clearworktrees',
+				description: 'Clear all worktrees and their connected directories and branches',
+				category: 'maintenance',
+				type: 'inline',
+				confirm_before_run: true,
+			},
 		];
 	}
 
