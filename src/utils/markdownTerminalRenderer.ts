@@ -309,8 +309,38 @@ export function renderMarkdown(markdown: string): string {
     listStack.length = 0;
     currentIndent = 0;
 
+    let frontmatterContent = '';
+    let mainContent = markdown;
+
+    // Check if content starts with frontmatter (---)
+    if (markdown.trimStart().startsWith('---')) {
+      const lines = markdown.split('\n');
+      let endIndex = -1;
+
+      // Find the closing --- (must be after the first line)
+      for (let i = 1; i < lines.length; i++) {
+        if (lines[i].trim() === '---') {
+          endIndex = i;
+          break;
+        }
+      }
+
+      if (endIndex !== -1) {
+        // Extract frontmatter and main content
+        const frontmatterLines = lines.slice(0, endIndex + 1);
+        frontmatterContent = frontmatterLines
+          .map(line => chalk.gray(line))
+          .join('\n') + '\n';
+
+        mainContent = lines.slice(endIndex + 1).join('\n');
+      }
+    }
+
     const renderer = createTerminalRenderer();
-    const result = renderer.render(markdown);
+    const renderedMain = renderer.render(mainContent);
+
+    // Combine frontmatter and main content
+    const result = frontmatterContent + renderedMain;
 
     // Clean up any trailing newlines
     return result.trimEnd();
