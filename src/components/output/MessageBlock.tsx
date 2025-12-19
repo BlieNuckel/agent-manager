@@ -1,6 +1,8 @@
 import React from 'react';
 import { Box } from 'ink';
 import { Markdown } from '../Markdown';
+import { renderMarkdown } from '../../utils/markdownTerminalRenderer';
+import { AnsiText } from '../../utils/ansiToInk';
 
 interface MessageBlockProps {
   lines: string[];
@@ -20,14 +22,24 @@ export const MessageBlock = ({ lines, skipLines = 0, maxLines }: MessageBlockPro
     );
   }
 
-  const allLines = text.split('\n');
-  const endLine = maxLines !== undefined ? skipLines + maxLines : allLines.length;
-  const visibleLines = allLines.slice(skipLines, endLine);
+  // Parse markdown on the complete text first, before any slicing
+  let renderedText: string;
+  try {
+    renderedText = renderMarkdown(text);
+  } catch {
+    // Fallback to original text if markdown parsing fails
+    renderedText = text;
+  }
+
+  // Now slice the already-rendered output
+  const renderedLines = renderedText.split('\n');
+  const endLine = maxLines !== undefined ? skipLines + maxLines : renderedLines.length;
+  const visibleLines = renderedLines.slice(skipLines, endLine);
   const visibleText = visibleLines.join('\n');
 
   return (
     <Box flexDirection="column" marginTop={skipLines === 0 ? 1 : 0}>
-      <Markdown>{visibleText}</Markdown>
+      <AnsiText wrap="wrap">{visibleText}</AnsiText>
     </Box>
   );
 };
