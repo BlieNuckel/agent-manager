@@ -406,3 +406,40 @@ export async function cleanupWorktree(
     };
   }
 }
+
+export function listAllWorktrees(gitRoot: string): Array<{ path: string; branch: string; commit: string }> {
+  try {
+    const output = execSync('git worktree list --porcelain', {
+      cwd: gitRoot,
+      encoding: 'utf8',
+      stdio: ['pipe', 'pipe', 'pipe']
+    });
+
+    const worktrees: Array<{ path: string; branch: string; commit: string }> = [];
+    const lines = output.trim().split('\n');
+    let currentWorktree: Partial<{ path: string; branch: string; commit: string }> = {};
+
+    for (const line of lines) {
+      if (line.startsWith('worktree ')) {
+        if (currentWorktree.path) {
+          worktrees.push(currentWorktree as any);
+        }
+        currentWorktree = { path: line.substring(9) };
+      } else if (line.startsWith('branch refs/heads/')) {
+        currentWorktree.branch = line.substring(18);
+      } else if (line.startsWith('HEAD ')) {
+        currentWorktree.commit = line.substring(5);
+      }
+    }
+
+    if (currentWorktree.path) {
+      worktrees.push(currentWorktree as any);
+    }
+
+    // Filter out the main worktree (it has no branch field in porcelain format)
+    return worktrees.filter(wt => wt.branch);
+  } catch (error) {
+    debug('Failed to list worktrees:', error);
+    return [];
+  }
+}
