@@ -22,7 +22,7 @@ export interface WorkflowContext {
 
 export function buildWorktreeInstructions(context: WorktreeContext): string {
   if (!context.enabled || !context.worktreePath) {
-    return '';
+    return "";
   }
 
   return `
@@ -212,7 +212,7 @@ You are not just a code executor - you are a **technical partner** who should:
 }
 
 function buildArtifactsInstructions(): string {
-  const today = new Date().toISOString().split('T')[0];
+  const today = new Date().toISOString().split("T")[0];
 
   return `
 # Artifacts Directory
@@ -344,82 +344,91 @@ This shared directory helps maintain continuity across different agent sessions 
 }
 
 function buildWorkflowInstructions(context: WorkflowContext): string {
-  const parts: string[] = [];
+  const parts: string[] = [
+    `# Workflow Context
 
-  parts.push(`# Workflow Context`);
-  parts.push('');
-  parts.push(`You are executing stage ${context.stageIndex + 1} of ${context.totalStages} in the **${context.workflowName}** workflow.`);
-  parts.push('');
-  parts.push(`## Current Stage: ${context.stageName}`);
+You are executing stage ${context.stageIndex + 1} of ${context.totalStages} in the **${context.workflowName}** workflow.
+
+## Current Stage: ${context.stageName}
+`,
+  ];
 
   if (context.stageDescription) {
     parts.push(context.stageDescription);
   }
 
   if (context.previousArtifact) {
-    parts.push('');
-    parts.push(`## CRITICAL: Previous Stage Artifact`);
-    parts.push('');
-    parts.push(`**IMPORTANT: The previous stage has already completed work that you MUST build upon.**`);
-    parts.push('');
-    parts.push(`Before doing ANY exploration or research, you MUST first read the artifact from the previous stage:`);
-    parts.push('');
-    const artifactName = context.previousArtifact.split('/').pop() || context.previousArtifact;
-    parts.push(`Use the \`mcp__artifacts__Read\` tool with:`);
-    parts.push(`- artifactName: "${artifactName}"`);
-    parts.push('');
-    parts.push(`This artifact contains findings, analysis, or plans from the previous stage that are ESSENTIAL context for your work.`);
-    parts.push(`Do NOT start from scratch. Do NOT re-explore what has already been researched.`);
-    parts.push(`Read the artifact FIRST, then continue from where the previous stage left off.`);
+    parts.push(`
+## CRITICAL: Previous Stage Artifact
+
+## IMPORTANT: The previous stage has already completed work that you MUST build upon.
+
+Before doing ANY exploration or research, you MUST first read the artifact from the previous stage:
+
+Use the \`mcp__artifacts__Read\` tool with:
+- artifactName: "${context.previousArtifact.split("/").pop() || context.previousArtifact}"
+
+This artifact contains findings, analysis, or plans from the previous stage that are ESSENTIAL context for your work.
+Do NOT start from scratch. Do NOT re-explore what has already been researched.
+Read the artifact FIRST, then continue from where the previous stage left off.
+`);
   }
 
   if (context.expectedOutput) {
-    parts.push('');
-    parts.push(`## Expected Output`);
-    parts.push('');
-    parts.push(`This stage should produce a **${context.expectedOutput}** artifact.`);
-    parts.push(`Save your output to \`~/.agent-manager/artifacts/\` using the appropriate template.`);
+    parts.push(`
+## Expected Output
+
+This stage should produce a **${context.expectedOutput}** artifact.
+Save your output to \`~/.agent-manager/artifacts/\` using the appropriate template.
+`);
     if (context.executionId && context.stageId) {
-      parts.push('');
-      parts.push(`### CRITICAL REQUIREMENT: Workflow Tracking Frontmatter`);
-      parts.push('');
-      parts.push(`**YOU MUST include the following fields in your artifact's YAML frontmatter. This is MANDATORY for workflow continuity:**`);
-      parts.push('');
-      parts.push('```yaml');
-      parts.push(`workflowExecutionId: ${context.executionId}`);
-      parts.push(`workflowStageId: ${context.stageId}`);
-      parts.push('```');
-      parts.push('');
-      parts.push(`**Without these exact field names and values, the next stage will NOT be able to find your artifact.**`);
-      parts.push(`The system uses these fields to automatically locate artifacts between workflow stages.`);
-      parts.push('');
-      parts.push(`Example artifact with required frontmatter:`);
-      parts.push('```markdown');
-      parts.push(`---`);
-      parts.push(`template: ${context.expectedOutput}`);
-      parts.push(`title: Your Title Here`);
-      parts.push(`workflowExecutionId: ${context.executionId}`);
-      parts.push(`workflowStageId: ${context.stageId}`);
-      parts.push(`---`);
-      parts.push('');
-      parts.push(`# Your Content Here`);
-      parts.push('```');
+      parts.push(`
+### CRITICAL REQUIREMENT: Workflow Tracking Frontmatter
+
+**YOU MUST include the following fields in your artifact's YAML frontmatter. This is MANDATORY for workflow continuity:**
+
+\`\`\`yaml
+workflowExecutionId: ${context.executionId}
+workflowStageId: ${context.stageId}
+\`\`\`
+
+**Without these exact field names and values, the next stage will NOT be able to find your artifact.**
+The system uses these fields to automatically locate artifacts between workflow stages.
+
+Example artifact with required frontmatter:
+\`\`\`markdown
+---
+template: ${context.expectedOutput}
+title: Your Title Here
+workflowExecutionId: ${context.executionId}
+workflowStageId: ${context.stageId}
+---
+
+# Your Content Here
+\`\`\`
+`);
     }
   }
 
-  parts.push('');
-  parts.push(`## Workflow Guidelines`);
-  if (context.previousArtifact) {
-    parts.push(`- **READ THE PREVIOUS ARTIFACT FIRST** - this is mandatory`);
-  }
-  parts.push(`- Build upon work from previous stages - do not duplicate effort`);
-  parts.push(`- Focus on the specific objectives of this stage`);
-  parts.push(`- Produce clear, well-documented output for the next stage`);
+  parts.push(`
+## Workflow Guidelines
+${
+  context.previousArtifact
+    ? "- **READ THE PREVIOUS ARTIFACT FIRST** - this is mandatory"
+    : ""
+}
+- Build upon work from previous stages - do not duplicate effort
+- Focus  on the specific objectives of this stage
+- Produce clear, well-documented output for the next stage
+`);
 
-  return parts.join('\n');
+  return parts.join("\n");
 }
 
-export function buildSystemPrompt(worktreeContext?: WorktreeContext, workflowContext?: WorkflowContext): string {
+export function buildSystemPrompt(
+  worktreeContext?: WorktreeContext,
+  workflowContext?: WorkflowContext,
+): string {
   const parts: string[] = [];
 
   parts.push(buildCriticalThinkingInstructions());
@@ -434,5 +443,5 @@ export function buildSystemPrompt(worktreeContext?: WorktreeContext, workflowCon
     parts.push(buildWorkflowInstructions(workflowContext));
   }
 
-  return parts.join('\n\n');
+  return parts.join("\n\n");
 }
